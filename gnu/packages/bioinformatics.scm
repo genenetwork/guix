@@ -1,8 +1,7 @@
-
 ;;; GNU Guix --- Functional package management for GNU
 ;;; Copyright © 2014, 2015, 2016 Ricardo Wurmus <rekado@elephly.net>
 ;;; Copyright © 2015, 2016 Ben Woodcroft <donttrustben@gmail.com>
-;;; Copyright © 2015 Pjotr Prins <pjotr.guix@thebird.nl>
+;;; Copyright © 2015, 2016 Pjotr Prins <pjotr.guix@thebird.nl>
 ;;; Copyright © 2015 Andreas Enge <andreas@enge.fr>
 ;;;
 ;;; This file is part of GNU Guix.
@@ -42,6 +41,7 @@
   #:use-module (gnu packages cpio)
   #:use-module (gnu packages curl)
   #:use-module (gnu packages doxygen)
+  #:use-module (gnu packages datastructures)
   #:use-module (gnu packages file)
   #:use-module (gnu packages gawk)
   #:use-module (gnu packages gcc)
@@ -774,6 +774,35 @@ and more accurate.  BWA-MEM also has better performance than BWA-backtrack for
 70-100bp Illumina reads.")
     (license license:gpl3+)))
 
+(define-public bwa-pssm
+  (package (inherit bwa)
+    (name "bwa-pssm")
+    (version "0.5.11")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "https://github.com/pkerpedjiev/bwa-pssm/"
+                                  "archive/" version ".tar.gz"))
+              (file-name (string-append name "-" version ".tar.gz"))
+              (sha256
+               (base32
+                "02p7mpbs4mlxmn84g2x4ghak638vbj4lqix2ipx5g84pz9bhdavg"))))
+    (build-system gnu-build-system)
+    (inputs
+     `(("gdsl" ,gdsl)
+       ("zlib" ,zlib)
+       ("perl" ,perl)))
+    (home-page "http://bwa-pssm.binf.ku.dk/")
+    (synopsis "Burrows-Wheeler transform-based probabilistic short read mapper")
+    (description
+     "BWA-PSSM is a probabilistic short genomic sequence read aligner based on
+the use of @dfn{position specific scoring matrices} (PSSM).  Like many of the
+existing aligners it is fast and sensitive.  Unlike most other aligners,
+however, it is also adaptible in the sense that one can direct the alignment
+based on known biases within the data set.  It is coded as a modification of
+the original BWA alignment program and shares the genome index structure as
+well as many of the command line options.")
+    (license license:gpl3+)))
+
 (define-public python2-bx-python
   (package
     (name "python2-bx-python")
@@ -808,6 +837,43 @@ and more accurate.  BWA-MEM also has better performance than BWA-backtrack for
      "bx-python provides tools for manipulating biological data, particularly
 multiple sequence alignments.")
     (license license:expat)))
+
+(define-public python-pysam
+  (package
+    (name "python-pysam")
+    (version "0.8.4")
+    (source (origin
+              (method url-fetch)
+              (uri (pypi-uri "pysam" version))
+              (sha256
+               (base32
+                "1slx5mb94mzm5qzk52q270sab0sar95j67w1g1k452nz3s9j7krh"))))
+    (build-system python-build-system)
+    (arguments
+     `(#:tests? #f ; tests are excluded in the manifest
+       #:phases
+       (alist-cons-before
+        'build 'set-flags
+        (lambda _
+          (setenv "LDFLAGS" "-lncurses")
+          (setenv "CFLAGS" "-D_CURSES_LIB=1"))
+        %standard-phases)))
+    (inputs
+     `(("ncurses"           ,ncurses)
+       ("zlib"              ,zlib)))
+    (native-inputs
+     `(("python-cython"     ,python-cython)
+       ("python-setuptools" ,python-setuptools)))
+    (home-page "https://github.com/pysam-developers/pysam")
+    (synopsis "Python bindings to the SAMtools C API")
+    (description
+     "Pysam is a Python module for reading and manipulating files in the
+SAM/BAM format.  Pysam is a lightweight wrapper of the SAMtools C API.  It
+also includes an interface for tabix.")
+    (license license:expat)))
+
+(define-public python2-pysam
+  (package-with-python2 python-pysam))
 
 (define-public clipper
   (package
@@ -1129,28 +1195,70 @@ other types of unwanted sequence from high-throughput sequencing reads.")
 files.")
     (license license:expat)))
 
+(define-public python-pybigwig
+  (package
+    (name "python-pybigwig")
+    (version "0.2.5")
+    (source (origin
+              (method url-fetch)
+              (uri (pypi-uri "pyBigWig" version))
+              (sha256
+               (base32
+                "0yrpdxg3y0sny25x4w22lv1k47jzccqjmg7j4bp0hywklvp0hg7d"))
+              (modules '((guix build utils)))
+              (snippet
+               '(begin
+                  ;; Delete bundled libBigWig sources
+                  (delete-file-recursively "libBigWig")))))
+    (build-system python-build-system)
+    (arguments
+     `(#:phases
+       (modify-phases %standard-phases
+         (add-after 'unpack 'link-with-libBigWig
+           (lambda* (#:key inputs #:allow-other-keys)
+             (substitute* "setup.py"
+               (("libs=\\[") "libs=[\"BigWig\", "))
+             #t)))))
+    (inputs
+     `(("libbigwig" ,libbigwig)
+       ("zlib" ,zlib)
+       ("curl" ,curl)))
+    (home-page "https://github.com/dpryan79/pyBigWig")
+    (synopsis "Access bigWig files in Python using libBigWig")
+    (description
+     "This package provides Python bindings to the libBigWig library for
+accessing bigWig files.")
+    (license license:expat)))
+
+(define-public python2-pybigwig
+  (let ((pybigwig (package-with-python2 python-pybigwig)))
+    (package (inherit pybigwig)
+      (native-inputs
+       `(("python-setuptools" ,python2-setuptools))))))
+
 (define-public deeptools
   (package
     (name "deeptools")
-    (version "1.5.11")
+    (version "2.1.1")
     (source (origin
               (method url-fetch)
-              (uri (string-append
-                    "https://github.com/fidelram/deepTools/archive/"
-                    version ".tar.gz"))
+              (uri (string-append "https://github.com/fidelram/deepTools/"
+                                  "archive/" version ".tar.gz"))
               (file-name (string-append name "-" version ".tar.gz"))
               (sha256
                (base32
-                "1kaagygcbvjs9sxd9cqmskd02wcfp9imvb735r087w7hwqpvz6fs"))))
+                "1nmfin0zjdby3vay3r4flvz94dr6qjhj41ax4yz3vx13j6wz8izd"))))
     (build-system python-build-system)
     (arguments
      `(#:python ,python-2))
-    (propagated-inputs
+    (inputs
      `(("python-scipy" ,python2-scipy)
        ("python-numpy" ,python2-numpy)
+       ("python-numpydoc" ,python2-numpydoc)
        ("python-matplotlib" ,python2-matplotlib)
        ("python-bx-python" ,python2-bx-python)
-       ("python-pysam" ,python2-pysam)))
+       ("python-pysam" ,python2-pysam)
+       ("python-pybigwig" ,python2-pybigwig)))
     (native-inputs
      `(("python-mock" ,python2-mock) ;for tests
        ("python-pytz" ,python2-pytz) ;for tests
@@ -4141,7 +4249,9 @@ extracting the desired features in a convenient format.")
     (version "3.2.2")
     (source (origin
               (method url-fetch)
-              (uri (string-append "http://www.bioconductor.org/packages/release/data/annotation/src/contrib/GO.db_" version ".tar.gz"))
+              (uri (string-append "http://www.bioconductor.org/packages/"
+                                  "release/data/annotation/src/contrib/GO.db_"
+                                  version ".tar.gz"))
               (sha256
                (base32
                 "00gariag9ampz82dh0xllrc26r85d7vdcwc0vca5zdy147rwxr7f"))))
@@ -4453,3 +4563,44 @@ Using a hidden Markov model, R/qtl allows to estimate genetic maps, to
 identify genotyping errors, and to perform single-QTL and two-QTL,
 two-dimensional genome scans.")
   (license license:gpl3)))
+
+(define-public pepr
+  (package
+    (name "pepr")
+    (version "1.0.9")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "https://pypi.python.org/packages/source/P"
+                                  "/PePr/PePr-" version ".tar.gz"))
+              (sha256
+               (base32
+                "0qxjfdpl1b1y53nccws2d85f6k74zwmx8y8sd9rszcqhfayx6gdx"))))
+    (build-system python-build-system)
+    (arguments
+     `(#:python ,python-2 ; python2 only
+       #:tests? #f ; no tests included
+       #:phases
+       (modify-phases %standard-phases
+         ;; When setuptools is used a ".egg" archive is generated and
+         ;; installed.  This makes it hard to actually run PePr.  This issue
+         ;; has been reported upstream:
+         ;; https://github.com/shawnzhangyx/PePr/issues/9
+         (add-after 'unpack 'disable-egg-generation
+           (lambda _
+             (substitute* "setup.py"
+               (("from setuptools import setup")
+                "from distutils.core import setup"))
+             #t)))))
+    (propagated-inputs
+     `(("python2-numpy" ,python2-numpy)
+       ("python2-scipy" ,python2-scipy)
+       ("python2-pysam" ,python2-pysam)))
+    (home-page "https://code.google.com/p/pepr-chip-seq/")
+    (synopsis "Peak-calling and prioritization pipeline for ChIP-Seq data")
+    (description
+     "PePr is a ChIP-Seq peak calling or differential binding analysis tool
+that is primarily designed for data with biological replicates.  It uses a
+negative binomial distribution to model the read counts among the samples in
+the same group, and look for consistent differences between ChIP and control
+group or two ChIP groups run under different conditions.")
+    (license license:gpl3+)))

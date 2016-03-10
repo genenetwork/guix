@@ -112,28 +112,10 @@ a server that supports the SSH-2 protocol.")
    (license license:bsd-3)
    (home-page "http://www.libssh2.org/")))
 
-;;; XXX This is a temporary package for use only by curl, to allow most users
-;;; of libssh2 to get the security update sooner while postponing the large
-;;; number of rebuilds entailed by updating curl.
-;;;
-;;; XXX This package is vulnerable to CVE-2016-7087.
-;;;
-;;; https://bugzilla.redhat.com/show_bug.cgi?id=CVE-2016-0787
-(define-public libssh2-1.4
-  (package (inherit libssh2)
-    (version "1.4.3")
-    (source (origin
-             (method url-fetch)
-             (uri (string-append "https://www.libssh2.org/download/libssh2-"
-                                 version ".tar.gz"))
-             (sha256
-              (base32
-                "0vdr478dbhbdgnniqmirawjb7mrcxckn4slhhrijxnzrkmgziipa"))))))
-
 (define-public openssh
   (package
    (name "openssh")
-   (version "7.1p2")
+   (version "7.2p1")
    (source (origin
             (method url-fetch)
             (uri (let ((tail (string-append name "-" version ".tar.gz")))
@@ -144,7 +126,7 @@ a server that supports the SSH-2 protocol.")
                          (string-append "http://ftp2.fr.openbsd.org/pub/OpenBSD/OpenSSH/portable/"
                                         tail))))
             (sha256 (base32
-                     "1gbbvszz74lkc7b2mqr3ccgpm65zj0k5h7a2ssh0c7pjvhjg0xfx"))))
+                     "1hsa1f3641pdj57a55gmnvcya3wwww2fc2cvb77y95rm5xxw6g4p"))))
    (build-system gnu-build-system)
    (inputs `(("groff" ,groff)
              ("openssl" ,openssl)

@@ -34,6 +34,7 @@
   #:use-module ((guix licenses) #:prefix license:)
   #:use-module (guix packages)
   #:use-module (guix download)
+  #:use-module (guix git-download)
   #:use-module (guix utils)
   #:use-module (guix build-system gnu)
   #:use-module (guix build-system glib-or-gtk)
@@ -3381,7 +3382,7 @@ USB transfers with your high-level application or system daemon.")
 (define-public simple-scan
   (package
     (name "simple-scan")
-    (version "3.17.4")
+    (version "3.19.91")
     (source (origin
               (method url-fetch)
               (uri (string-append "https://launchpad.net/simple-scan/"
@@ -3390,7 +3391,7 @@ USB transfers with your high-level application or system daemon.")
                                   version ".tar.xz"))
               (sha256
                (base32
-                "1pslbv45g01g039zj2b01k08f763kkhzqw8wwz7yh27m7bjllnx6"))))
+                "1c5glf5vxgld41w4jxfqcv17q76qnh43fawpv33hncgh8d283xkf"))))
     (build-system glib-or-gtk-build-system)
     (inputs
      `(("gtk" ,gtk+)
@@ -3408,6 +3409,21 @@ USB transfers with your high-level application or system daemon.")
        ("pkg-config" ,pkg-config)
        ("vala" ,vala)
        ("xmllint" ,libxml2)))
+    (arguments
+     '(#:configure-flags '("--disable-packagekit")
+       #:phases
+       (modify-phases %standard-phases
+         (add-after 'unpack 'clean
+                    (lambda _
+                      ;; Remove a left-over reference to PackageKit.
+
+                      ;; https://bugs.launchpad.net/simple-scan/+bug/1462769
+
+                      ;; There are some generated C files erroneously
+                      ;; included in the source distribution, and this
+                      ;; one breaks the build by referring to a
+                      ;; non-existent header (packagekit.h)
+                      (delete-file "src/ui.c"))))))
     (home-page "https://launchpad.net/simple-scan")
     (synopsis "Document and image scanner")
     (description "Simple Scan is an easy-to-use application, designed to let
@@ -4147,22 +4163,10 @@ Evolution (hence the name), but is now used by other packages as well.")
 users.")
     (license license:lgpl2.1)))
 
-(define %network-manager-glib-duplicate-test-patch
-  (origin
-    (method url-fetch)
-    (uri (string-append
-          "http://cgit.freedesktop.org/NetworkManager/NetworkManager/"
-          "patch/libnm-core/tests/test-general.c"
-          "?id=874f455d6d47c5a34ed9861a6710f4b78202e0d6"))
-    (file-name "network-manager-glib-duplicate-test.patch")
-    (sha256
-     (base32
-      "1v0vpxzf0p0b1y5lmq8w7rjndp216gr60nbf2dpdz5rgxx3p3ml6"))))
-
 (define-public network-manager
   (package
     (name "network-manager")
-    (version "1.0.6")
+    (version "1.0.10")
     (source (origin
               (method url-fetch)
               (uri (string-append "mirror://gnome/sources/NetworkManager/"
@@ -4170,8 +4174,7 @@ users.")
                                   "NetworkManager-" version ".tar.xz"))
               (sha256
                (base32
-                "1galh9j95yw33iv1jj8zz0h88ahx8gm5mqmam7zq9f730cj01siq"))
-              (patches (list %network-manager-glib-duplicate-test-patch))))
+                "1g4z2wg036n0njqp8fycrisj46l3yda6pl00l4rg9nfz862cxkqv"))))
     (build-system gnu-build-system)
     (outputs '("out"
                "doc")) ; 8 MiB of gtk-doc HTML
@@ -4194,6 +4197,19 @@ users.")
                (string-append "--with-dhclient=" dhclient)))
        #:phases
        (modify-phases %standard-phases
+         (add-before 'configure 'pre-configure
+           (lambda _
+             ;; These tests try to test aspects of network-manager's
+             ;; functionality within restricted containers, but they don't
+             ;; cope with being already in the Guix build jail as that jail
+             ;; lacks some features that they would like to proxy over (like
+             ;; a /sys mount).
+             (substitute* '("src/platform/Makefile.in")
+               (("SUBDIRS = tests") ""))
+             (substitute* '("src/tests/Makefile.in")
+               (("\ttest-route-manager-linux") "\t")
+               (("\ttest-route-manager-fake") "\t"))
+             #t))
          (add-before 'check 'pre-check
            (lambda _
              ;; For the missing /etc/machine-id.
@@ -4242,7 +4258,7 @@ services.")
 (define-public network-manager-applet
   (package
     (name "network-manager-applet")
-    (version "1.0.6")
+    (version "1.0.10")
     (source (origin
               (method url-fetch)
               (uri (string-append "mirror://gnome/sources/" name "/"
@@ -4250,7 +4266,7 @@ services.")
                                   name "-" version ".tar.xz"))
               (sha256
                (base32
-                "1yj0m6fb9v12d0di0rfmk3hx1vmygjkiff2c476rf792sbh56kax"))))
+                "1szh5jyijxm6z55irkp5s44pwah0nikss40mx7pvpk38m8zaqidh"))))
     (build-system glib-or-gtk-build-system)
     (arguments '(#:configure-flags '("--disable-migration")))
     (native-inputs
@@ -4634,13 +4650,17 @@ as SASL, TLS and VeNCrypt.  Additionally it supports encoding extensions.")
        ("gobject-introspection" ,gobject-introspection)
        ("intltool" ,intltool)
        ("pkg-config" ,pkg-config)))
-    (propagated-inputs
-     `(("gtk+" ,gtk+))) ; required by libnautilus-extension.pc
     (inputs
      ;; TODO: add gvfs support.
      `(("dconf" ,dconf)
        ("exempi" ,exempi)
        ("gnome-desktop" ,gnome-desktop)
+       ;; XXX: gtk+ is required by libnautilus-extension.pc
+       ;;
+       ;; Don't propagate it to reduces "profile pollution" of the 'gnome' meta
+       ;; package.  See:
+       ;; <http://lists.gnu.org/archive/html/guix-devel/2016-03/msg00283.html>.
+       ("gtk+" ,gtk+)
        ("libexif" ,libexif)
        ("libxml2" ,libxml2)))
     (synopsis "File manager for GNOME")
@@ -4805,9 +4825,63 @@ software that do not provide their own configuration interface.")
        ("totem"                     ,totem)
        ("yelp"                      ,yelp)
        ("zenity"                    ,zenity)))
-    (synopsis "Desktop environment (meta-package)")
+    (synopsis "The GNU desktop environment")
     (home-page "https://www.gnome.org/")
     (description
-     "GNOME is an intutive and attractive desktop environment.  It aims to be
-an easy and elegant way to use your computer.")
+     "GNOME is the graphical desktop for GNU.  It includes a wide variety of
+applications for browsing the web, editing text and images, creating
+documents and diagrams, playing media, scanning, and much more.")
     (license license:gpl2+)))
+
+(define-public byzanz
+  ;; The last stable release of Byzanz was in 2011, but there have been many
+  ;; useful commits made to the Byzanz repository since then that it would be
+  ;; silly to use such an old release.
+  (let ((commit "f7af3a5bd252db84af8365bd059c117a7aa5c4af"))
+    (package
+      (name "byzanz")
+      (version (string-append "0.2-1." (string-take commit 7)))
+      (source (origin
+                (method git-fetch)
+                (uri (git-reference
+                      (url "git://git.gnome.org/byzanz")
+                      (commit commit)))
+                (sha256
+                 (base32
+                  "1l60myzxf9cav27v5v3nsijlslz9r7ip6d5kiirfpkf9k0w26hz3"))))
+      (build-system glib-or-gtk-build-system)
+      (arguments
+       '(#:phases
+         (modify-phases %standard-phases
+           (add-after 'unpack 'bootstrap
+             (lambda _
+               ;; The build system cleverly detects that we're not building from
+               ;; a release tarball and turns on -Werror for GCC.
+               ;; Unsurprisingly, there is a warning during compilation that
+               ;; causes the build to fail unnecessarily, so we remove the flag.
+               (substitute* '("configure.ac")
+                 (("-Werror") ""))
+               ;; The autogen.sh script in gnome-common will run ./configure
+               ;; by default, which is problematic because source shebangs
+               ;; have not yet been patched.
+               (setenv "NOCONFIGURE" "t")
+               (zero? (system* "sh" "autogen.sh")))))))
+      (native-inputs
+       `(("autoconf" ,autoconf)
+         ("automake" ,automake)
+         ("gnome-common" ,gnome-common)
+         ("intltool" ,intltool)
+         ("libtool" ,libtool)
+         ("pkg-config" ,pkg-config)
+         ("which" ,which)))
+      (inputs
+       `(("glib" ,glib)
+         ("gstreamer" ,gstreamer)
+         ("gst-plugins-base" ,gst-plugins-base)
+         ("gtk+" ,gtk+)))
+      (synopsis "Desktop recording program")
+      (description "Byzanz is a simple desktop recording program with a
+command-line interface.  It can record part or all of an X display for a
+specified duration and save it as a GIF encoded animated image file.")
+      (home-page "https://git.gnome.org/browse/byzanz")
+      (license license:gpl2+))))

@@ -1040,44 +1040,6 @@ get the local timezone information, unless you know the zoneinfo name, and
 under several distributions that's hard or impossible to figure out.")
     (license cc0)))
 
-(define-public python-pysam
-  (package
-    (name "python-pysam")
-    (version "0.8.1")
-    (source
-     (origin
-       (method url-fetch)
-       (uri (string-append "https://pypi.python.org/packages/source/p/pysam/pysam-"
-                           version ".tar.gz"))
-       (sha256
-        (base32
-         "1fb6i6hbpzxaxb62kyyp5alaidwhj40f7c6gwbhr6njzlqd5l459"))))
-    (build-system python-build-system)
-    (arguments
-     `(#:tests? #f ; tests are excluded in the manifest
-       #:phases
-       (alist-cons-before
-        'build 'set-flags
-        (lambda _
-          (setenv "LDFLAGS" "-lncurses")
-          (setenv "CFLAGS" "-D_CURSES_LIB=1"))
-        %standard-phases)))
-    (inputs
-     `(("python-cython"     ,python-cython)
-       ("python-setuptools" ,python-setuptools)
-       ("ncurses"           ,ncurses)
-       ("zlib"              ,zlib)))
-    (home-page "https://github.com/pysam-developers/pysam")
-    (synopsis "Python bindings to the SAMtools C API")
-    (description
-     "Pysam is a Python module for reading and manipulating files in the
-SAM/BAM format.  Pysam is a lightweight wrapper of the SAMtools C API.  It
-also includes an interface for tabix.")
-    (license license:expat)))
-
-(define-public python2-pysam
-  (package-with-python2 python-pysam))
-
 (define-public python2-pysqlite
   (package
     (name "python2-pysqlite")
@@ -4596,67 +4558,6 @@ converts incoming documents to Unicode and outgoing documents to UTF-8.")
               (strip-python2-variant python-beautifulsoup4)))
     (native-inputs `(("python2-setuptools" ,python2-setuptools)))))
 
-(define-public python2-pil
-  (package
-    (name "python2-pil")
-    (version "1.1.7")
-    (source
-      (origin
-        (method url-fetch)
-        (uri (string-append
-              "http://effbot.org/downloads/Imaging-"
-              version ".tar.gz"))
-        (sha256
-          (base32
-            "04aj80jhfbmxqzvmq40zfi4z3cw6vi01m3wkk6diz3lc971cfnw9"))
-       (modules '((guix build utils)))
-       (snippet
-        ;; Adapt to newer freetype. As the package is unmaintained upstream,
-        ;; there is no use in creating a patch and reporting it.
-        '(substitute* "_imagingft.c"
-           (("freetype/")
-            "freetype2/")))))
-    (build-system python-build-system)
-    (inputs
-      `(("freetype" ,freetype)
-        ("libjpeg" ,libjpeg)
-        ("libtiff" ,libtiff)
-        ("python-setuptools" ,python-setuptools)
-        ("zlib" ,zlib)))
-    (arguments
-     ;; Only the fork python-pillow works with Python 3.
-     `(#:python ,python-2
-       #:tests? #f ; no check target
-       #:phases
-         (alist-cons-before
-          'build 'configure
-          ;; According to README and setup.py, manual configuration is
-          ;; the preferred way of "searching" for inputs.
-          ;; lcms is not found, TCL_ROOT refers to the unavailable tkinter.
-          (lambda* (#:key inputs #:allow-other-keys)
-            (let ((jpeg (assoc-ref inputs "libjpeg"))
-                  (zlib (assoc-ref inputs "zlib"))
-                  (tiff (assoc-ref inputs "libtiff"))
-                  (freetype (assoc-ref inputs "freetype")))
-              (substitute* "setup.py"
-                (("JPEG_ROOT = None")
-                 (string-append "JPEG_ROOT = libinclude(\"" jpeg "\")"))
-                (("ZLIB_ROOT = None")
-                 (string-append "ZLIB_ROOT = libinclude(\"" zlib "\")"))
-                (("TIFF_ROOT = None")
-                 (string-append "TIFF_ROOT = libinclude(\"" tiff "\")"))
-                (("FREETYPE_ROOT = None")
-                 (string-append "FREETYPE_ROOT = libinclude(\""
-                                freetype "\")")))))
-          %standard-phases)))
-    (home-page "http://www.pythonware.com/products/pil/")
-    (synopsis "Python Imaging Library")
-    (description "The Python Imaging Library (PIL) adds image processing
-capabilities to the Python interpreter.")
-    (license (x11-style
-               "file://README"
-               "See 'README' in the distribution."))))
-
 (define-public python2-cssutils
   (package
     (name "python2-cssutils")
@@ -5867,7 +5768,7 @@ responses, rather than doing any computation.")
 (define-public python-cryptography-vectors
   (package
     (name "python-cryptography-vectors")
-    (version "1.2.2")
+    (version "1.2.3")
     (source
      (origin
        (method url-fetch)
@@ -5876,7 +5777,7 @@ responses, rather than doing any computation.")
                            version ".tar.gz"))
        (sha256
         (base32
-         "1zg47fzzn30mgkkbwrxqqcfq9crgabcmxyiy106n9404wbhfjkkl"))))
+         "0shawgpax79gvjrj0a313sll9gaqys7q1hxngn6j4k24lmz7bwki"))))
     (build-system python-build-system)
     (native-inputs
      `(("python-setuptools" ,python-setuptools)))
@@ -5893,14 +5794,14 @@ responses, rather than doing any computation.")
 (define-public python-cryptography
   (package
     (name "python-cryptography")
-    (version "1.2.2")
+    (version "1.2.3")
     (source
      (origin
        (method url-fetch)
        (uri (pypi-uri "cryptography" version))
        (sha256
         (base32
-         "0rvaha7ymgbqkzbxk7xmj67k5b3hbp8w8cn3m5z776vd22wrq89z"))))
+         "0kj511z4g21fhcr649pyzpl0zzkkc7hsgxxjys6z8wwfvmvirccf"))))
     (build-system python-build-system)
     (inputs
      `(("openssl" ,openssl)))

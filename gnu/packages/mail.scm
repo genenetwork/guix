@@ -11,6 +11,8 @@
 ;;; Copyright © 2015, 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;; Copyright © 2016 Christopher Allan Webber <cwebber@dustycloud.org>
 ;;; Copyright © 2016 Al McElrath <hello@yrns.org>
+;;; Copyright © 2016 Leo Famulari <leo@famulari.name>
+;;; Copyright © 2016 Lukas Gradl <lgradl@openmailbox.org>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -629,7 +631,19 @@ which can add many functionalities to the base client.")
     (arguments
      `(#:configure-flags (list "--with-libgsasl"
                                "--with-libidn"
-                               "--with-tls=gnutls")))
+                               "--with-tls=gnutls")
+       #:phases
+       (modify-phases %standard-phases
+         (add-after 'install 'install-msmtpq
+           (lambda* (#:key outputs #:allow-other-keys)
+             (let* ((out (assoc-ref outputs "out"))
+                    (bin (string-append out "/bin"))
+                    (doc (string-append out "/share/doc/msmtp"))
+                    (msmtpq (string-append "scripts/msmtpq")))
+               (install-file (string-append msmtpq "/msmtpq") bin)
+               (install-file (string-append msmtpq "/msmtp-queue") bin)
+               (install-file (string-append msmtpq "/README.msmtpq") doc)
+               #t))))))
     (synopsis
      "Simple and easy to use SMTP client with decent sendmail compatibility")
     (description
@@ -641,7 +655,7 @@ delivery.")
 (define-public exim
   (package
     (name "exim")
-    (version "4.86")
+    (version "4.86.2")
     (source
      (origin
        (method url-fetch)
@@ -651,7 +665,7 @@ delivery.")
                                  version ".tar.bz2")))
        (sha256
         (base32
-         "0mn4bxih9slrmll5262ayhf41ji43pjf1rv0y6xpy6x55v7g5k7i"))))
+         "1cvfcc1hi60lydv8h3a2rxlfc0v2nflwpvzjj7h7cdsqs2pxwmkp"))))
     (build-system gnu-build-system)
     (inputs
      `(("bdb" ,bdb)
@@ -1085,4 +1099,56 @@ deliver it in various ways.")
      ;; with that information.
      (non-copyleft "https://github.com/nicm/fdm/blob/master/command.c"))))
 
+
+(define-public procmail
+  (package
+    (name "procmail")
+    (version "3.22")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append
+             "ftp://ftp.fu-berlin.de/pub/unix/mail/procmail/procmail-"
+             version
+             ".tar.gz"))
+       (sha256
+        (base32
+         "05z1c803n5cppkcq99vkyd5myff904lf9sdgynfqngfk9nrpaz08"))
+       ;; The following patch fixes an ambiguous definition of
+       ;; getline() in formail.c.  The patch is provided by Debian as
+       ;; patch 24.
+       (patches
+        (list
+         (search-patch "procmail-ambiguous-getline-debian.patch")))))
+    (arguments
+     `(#:phases (modify-phases %standard-phases
+                  (replace 'configure
+                    (lambda _
+                      (substitute* "Makefile"
+                        (("/bin/sh")
+                         (which "sh"))
+                        (("/usr")
+                         (assoc-ref %outputs "out"))
+                        (("/bin/rm")
+                         (which "rm")))
+                      #t)))
+       #:tests? #f)) ;; There are no tests indicating a successful
+    ;; build.  Some tests of basic locking mechanisms provided by the
+    ;; filesystem are performed during 'make install'.  However, these
+    ;; are performed before the actual build process.
+    (build-system gnu-build-system)
+    (inputs `(("glibc" ,glibc)
+              ("exim" ,exim)))
+    (home-page "http://www.procmail.org/")
+    (synopsis "Versatile mail delivery agent (MDA)")
+    (description "Procmail is a mail delivery agent (MDA) featuring support
+for a variety of mailbox formats such as mbox, mh and maildir.  Incoming mail
+can be sorted into separate files/directories and arbitrary commands can be
+executed on mail arrival.  Procmail is considered stable, but is no longer
+maintained.")
+    (license gpl2+))) ;; procmail allows to choose the
+                      ;; nonfree Artistic License 1.0
+                      ;; as alternative to the GPL2+.
+                      ;; This option is not listed here.
 ;;; mail.scm ends here
+

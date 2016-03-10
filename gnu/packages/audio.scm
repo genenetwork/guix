@@ -80,6 +80,17 @@
                (base32
                 "1azbrhpfk4nnybr7kgmc7w6al6xnzppg853vas8gmkh185kk11l0"))))
     (build-system gnu-build-system)
+    (arguments
+     `(#:configure-flags '("--enable-qt5")
+       #:phases
+       (modify-phases %standard-phases
+         ;; Insert an extra space between linker flags.
+         (add-before 'configure 'add-missing-space
+           (lambda _
+             (substitute* "configure"
+               (("LIBS\\+=\\$LIBSsave") "LIBS+=\" $LIBSsave\"")
+               (("CFLAGS\\+=\\$CFLAGSsave") "CFLAGS+=\" $CFLAGSsave\""))
+             #t)))))
     (inputs
      `(("alsa-lib" ,alsa-lib)
        ;; We cannot use zita-alsa-pcmi (the successor of clalsadrv) due to
@@ -89,7 +100,7 @@
        ("jack" ,jack-1)
        ("ladspa" ,ladspa)
        ("liblo" ,liblo)
-       ("qt" ,qt-4)))
+       ("qt" ,qt)))
     (native-inputs
      `(("pkg-config" ,pkg-config)))
     (home-page "http://alsamodular.sourceforge.net/")
@@ -803,7 +814,6 @@ synchronous execution of all clients, and low latency operation.")
        ("suil" ,suil)
        ("gtk" ,gtk+-2)
        ("gtkmm" ,gtkmm-2)
-       ("qt" ,qt-4)
        ("jack" ,jack-1)))
     (native-inputs
      `(("pkg-config" ,pkg-config)))

@@ -698,7 +698,7 @@ SVCD, DVD, 3ivx, DivX 3/4/5, WMV and H.264 movies.")
 (define-public mpv
   (package
     (name "mpv")
-    (version "0.15.0")
+    (version "0.16.0")
     (source (origin
               (method url-fetch)
               (uri (string-append
@@ -706,7 +706,7 @@ SVCD, DVD, 3ivx, DivX 3/4/5, WMV and H.264 movies.")
                     ".tar.gz"))
               (sha256
                (base32
-                "1p0b83048g66icpz5n66v3k4ldr1z0rmg5d2rr7kcbspm1xj2cbx"))
+                "1fiqxx85s418qynq2fp0v7cpzrz8j285hwmc4fqgn5ny1vg1jdpw"))
               (file-name (string-append name "-" version ".tar.gz"))))
     (build-system waf-build-system)
     (native-inputs
@@ -764,7 +764,7 @@ SVCD, DVD, 3ivx, DivX 3/4/5, WMV and H.264 movies.")
        #:configure-flags (list "--enable-gpl3" "--enable-zsh-comp")
        ;; No check function defined.
        #:tests? #f))
-    (home-page "http://mpv.io/")
+    (home-page "https://mpv.io/")
     (synopsis "Audio and video player")
     (description "mpv is a general-purpose audio and video player.  It is a
 fork of mplayer2 and MPlayer.  It shares some features with the former
@@ -811,7 +811,7 @@ projects while introducing many more.")
 (define-public youtube-dl
   (package
     (name "youtube-dl")
-    (version "2016.02.22")
+    (version "2016.03.01")
     (source (origin
               (method url-fetch)
               (uri (string-append "http://youtube-dl.org/downloads/"
@@ -819,7 +819,7 @@ projects while introducing many more.")
                                   version ".tar.gz"))
               (sha256
                (base32
-                "02k3kmcrhd04j5y4iivbdms9kvkjw27cqbwd3hf4agd2jjpigkql"))))
+                "0w2dy54rnsi8fbzpnf07lpn3zzv5lhdfscanld4ai0rrrzmrl3zw"))))
     (build-system python-build-system)
     (native-inputs `(("python-setuptools" ,python-setuptools)))
     (home-page "http://youtube-dl.org")

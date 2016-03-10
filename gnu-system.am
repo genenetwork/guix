@@ -166,12 +166,13 @@ GNU_SYSTEM_MODULES =				\
   gnu/packages/indent.scm			\
   gnu/packages/inklingreader.scm		\
   gnu/packages/inkscape.scm			\
-  gnu/packages/irssi.scm			\
+  gnu/packages/irc.scm  			\
   gnu/packages/iso-codes.scm			\
   gnu/packages/java.scm				\
   gnu/packages/jemalloc.scm			\
   gnu/packages/jrnl.scm				\
   gnu/packages/julia.scm			\
+  gnu/packages/kde.scm              \
   gnu/packages/kde-frameworks.scm		\
   gnu/packages/key-mon.scm			\
   gnu/packages/kodi.scm				\
@@ -336,7 +337,6 @@ GNU_SYSTEM_MODULES =				\
   gnu/packages/wdiff.scm			\
   gnu/packages/web.scm				\
   gnu/packages/webkit.scm			\
-  gnu/packages/weechat.scm			\
   gnu/packages/wget.scm				\
   gnu/packages/wicd.scm				\
   gnu/packages/wine.scm				\
@@ -454,6 +454,7 @@ dist_patch_DATA =						\
   gnu/packages/patches/duplicity-piped-password.patch		\
   gnu/packages/patches/duplicity-test_selection-tmp.patch	\
   gnu/packages/patches/elfutils-tests-ptrace.patch		\
+  gnu/packages/patches/einstein-build.patch			\
   gnu/packages/patches/emacs-constants-lisp-like.patch		\
   gnu/packages/patches/emacs-exec-path.patch			\
   gnu/packages/patches/emacs-scheme-complete-scheme-r5rs-info.patch	\
@@ -525,10 +526,12 @@ dist_patch_DATA =						\
   gnu/packages/patches/hydra-disable-darcs-test.patch		\
   gnu/packages/patches/icecat-avoid-bundled-includes.patch	\
   gnu/packages/patches/icecat-update-graphite2.patch		\
+  gnu/packages/patches/icecat-update-graphite2-pt2.patch	\
   gnu/packages/patches/icecat-re-enable-DHE-cipher-suites.patch	\
   gnu/packages/patches/icu4c-CVE-2014-6585.patch		\
   gnu/packages/patches/icu4c-CVE-2015-1270.patch		\
   gnu/packages/patches/icu4c-CVE-2015-4760.patch		\
+  gnu/packages/patches/ilmbase-fix-tests.patch			\
   gnu/packages/patches/imagemagick-test-segv.patch		\
   gnu/packages/patches/irrlicht-mesa-10.patch			\
   gnu/packages/patches/jasper-CVE-2007-2721.patch		\
@@ -540,7 +543,10 @@ dist_patch_DATA =						\
   gnu/packages/patches/jasper-CVE-2014-8157.patch		\
   gnu/packages/patches/jasper-CVE-2014-8158.patch		\
   gnu/packages/patches/jasper-CVE-2014-9029.patch		\
+  gnu/packages/patches/jasper-CVE-2016-1577.patch		\
   gnu/packages/patches/jasper-CVE-2016-1867.patch		\
+  gnu/packages/patches/jasper-CVE-2016-2089.patch		\
+  gnu/packages/patches/jasper-CVE-2016-2116.patch		\
   gnu/packages/patches/jbig2dec-ignore-testtest.patch		\
   gnu/packages/patches/kmod-module-directory.patch		\
   gnu/packages/patches/ldc-disable-tests.patch			\
@@ -631,6 +637,7 @@ dist_patch_DATA =						\
   gnu/packages/patches/openjpeg-use-after-free-fix.patch	\
   gnu/packages/patches/openssl-runpath.patch			\
   gnu/packages/patches/openssl-c-rehash.patch			\
+  gnu/packages/patches/openssl-c-rehash-in.patch		\
   gnu/packages/patches/orpheus-cast-errors-and-includes.patch	\
   gnu/packages/patches/ots-no-include-missing-file.patch	\
   gnu/packages/patches/patchelf-page-size.patch			\
@@ -638,6 +645,7 @@ dist_patch_DATA =						\
   gnu/packages/patches/patchutils-xfail-gendiff-tests.patch	\
   gnu/packages/patches/patch-hurd-path-max.patch		\
   gnu/packages/patches/perl-CVE-2015-8607.patch			\
+  gnu/packages/patches/perl-CVE-2016-2381.patch			\
   gnu/packages/patches/perl-autosplit-default-time.patch	\
   gnu/packages/patches/perl-deterministic-ordering.patch	\
   gnu/packages/patches/perl-finance-quote-unuse-mozilla-ca.patch \
@@ -660,6 +668,7 @@ dist_patch_DATA =						\
   gnu/packages/patches/plotutils-libpng-jmpbuf.patch		\
   gnu/packages/patches/polkit-drop-test.patch			\
   gnu/packages/patches/portaudio-audacity-compat.patch		\
+  gnu/packages/patches/procmail-ambiguous-getline-debian.patch  \
   gnu/packages/patches/pt-scotch-build-parallelism.patch	\
   gnu/packages/patches/pulseaudio-fix-mult-test.patch		\
   gnu/packages/patches/pulseaudio-longer-test-timeout.patch	\

@@ -109,7 +109,6 @@ MODULES =					\
   guix/import/cran.scm				\
   guix/import/hackage.scm			\
   guix/import/elpa.scm   			\
-  guix/import/github.scm   			\
   guix/scripts.scm				\
   guix/scripts/download.scm			\
   guix/scripts/build.scm			\
@@ -143,6 +142,7 @@ MODULES =					\
 if HAVE_GUILE_JSON
 
 MODULES +=					\
+  guix/import/github.scm   			\
   guix/import/json.scm				\
   guix/import/pypi.scm				\
   guix/scripts/import/pypi.scm			\
@@ -225,6 +225,7 @@ SCM_TESTS =					\
   tests/grafts.scm				\
   tests/ui.scm					\
   tests/records.scm				\
+  tests/upstream.scm				\
   tests/utils.scm				\
   tests/build-utils.scm				\
   tests/packages.scm				\
