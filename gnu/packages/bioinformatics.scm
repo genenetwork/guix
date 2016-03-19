@@ -26,6 +26,7 @@
   #:use-module (guix utils)
   #:use-module (guix download)
   #:use-module (guix git-download)
+  #:use-module (guix build-system ant)
   #:use-module (guix build-system gnu)
   #:use-module (guix build-system cmake)
   #:use-module (guix build-system perl)
@@ -578,10 +579,11 @@ confidence to have in an alignment.")
               (snippet
                `(begin
                   ;; Remove bundled boost, pigz, zlib, and .git directory
-                  ;; FIXME: also remove bundled sources for google-sparsehash,
-                  ;; murmurhash3, kmc once packaged.
+                  ;; FIXME: also remove bundled sources for murmurhash3 and
+                  ;; kmc once packaged.
                   (delete-file-recursively "boost")
                   (delete-file-recursively "pigz")
+                  (delete-file-recursively "google-sparsehash")
                   (delete-file-recursively "zlib")
                   (delete-file-recursively ".git")
                   #t))))
@@ -631,6 +633,7 @@ confidence to have in an alignment.")
     (inputs
      `(("openmpi" ,openmpi)
        ("boost" ,boost)
+       ("sparsehash" ,sparsehash)
        ("pigz" ,pigz)
        ("zlib" ,zlib)))
     (supported-systems '("x86_64-linux"))
@@ -918,6 +921,54 @@ also includes an interface for tabix.")
 (define-public python2-pysam
   (package-with-python2 python-pysam))
 
+(define-public cd-hit
+  (package
+    (name "cd-hit")
+    (version "4.6.5")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "https://github.com/weizhongli/cdhit"
+                                  "/releases/download/V" version
+                                  "/cd-hit-v" version "-2016-0304.tar.gz"))
+              (sha256
+               (base32
+                "15db0hq38yyifwqx9b6l34z14jcq576dmjavhj8a426c18lvnhp3"))))
+    (build-system gnu-build-system)
+    (arguments
+     `(#:tests? #f ; there are no tests
+       #:make-flags
+       ;; Executables are copied directly to the PREFIX.
+       (list (string-append "PREFIX=" (assoc-ref %outputs "out") "/bin"))
+       #:phases
+       (modify-phases %standard-phases
+         ;; No "configure" script
+         (delete 'configure)
+         ;; Remove sources of non-determinism
+         (add-after 'unpack 'be-timeless
+           (lambda _
+             (substitute* "cdhit-utility.c++"
+               ((" \\(built on \" __DATE__ \"\\)") ""))
+             (substitute* "cdhit-common.c++"
+               (("__DATE__") "\"0\"")
+               (("\", %s, \" __TIME__ \"\\\\n\", date") ""))
+             #t))
+         ;; The "install" target does not create the target directory
+         (add-before 'install 'create-target-dir
+           (lambda* (#:key outputs #:allow-other-keys)
+             (mkdir-p (string-append (assoc-ref outputs "out") "/bin"))
+             #t)))))
+    (inputs
+     `(("perl" ,perl)))
+    (home-page "http://weizhongli-lab.org/cd-hit/")
+    (synopsis "Cluster and compare protein or nucleotide sequences")
+    (description
+     "CD-HIT is a program for clustering and comparing protein or nucleotide
+sequences.  CD-HIT is designed to be fast and handle extremely large
+databases.")
+    ;; The manual says: "It can be copied under the GNU General Public License
+    ;; version 2 (GPLv2)."
+    (license license:gpl2)))
+
 (define-public clipper
   (package
     (name "clipper")
@@ -956,6 +1007,46 @@ also includes an interface for tabix.")
     (description
      "CLIPper is a tool to define peaks in CLIP-seq datasets.")
     (license license:gpl2)))
+
+(define-public codingquarry
+  (package
+    (name "codingquarry")
+    (version "2.0")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "mirror://sourceforge/codingquarry/CodingQuarry_v"
+                    version ".tar.gz"))
+              (sha256
+               (base32
+                "0115hkjflsnfzn36xppwf9h9avfxlavr43djqmshkkzbgjzsz60i"))))
+    (build-system gnu-build-system)
+    (arguments
+     '(#:tests? #f ; no "check" target
+       #:phases
+       (modify-phases %standard-phases
+         (delete 'configure)
+         (replace 'install
+           (lambda* (#:key outputs #:allow-other-keys)
+             (let* ((out (assoc-ref outputs "out"))
+                    (bin (string-append out "/bin"))
+                    (doc (string-append out "/share/doc/codingquarry")))
+               (install-file "INSTRUCTIONS.pdf" doc)
+               (copy-recursively "QuarryFiles"
+                                 (string-append out "/QuarryFiles"))
+               (install-file "CodingQuarry" bin)
+               (install-file "CufflinksGTF_to_CodingQuarryGFF3.py" bin)))))))
+    (inputs `(("openmpi" ,openmpi)))
+    (native-search-paths
+     (list (search-path-specification
+            (variable "QUARRY_PATH")
+            (files '("QuarryFiles")))))
+    (native-inputs `(("python" ,python-2))) ; Only Python 2 is supported
+    (synopsis "Fungal gene predictor")
+    (description "CodingQuarry is a highly accurate, self-training GHMM fungal
+gene predictor designed to work with assembled, aligned RNA-seq transcripts.")
+    (home-page "https://sourceforge.net/projects/codingquarry/")
+    (license license:gpl3+)))
 
 (define-public couger
   (package
@@ -2002,24 +2093,17 @@ from high-throughput sequencing assays.")
               (snippet '(substitute* "build.xml"
                           (("failifexecutionfails=\"true\"")
                            "failifexecutionfails=\"false\"")))))
-    (build-system gnu-build-system)
+    (build-system ant-build-system)
     (arguments
-     `(#:modules ((srfi srfi-1)
-                  (guix build gnu-build-system)
-                  (guix build utils))
-       #:phases (alist-replace
-                 'build
-                 (lambda _
-                   (setenv "JAVA_HOME" (assoc-ref %build-inputs "jdk"))
-                   (zero? (system* "ant" "all"
-                                   (string-append "-Ddist="
-                                                  (assoc-ref %outputs "out")
-                                                  "/share/java/htsjdk/"))))
-                 (fold alist-delete %standard-phases
-                       '(configure install check)))))
-    (native-inputs
-     `(("ant" ,ant)
-       ("jdk" ,icedtea "jdk")))
+     `(#:tests? #f ; test require Internet access
+       #:make-flags
+       (list (string-append "-Ddist=" (assoc-ref %outputs "out")
+                            "/share/java/htsjdk/"))
+       #:build-target "all"
+       #:phases
+       (modify-phases %standard-phases
+         ;; The build phase also installs the jars
+         (delete 'install))))
     (home-page "http://samtools.github.io/htsjdk/")
     (synopsis "Java API for high-throughput sequencing data (HTS) formats")
     (description
@@ -2555,6 +2639,44 @@ the phenotype as it models the data.")
        "pbtranscript-tofu contains scripts to analyze transcriptome data
 generated using the PacBio Iso-Seq protocol.")
       (license license:bsd-3))))
+
+(define-public pyicoteo
+  (package
+    (name "pyicoteo")
+    (version "2.0.7")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "https://bitbucket.org/regulatorygenomicsupf/"
+                           "pyicoteo/get/v" version ".tar.bz2"))
+       (file-name (string-append name "-" version ".tar.bz2"))
+       (sha256
+        (base32
+         "0d6087f29xp8wxwlj111c3sylli98n0l8ry58c51ixzq0zfm50wa"))))
+    (build-system python-build-system)
+    (arguments
+     `(#:python ,python-2 ; does not work with Python 3
+       #:tests? #f))      ; there are no tests
+    (inputs
+     `(("python2-matplotlib" ,python2-matplotlib)))
+    (home-page "https://bitbucket.org/regulatorygenomicsupf/pyicoteo")
+    (synopsis "Analyze high-throughput genetic sequencing data")
+    (description
+     "Pyicoteo is a suite of tools for the analysis of high-throughput genetic
+sequencing data.  It works with genomic coordinates.  There are currently six
+different command-line tools:
+
+@enumerate
+@item pyicoregion: for generating exploratory regions automatically;
+@item pyicoenrich: for differential enrichment between two conditions;
+@item pyicoclip: for calling CLIP-Seq peaks without a control;
+@item pyicos: for genomic coordinates manipulation;
+@item pyicoller: for peak calling on punctuated ChIP-Seq;
+@item pyicount: to count how many reads from N experiment files overlap in a
+  region file;
+@item pyicotrocol: to combine operations from pyicoteo.
+@end enumerate\n")
+    (license license:gpl3+)))
 
 (define-public prodigal
   (package
@@ -3814,6 +3936,28 @@ barplots or heatmaps.")
      "This package provides S4 generic functions needed by many Bioconductor
 packages.")
     (license license:artistic2.0)))
+
+(define-public r-dnacopy
+  (package
+    (name "r-dnacopy")
+    (version "1.44.0")
+    (source (origin
+              (method url-fetch)
+              (uri (bioconductor-uri "DNAcopy" version))
+              (sha256
+               (base32
+                "1c1px4rbr36xx929hp59k7ca9k5ab66qmn8k63fk13278ncm6h66"))))
+    (properties
+     `((upstream-name . "DNAcopy")))
+    (build-system r-build-system)
+    (inputs
+     `(("gfortran" ,gfortran)))
+    (home-page "https://bioconductor.org/packages/DNAcopy")
+    (synopsis "Implementation of a circular binary segmentation algorithm")
+    (description "This package implements the circular binary segmentation (CBS)
+algorithm to segment DNA copy number data and identify genomic regions with
+abnormal copy number.")
+    (license license:gpl2+)))
 
 (define-public r-s4vectors
   (package

@@ -16,8 +16,9 @@ Copyright @copyright{} 2013 Nikita Karetnikov@*
 Copyright @copyright{} 2015, 2016 Mathieu Lirzin@*
 Copyright @copyright{} 2014 Pierre-Antoine Rault@*
 Copyright @copyright{} 2015 Taylan Ulrich Bayırlı/Kammer@*
-Copyright @copyright{} 2015, 2016 Leo Famulari
-Copyright @copyright{} 2016 Ben Woodcroft
+Copyright @copyright{} 2015, 2016 Leo Famulari@*
+Copyright @copyright{} 2016 Ben Woodcroft@*
+Copyright @copyright{} 2016 Chris Marusich
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.3 or
@@ -154,6 +155,12 @@ Utilities
 * Invoking guix challenge::     Challenging substitute servers.
 * Invoking guix container::     Process isolation.
 
+Invoking @command{guix build}
+
+* Common Build Options::        Build options for most commands.
+* Package Transformation Options::    Creating variants of packages.
+* Additional Build Options::    Options specific to 'guix build'.
+
 GNU Distribution
 
 * System Installation::         Installing the whole operating system.
@@ -164,6 +171,15 @@ GNU Distribution
 * Packaging Guidelines::        Growing the distribution.
 * Bootstrapping::               GNU/Linux built from scratch.
 * Porting::                     Targeting another platform or kernel.
+
+System Installation
+
+* Limitations::                 What you can expect.
+* Hardware Considerations::     Supported hardware.
+* USB Stick Installation::      Preparing the installation medium.
+* Preparing for Installation::  Networking, partitioning, etc.
+* Proceeding with the Installation::  The real thing.
+* Building the Installation Image::  How this comes to be.
 
 System Configuration
 
@@ -432,8 +448,8 @@ Directories,,, texinfo, GNU Texinfo}, for more details on changing the
 Info search path.)
 
 @item
-To use substitutes from @code{hydra.gnu.org} (@pxref{Substitutes}),
-authorize them:
+To use substitutes from @code{hydra.gnu.org} or one of its mirrors
+(@pxref{Substitutes}), authorize them:
 
 @example
 # guix archive --authorize < ~root/.guix-profile/share/guix/hydra.gnu.org.pub
@@ -896,8 +912,9 @@ remote procedure call (@pxref{The Store}).
 @item --substitute-urls=@var{urls}
 @anchor{daemon-substitute-urls}
 Consider @var{urls} the default whitespace-separated list of substitute
-source URLs.  When this option is omitted, @indicateurl{http://hydra.gnu.org}
-is used.
+source URLs.  When this option is omitted,
+@indicateurl{https://mirror.hydra.gnu.org https://hydra.gnu.org} is used
+(@code{mirror.hydra.gnu.org} is a mirror of @code{hydra.gnu.org}).
 
 This means that substitutes may be downloaded from @var{urls}, as long
 as they are signed by a trusted signature (@pxref{Substitutes}).
@@ -1352,7 +1369,7 @@ As an example, @var{file} might contain a definition like this
 @verbatiminclude package-hello.scm
 @end example
 
-Developers may find it useful to include such a @file{package.scm} file
+Developers may find it useful to include such a @file{guix.scm} file
 in the root of their project source tree that can be used to test
 development snapshots and create reproducible development environments
 (@pxref{Invoking guix environment}).
@@ -1714,7 +1731,8 @@ your system has unpatched security vulnerabilities.
 
 @cindex security
 @cindex digital signatures
-To allow Guix to download substitutes from @code{hydra.gnu.org}, you
+To allow Guix to download substitutes from @code{hydra.gnu.org} or a
+mirror thereof, you
 must add its public key to the access control list (ACL) of archive
 imports, using the @command{guix archive} command (@pxref{Invoking guix
 archive}).  Doing so implies that you trust @code{hydra.gnu.org} to not
@@ -2183,7 +2201,7 @@ served by @code{hydra.gnu.org} to @file{/tmp/emacs}:
 
 @example
 $ wget -O - \
-  http://hydra.gnu.org/nar/@dots{}-emacs-24.5 \
+  https://hydra.gnu.org/nar/@dots{}-emacs-24.5 \
   | bunzip2 | guix archive -x /tmp/emacs
 @end example
 
@@ -2719,6 +2737,27 @@ conventions and tools used by free software packages.  They inherit most
 of @var{gnu-build-system}, and differ mainly in the set of inputs
 implicitly added to the build process, and in the list of phases
 executed.  Some of these build systems are listed below.
+
+@defvr {Scheme Variable} ant-build-system
+This variable is exported by @code{(guix build-system ant)}.  It
+implements the build procedure for Java packages that can be built with
+@url{http://ant.apache.org/, Ant build tool}.
+
+It adds both @code{ant} and the @dfn{Java Development Kit} (JDK) as
+provided by the @code{icedtea} package to the set of inputs.  Different
+packages can be specified with the @code{#:ant} and @code{#:jdk}
+parameters, respectively.
+
+When the original package does not provide a suitable Ant build file,
+the parameter @code{#:jar-name} can be used to generate a minimal Ant
+build file @file{build.xml} with tasks to build the specified jar
+archive.
+
+The parameter @code{#:build-target} can be used to specify the Ant task
+that should be run during the @code{build} phase.  By default the
+``jar'' task will be run.
+
+@end defvr
 
 @defvr {Scheme Variable} cmake-build-system
 This variable is exported by @code{(guix build-system cmake)}.  It
@@ -3944,6 +3983,9 @@ This means that substitutes may be downloaded from @var{urls}, provided
 they are signed by a key authorized by the system administrator
 (@pxref{Substitutes}).
 
+When @var{urls} is the empty string, substitutes are effectively
+disabled.
+
 @item --no-substitutes
 Do not use substitutes for build products.  That is, always build things
 locally instead of allowing downloads of pre-built binaries
@@ -4257,7 +4299,7 @@ but you are actually on an @code{x86_64} machine:
 
 @example
 $ guix build --log-file gdb -s mips64el-linux 
-http://hydra.gnu.org/log/@dots{}-gdb-7.10
+https://hydra.gnu.org/log/@dots{}-gdb-7.10
 @end example
 
 You can freely access a huge library of build logs!
@@ -5636,11 +5678,12 @@ link that follows: @pxref{Help,,, info, Info: An Introduction}.  Hit
 @end ifinfo
 
 @menu
-* Limitations::                         What you can expect.
-* USB Stick Installation::              Preparing the installation medium.
-* Preparing for Installation::          Networking, partitioning, etc.
-* Proceeding with the Installation::    The real thing.
-* Building the Installation Image::     How this comes to be.
+* Limitations::                 What you can expect.
+* Hardware Considerations::     Supported hardware.
+* USB Stick Installation::      Preparing the installation medium.
+* Preparing for Installation::  Networking, partitioning, etc.
+* Proceeding with the Installation::  The real thing.
+* Building the Installation Image::  How this comes to be.
 @end menu
 
 @node Limitations
@@ -5666,11 +5709,6 @@ requires familiarity with GNU/Linux (see the following subsections to
 get a feel of what that means.)
 
 @item
-The system does not yet provide full GNOME and KDE desktops.  Xfce and
-Enlightenment are available, though, if graphical desktop environments
-are your thing, as well as a number of X11 window managers.
-
-@item
 Support for the Logical Volume Manager (LVM) is missing.
 
 @item
@@ -5680,11 +5718,50 @@ Few system services are currently supported out-of-the-box
 @item
 More than 3,000 packages are available, but you may
 occasionally find that a useful package is missing.
+
+@item
+GNOME, Xfce, and Enlightenment are available (@pxref{Desktop Services}),
+as well as a number of X11 window managers.  However, some graphical
+applications may be missing, as well as KDE.
 @end itemize
 
 You have been warned!  But more than a disclaimer, this is an invitation
 to report issues (and success stories!), and to join us in improving it.
 @xref{Contributing}, for more info.
+
+
+@node Hardware Considerations
+@subsection Hardware Considerations
+
+@cindex hardware support on GuixSD
+GNU@tie{}GuixSD focuses on respecting the user's computing freedom.  It
+builds around the kernel Linux-libre, which means that only hardware for
+which free software drivers and firmware exists is supported.  Nowadays,
+a wide range of off-the-shelf hardware is supported on
+GNU/Linux-libre---from keyboards to graphics cards to scanners and
+Ethernet controllers.  Unfortunately, there are still areas where
+hardware vendors deny users control over their own computing, and such
+hardware is not supported on GuixSD.
+
+@cindex WiFi, hardware support
+One of the main areas where free drivers or firmware is lacking is WiFi
+devices.  WiFi devices known to work include those using Atheros chips
+(AR9271 and AR7010), which corresponds to the @code{ath9k} Linux-libre
+driver, and for which free firmware exists and is available
+out-of-the-box on GuixSD, as part of @var{%base-firmware}
+(@pxref{operating-system Reference, @code{firmware}}).
+
+@cindex RYF, Respects Your Freedom
+The @uref{https://www.fsf.org/, Free Software Foundation} runs
+@uref{https://www.fsf.org/ryf, @dfn{Respect Your Freedom}} (RYF), a
+certification program for hardware products that respect your freedom
+and your privacy and ensure that you have control over your device.  We
+encourage you to check the list of RYF-certified hardware.
+
+Another useful resource is the @uref{https://www.h-node.org/, H-Node}
+web site.  It contains a catalog of hardware devices with information
+about their support in GNU/Linux.
+
 
 @node USB Stick Installation
 @subsection USB Stick Installation
@@ -5967,8 +6044,8 @@ system} command, specifically:
 guix system disk-image --image-size=850MiB gnu/system/install.scm
 @end example
 
-@xref{Invoking guix system} and
-@file{gnu/system/install.scm} in the source tree for more information
+Have a look at @file{gnu/system/install.scm} in the source tree,
+and see also @ref{Invoking guix system} for more information
 about the installation image.
 
 @node System Configuration
@@ -6087,28 +6164,42 @@ generated as needed (@pxref{Defining Services}).
 @cindex customization, of services
 @findex modify-services
 Occasionally, instead of using the base services as is, you will want to
-customize them.  For instance, to change the configuration of
-@code{guix-daemon} and Mingetty (the console log-in), you may write the
-following instead of @var{%base-services}:
+customize them.  To do this, use @code{modify-services} (@pxref{Service
+Reference, @code{modify-services}}) to modify the list.
+
+For example, suppose you want to modify @code{guix-daemon} and Mingetty
+(the console log-in) in the @var{%base-services} list (@pxref{Base
+Services, @code{%base-services}}).  To do that, you can write the
+following in your operating system declaration:
 
 @lisp
-(modify-services %base-services
-  (guix-service-type config =>
-                     (guix-configuration
-                      (inherit config)
-                      (use-substitutes? #f)
-                      (extra-options '("--gc-keep-outputs"))))
-  (mingetty-service-type config =>
-                         (mingetty-configuration
-                          (inherit config)
-                          (motd (plain-file "motd" "Hi there!")))))
+(define %my-services
+  ;; My very own list of services.
+  (modify-services %base-services
+    (guix-service-type config =>
+                       (guix-configuration
+                        (inherit config)
+                        (use-substitutes? #f)
+                        (extra-options '("--gc-keep-derivations"))))
+    (mingetty-service-type config =>
+                           (mingetty-configuration
+                            (inherit config)
+                            (motd (plain-file "motd" "Howdy!"))))))
+
+(operating-system
+  ;; @dots{}
+  (services %my-services))
 @end lisp
 
-@noindent
-The effect here is to change the options passed to @command{guix-daemon}
-when it is started, as well as the ``message of the day'' that appears
-when logging in at the console.  @xref{Service Reference,
-@code{modify-services}}, for more on that.
+This changes the configuration---i.e., the service parameters---of the
+@code{guix-service-type} instance, and that of all the
+@code{mingetty-service-type} instances in the @var{%base-services} list.
+Observe how this is accomplished: first, we arrange for the original
+configuration to be bound to the identifier @code{config} in the
+@var{body}, and then we write the @var{body} so that it evaluates to the
+desired configuration.  In particular, notice how we use @code{inherit}
+to create a new configuration which has the same values as the old
+configuration, but with a few modifications.
 
 The configuration for a typical ``desktop'' usage, with the X11 display
 server, a desktop environment, network management, power management, and
@@ -6214,7 +6305,8 @@ the Linux kernel.  @xref{Initial RAM Disk}.
 List of firmware packages loadable by the operating system kernel.
 
 The default includes firmware needed for Atheros-based WiFi devices
-(Linux-libre module @code{ath9k}.)
+(Linux-libre module @code{ath9k}).  @xref{Hardware Considerations}, for
+more info on supported hardware.
 
 @item @code{host-name}
 The host name.
@@ -7387,7 +7479,8 @@ makes the good ol' XlockMore usable.
 The @code{(gnu services desktop)} module provides services that are
 usually useful in the context of a ``desktop'' setup---that is, on a
 machine running a graphical display server, possibly with graphical user
-interfaces, etc.
+interfaces, etc.  It also defines services that provide specific desktop
+environments like GNOME and XFCE.
 
 To simplify things, the module defines a variable containing the set of
 services that users typically expect on a machine with a graphical
@@ -7412,8 +7505,57 @@ The @var{%desktop-services} variable can be used as the @code{services}
 field of an @code{operating-system} declaration (@pxref{operating-system
 Reference, @code{services}}).
 
-The actual service definitions provided by @code{(gnu services dbus)}
-and @code{(gnu services desktop)} are described below.
+Additionally, the @code{gnome-desktop-service} and
+@code{xfce-desktop-service} procedures can add GNOME and/or XFCE to a
+system.  To ``add GNOME'' means that system-level services like the
+backlight adjustment helpers and the power management utilities are
+added to the system, extending @code{polkit} and @code{dbus}
+appropriately, allowing GNOME to operate with elevated privileges on a
+limited number of special-purpose system interfaces.  Additionally,
+adding a service made by @code{gnome-desktop-service} adds the GNOME
+metapackage to the system profile.  Likewise, adding the XFCE service
+not only adds the @code{xfce} metapackage to the system profile, but it
+also gives the Thunar file manager the ability to open a ``root-mode''
+file management window, if the user authenticates using the
+administrator's password via the standard polkit graphical interface.
+
+@deffn {Scheme Procedure} gnome-desktop-service
+Return a service that adds the @code{gnome} package to the system
+profile, and extends polkit with the actions from
+@code{gnome-settings-daemon}.
+@end deffn
+
+@deffn {Scheme Procedure} xfce-desktop-service
+Return a service that adds the @code{xfce} package to the system profile,
+and extends polkit with the abilit for @code{thunar} to manipulate the
+file system as root from within a user session, after the user has
+authenticated with the administrator's password.
+@end deffn
+
+Because the GNOME and XFCE desktop services pull in so many packages,
+the default @code{%desktop-services} variable doesn't include either of
+them by default.  To add GNOME or XFCE, just @code{cons} them onto
+@code{%desktop-services} in the @code{services} field of your
+@code{operating-system}:
+
+@example
+(use-modules (gnu))
+(use-service-modules desktop)
+(operating-system
+  ...
+  ;; cons* adds items to the list given as its last argument.
+  (services (cons* (gnome-desktop-service)
+                   (xfce-desktop-service)
+                   %desktop-services))
+  ...)
+@end example
+
+These desktop environments will then be available as options in the
+graphical login window.
+
+The actual service definitions included in @code{%desktop-services} and
+provided by @code{(gnu services dbus)} and @code{(gnu services desktop)}
+are described below.
 
 @deffn {Scheme Procedure} dbus-service [#:dbus @var{dbus}] [#:services '()]
 Return a service that runs the ``system bus'', using @var{dbus}, with
@@ -9963,11 +10105,12 @@ Here is an example of how a service is created and manipulated:
 
 The @code{modify-services} form provides a handy way to change the
 parameters of some of the services of a list such as
-@var{%base-services} (@pxref{Base Services, @code{%base-services}}).  Of
-course, you could always use standard list combinators such as
-@code{map} and @code{fold} to do that (@pxref{SRFI-1, List Library,,
-guile, GNU Guile Reference Manual}); @code{modify-services} simply
-provides a more concise form for this common pattern.
+@var{%base-services} (@pxref{Base Services, @code{%base-services}}).  It
+evalutes to a list of services.  Of course, you could always use
+standard list combinators such as @code{map} and @code{fold} to do that
+(@pxref{SRFI-1, List Library,, guile, GNU Guile Reference Manual});
+@code{modify-services} simply provides a more concise form for this
+common pattern.
 
 @deffn {Scheme Syntax} modify-services @var{services} @
   (@var{type} @var{variable} => @var{body}) @dots{}
@@ -9979,16 +10122,21 @@ clauses.  Each clause has the form:
 (@var{type} @var{variable} => @var{body})
 @end example
 
-where @var{type} is a service type, such as @var{guix-service-type}, and
-@var{variable} is an identifier that is bound within @var{body} to the
-value of the service of that @var{type}.  @xref{Using the Configuration
-System}, for an example.
+where @var{type} is a service type---e.g.,
+@code{guix-service-type}---and @var{variable} is an identifier that is
+bound within the @var{body} to the service parameters---e.g., a
+@code{guix-configuration} instance---of the original service of that
+@var{type}.
 
-This is a shorthand for:
+The @var{body} should evaluate to the new service parameters, which will
+be used to configure the new service.  This new service will replace the
+original in the resulting list.  Because a service's service parameters
+are created using @code{define-record-type*}, you can write a succint
+@var{body} that evaluates to the new service parameters by using the
+@code{inherit} feature that @code{define-record-type*} provides.
 
-@example
-(map (lambda (service) @dots{}) @var{services})
-@end example
+@xref{Using the Configuration System}, for example usage.
+
 @end deffn
 
 Next comes the programming interface for service types.  This is

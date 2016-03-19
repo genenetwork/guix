@@ -3794,6 +3794,46 @@ such as gzip tarballs.")
               (sha256
                (base32
                 "0icajbzqf5llvp5s8nafwkhwz6a6jmwn4hhs81bk0bpzawyq4zdk"))))
+    (arguments
+     '(#:phases
+       (modify-phases %standard-phases
+         (add-before 'configure 'pre-configure
+           (lambda* (#:key outputs #:allow-other-keys)
+             ;; Use elogind instead of systemd.
+             (substitute* "configure"
+               (("libsystemd-login >= 183 libsystemd-daemon libsystemd-journal")
+                "libelogind")
+               (("systemd") "elogind"))
+             (substitute* "gnome-session/gsm-systemd.c"
+               (("#include <systemd/sd-login.h>")
+                "#include <elogind/sd-login.h>"))
+             ;; Remove uses of the systemd journal.
+             (substitute* "gnome-session/main.c"
+               (("#ifdef HAVE_SYSTEMD") "#if 0"))
+             (substitute* "gnome-session/gsm-manager.c"
+               (("#ifdef HAVE_SYSTEMD") "#if 0"))
+             #t))
+         (add-after 'install 'wrap-gnome-session
+           (lambda* (#:key inputs outputs #:allow-other-keys)
+             ;; Make sure 'gnome-session' finds the 'gsettings' program.
+             (let ((glib (assoc-ref inputs "glib:bin"))
+                   (out  (assoc-ref outputs "out")))
+               (wrap-program (string-append out "/bin/gnome-session")
+                 `("PATH" ":" prefix (,(string-append glib "/bin"))))
+               #t)))
+         (add-after 'install 'disable-hardware-acceleration-check
+           (lambda* (#:key outputs #:allow-other-keys)
+             ;; Do not abort if hardware acceleration is missing.  This allows
+             ;; GNOME to run in QEMU and on low-end devices.
+             (let ((out (assoc-ref outputs "out")))
+               (substitute* (string-append out
+                                           "/share/xsessions/gnome.desktop")
+                 (("gnome-session")
+                  "gnome-session --disable-acceleration-check"))
+               #t))))
+
+       #:configure-flags
+       '("--enable-elogind")))
     (build-system glib-or-gtk-build-system)
     (native-inputs
      `(("glib:bin" ,glib "bin") ; for glib-compile-schemas, etc.
@@ -3801,7 +3841,8 @@ such as gzip tarballs.")
        ("intltool" ,intltool)
        ("xsltproc" ,libxslt)))
     (inputs
-     `(("gnome-desktop" ,gnome-desktop)
+     `(("elogind" ,elogind)
+       ("gnome-desktop" ,gnome-desktop)
        ("gsettings-desktop-schemas" ,gsettings-desktop-schemas)
        ("gtk+" ,gtk+)
        ("json-glib" ,json-glib)
