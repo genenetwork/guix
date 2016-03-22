@@ -94,8 +94,12 @@ anti-aliased glyph bitmap generation with 256 gray levels.")
             (string-append "--with-default-fonts="
                            (assoc-ref %build-inputs "gs-fonts")
                            "/share/fonts")
+
             ;; register fonts from user profile
+            ;; TODO: Add /run/current-system/profile/share/fonts and remove
+            ;; the skeleton that works around it from 'default-skeletons'.
             "--with-add-fonts=~/.guix-profile/share/fonts"
+
             ;; python is not actually needed
             "PYTHON=false")
       #:phases
@@ -204,9 +208,8 @@ applications should be.")
 
 (define-public graphite2
   (package
-   (replacement graphite2-1.3.6)
    (name "graphite2")
-   (version "1.3.5")
+   (version "1.3.6")
    (source
      (origin
        (method url-fetch)
@@ -214,8 +217,8 @@ applications should be.")
                            version ".tar.gz"))
        (file-name (string-append name "-" version ".tar.gz"))
        (sha256
-         (base32
-           "0jrjb56zim57xg2pckfdyrw46c624mqz9zywgwza0g1bxg26940w"))))
+        (base32
+         "1frd9mjaqzvh9gs74ngc43igi53vzjzlwr5chbrs6ii1hc4aa23s"))))
    (build-system cmake-build-system)
    (native-inputs
     `(("python" ,python-2) ; because of "import imap" in tests
@@ -230,21 +233,6 @@ process known as shaping.  This process takes an input Unicode text string
 and returns a sequence of positioned glyphids from the font.")
    (license license:lgpl2.1+)
    (home-page "https://github.com/silnrsi/graphite")))
-
-(define graphite2-1.3.6
-  (package
-    (inherit graphite2)
-    (replacement #f)
-    (source
-     (let ((name "graphite2") (version "1.3.6"))
-       (origin
-         (method url-fetch)
-         (uri (string-append "https://github.com/silnrsi/graphite/archive/"
-                             version ".tar.gz"))
-         (file-name (string-append name "-" version ".tar.gz"))
-         (sha256
-          (base32
-           "1frd9mjaqzvh9gs74ngc43igi53vzjzlwr5chbrs6ii1hc4aa23s")))))))
 
 (define-public potrace
   (package
@@ -353,37 +341,51 @@ definitions.")
 (define-public fontforge
   (package
    (name "fontforge")
-   (version "20120731-b")               ;aka 1.0
+   (version "20150824")
    (source (origin
             (method url-fetch)
-            (uri (string-append "mirror://sourceforge/fontforge/fontforge_full-"
-                                version ".tar.bz2"))
+            (uri (string-append
+                  "https://github.com/fontforge/fontforge/releases/download/"
+                  version "/fontforge-" version ".tar.gz"))
             (sha256 (base32
-                     "1dhg0i2pf76j40cb9g1wzpag21fgarpjaad0hdbk27i1zz588q8v"))))
+                     "0gfcm8yn1d30giqhdwbchnfnspcqypqdzrxlhqhwy1i18wgl0v2v"))
+            (modules '((guix build utils)))
+            (snippet
+             ;; Make builds bit-reproducible by using fixed date strings.
+             '(substitute* "configure"
+                (("^FONTFORGE_MODTIME=.*$")
+                 "FONTFORGE_MODTIME=\"1458399002\"\n")
+                (("^FONTFORGE_MODTIME_STR=.*$")
+                 "FONTFORGE_MODTIME_STR=\"15:50 CET 19-Mar-2016\"\n")
+                (("^FONTFORGE_VERSIONDATE=.*$")
+                 "FONTFORGE_VERSIONDATE=\"20160319\"\n")))))
    (build-system gnu-build-system)
-   ;; TODO: Add python for scripting support.
-   (inputs `(("gettext"         ,gnu-gettext)
-             ("libtiff"         ,libtiff)
-             ("libjpeg"         ,libjpeg)
-             ("libpng"          ,libpng)
+   (native-inputs
+    `(("pkg-config" ,pkg-config)))
+   (inputs `(("cairo"           ,cairo)
+             ("fontconfig"      ,fontconfig) ;dlopen'd
+             ("freetype"        ,freetype)
+             ("gettext"         ,gnu-gettext)
              ("giflib"          ,giflib) ;needs giflib 4.*
-             ("libxml2"         ,libxml2)
-             ("libX11"          ,libx11)
-             ("libXi"           ,libxi)
+             ("glib"            ,glib) ;needed for pango detection
              ("libICE"          ,libice)
              ("libSM"           ,libsm)
-             ("freetype"        ,freetype)
-             ("potrace"         ,potrace)
+             ("libX11"          ,libx11)
+             ("libXi"           ,libxi)
+             ("libjpeg"         ,libjpeg)
+             ("libltdl"         ,libltdl)
+             ("libpng"          ,libpng)
              ("libspiro"        ,libspiro)
-             ("zlib"            ,zlib)
-             ("cairo"           ,cairo)
-             ("fontconfig"      ,fontconfig) ;dlopen'd
+             ("libtiff"         ,libtiff)
              ("libuninameslist" ,libuninameslist)
+             ("libxft"          ,libxft)
+             ("libxml2"         ,libxml2)
              ("pango"           ,pango)
-             ("glib"            ,glib))) ;needed for pango detection
+             ("potrace"         ,potrace)
+             ("python"          ,python)
+             ("zlib"            ,zlib)))
    (arguments
-    '(#:configure-flags `("--enable-double")
-      #:tests? #f
+    '(#:tests? #f
       #:phases
       (alist-cons-before
        'configure 'patch-configure
@@ -423,5 +425,5 @@ definitions.")
     "FontForge allows you to create and modify postscript, truetype and
 opentype fonts.  You can save fonts in many different outline formats, and
 generate bitmaps.")
-   (license license:bsd-3)
+   (license license:gpl3+)
    (home-page "http://fontforge.org/")))

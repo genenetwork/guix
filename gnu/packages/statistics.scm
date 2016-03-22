@@ -1679,6 +1679,95 @@ matrices.  It includes Cholesky decomposition and backsolving as well as
 standard R subsetting and Kronecker products.")
     (license license:gpl2+)))
 
+(define-public r-iterators
+  (package
+    (name "r-iterators")
+    (version "1.0.8")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (cran-uri "iterators" version))
+       (sha256
+        (base32
+         "1f057pabs7ss9h1n244can26qsi5n2k3salrdk0b0vkphlrs4kmf"))))
+    (build-system r-build-system)
+    (home-page "http://cran.r-project.org/web/packages/iterators")
+    (synopsis "Iterator construct for R")
+    (description
+     "This package provides support for iterators, which allow a programmer to
+traverse through all the elements of a vector, list, or other collection of
+data.")
+    (license license:asl2.0)))
+
+(define-public r-codetools
+  (package
+    (name "r-codetools")
+    (version "0.2-14")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (cran-uri "codetools" version))
+       (sha256
+        (base32
+         "0y9r4m2b8xgavr89sc179knzwpz54xljbc1dinpq2q07i4xn0397"))))
+    (build-system r-build-system)
+    (home-page "http://cran.r-project.org/web/packages/codetools")
+    (synopsis "Code analysis tools for R")
+    (description "This package provides code analysis tools for R to check R
+code for possible problems.")
+    (license (list license:gpl2+ license:gpl3+))))
+
+(define-public r-foreach
+  (package
+    (name "r-foreach")
+    (version "1.4.3")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (cran-uri "foreach" version))
+       (sha256
+        (base32
+         "10aqsd3rxz03s1qdb6gsb1cj89mj4vmh491zfpin4skj1xvkzw0y"))))
+    (build-system r-build-system)
+    (propagated-inputs
+     `(("r-codetools" ,r-codetools)
+       ("r-iterators" ,r-iterators)))
+    (home-page "http://cran.r-project.org/web/packages/foreach")
+    (synopsis "Foreach looping construct for R")
+    (description
+     "This package provides support for the @code{foreach} looping construct.
+@code{foreach} is an idiom that allows for iterating over elements in a
+collection, without the use of an explicit loop counter.  This package in
+particular is intended to be used for its return value, rather than for its
+side effects.  In that sense, it is similar to the standard @code{lapply}
+function, but doesn't require the evaluation of a function.  Using
+@code{foreach} without side effects also facilitates executing the loop in
+parallel.")
+    (license license:asl2.0)))
+
+(define-public r-doparallel
+  (package
+    (name "r-doparallel")
+    (version "1.0.10")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (cran-uri "doParallel" version))
+       (sha256
+        (base32
+         "1mddx25l25pw9d0csnx2q203dbg5hbrhkr1f08kw0p02a1lln0kh"))))
+    (properties `((upstream-name . "doParallel")))
+    (build-system r-build-system)
+    (propagated-inputs
+     `(("r-foreach" ,r-foreach)
+       ("r-iterators" ,r-iterators)))
+    (home-page "http://cran.r-project.org/web/packages/doParallel")
+    (synopsis "Foreach parallel adaptor for the 'parallel' package")
+    (description
+     "This package provides a parallel backend for the @code{%dopar%} function
+using the parallel package.")
+    (license license:gpl2+)))
+
 (define-public r-dt
   (package
     (name "r-dt")

@@ -527,6 +527,14 @@ following packages are also needed:
 C++11 standard.
 @end itemize
 
+When configuring Guix on a system that already has a Guix installation,
+be sure to specify the same state directory as the existing installation
+using the @code{--localstatedir} option of the @command{configure}
+script (@pxref{Directory Variables, @code{localstatedir},, standards,
+GNU Coding Standards}).  The @command{configure} script protects against
+unintended misconfiguration of @var{localstatedir} so you do not
+inadvertently corrupt your store (@pxref{The Store}).
+
 When a working installation of @url{http://nixos.org/nix/, the Nix package
 manager} is available, you
 can instead configure Guix with @code{--disable-daemon}.  In that case,
@@ -2945,9 +2953,9 @@ Sub-directories in the store are referred to as @dfn{store items} or
 sometimes @dfn{store paths}.  The store has an associated database that
 contains information such as the store paths referred to by each store
 path, and the list of @emph{valid} store items---results of successful
-builds.  This database resides in @file{/var/guix/db} (or under whatever
-state directory was specified @i{via} @option{--localstatedir} at
-configure time).
+builds.  This database resides in @file{@var{localstatedir}/guix/db},
+where @var{localstatedir} is the state directory specified @i{via}
+@option{--localstatedir} at configure time, usually @file{/var}.
 
 The store is @emph{always} accessed by the daemon on behalf of its clients
 (@pxref{Invoking guix-daemon}).  To manipulate the store, clients
@@ -3067,7 +3075,8 @@ a derivation is the @code{derivation} procedure:
   @var{args} [#:outputs '("out")] [#:hash #f] [#:hash-algo #f] @
   [#:recursive? #f] [#:inputs '()] [#:env-vars '()] @
   [#:system (%current-system)] [#:references-graphs #f] @
-  [#:allowed-references #f] [#:leaked-env-vars #f] [#:local-build? #f] @
+  [#:allowed-references #f] [#:disallowed-references #f] @
+  [#:leaked-env-vars #f] [#:local-build? #f] @
   [#:substitutable? #t]
 Build a derivation with the given arguments, and return the resulting
 @code{<derivation>} object.
@@ -3085,7 +3094,9 @@ path is exported in the build environment in the corresponding file, in
 a simple text format.
 
 When @var{allowed-references} is true, it must be a list of store items
-or outputs that the derivation's output may refer to.
+or outputs that the derivation's output may refer to.  Likewise,
+@var{disallowed-references}, if true, must be a list of things the
+outputs may @emph{not} refer to.
 
 When @var{leaked-env-vars} is true, it must be a list of strings
 denoting environment variables that are allowed to ``leak'' from the
@@ -3142,6 +3153,7 @@ is now deprecated in favor of the much nicer @code{gexp->derivation}.
        [#:outputs '("out")] [#:hash #f] [#:hash-algo #f] @
        [#:recursive? #f] [#:env-vars '()] [#:modules '()] @
        [#:references-graphs #f] [#:allowed-references #f] @
+       [#:disallowed-references #f] @
        [#:local-build? #f] [#:substitutable? #t] [#:guile-for-build #f]
 Return a derivation that executes Scheme expression @var{exp} as a
 builder for derivation @var{name}.  @var{inputs} must be a list of
@@ -3165,8 +3177,9 @@ terminates by passing the result of @var{exp} to @code{exit}; thus, when
 @code{%guile-for-build} fluid is used instead.
 
 See the @code{derivation} procedure for the meaning of
-@var{references-graphs}, @var{allowed-references}, @var{local-build?},
-and @var{substitutable?}.
+@var{references-graphs}, @var{allowed-references},
+@var{disallowed-references}, @var{local-build?}, and
+@var{substitutable?}.
 @end deffn
 
 @noindent
@@ -3657,6 +3670,7 @@ information about monads.)
        [#:recursive? #f] [#:env-vars '()] [#:modules '()] @
        [#:module-path @var{%load-path}] @
        [#:references-graphs #f] [#:allowed-references #f] @
+       [#:disallowed-references #f] @
        [#:leaked-env-vars #f] @
        [#:script-name (string-append @var{name} "-builder")] @
        [#:local-build? #f] [#:substitutable? #t] [#:guile-for-build #f]
@@ -3694,6 +3708,8 @@ text format.
 @var{allowed-references} must be either @code{#f} or a list of output names and packages.
 In the latter case, the list denotes store items that the result is allowed to
 refer to.  Any reference to another store item will lead to a build error.
+Similarly for @var{disallowed-references}, which can list items that must not be
+referenced by the outputs.
 
 The other arguments are as for @code{derivation} (@pxref{Derivations}).
 @end deffn
