@@ -5387,7 +5387,7 @@ should be stored on various operating systems.")
 (define-public python-llfuse
   (package
     (name "python-llfuse")
-    (version "0.41")
+    (version "1.0")
     (source (origin
               (method url-fetch)
               (uri (string-append
@@ -5395,7 +5395,7 @@ should be stored on various operating systems.")
                     "llfuse-" version ".tar.bz2"))
               (sha256
                (base32
-                "0yzy8ixpmxk00kdq6lx5vvwbs0n6s59qnja5q0js2ahbqyxiz2hb"))))
+                "1li7q04ljrvwharw4fblcbfhvk6s0l3lnv8yqb4c22lcgbkiqlps"))))
     (build-system python-build-system)
     (inputs
      `(("fuse" ,fuse)
@@ -5407,34 +5407,54 @@ should be stored on various operating systems.")
     (description
      "Python-LLFUSE is a set of Python bindings for the low level FUSE API.")
     (home-page "https://bitbucket.org/nikratio/python-llfuse/")
-    ;; Python-LLFUSE includes underscore.js, which is MIT (expat) licensed.
-    ;; The rest of the package is licensed under LGPL2.0 or later.
-    (license (list license:expat lgpl2.0+))))
+    (license lgpl2.0+)
+    (properties `((python2-variant . ,(delay python2-llfuse))))))
 
 (define-public python2-llfuse
-  (package-with-python2 python-llfuse))
+  (package (inherit (package-with-python2
+                 (strip-python2-variant python-llfuse)))
+    (propagated-inputs `(("python2-contextlib2" ,python2-contextlib2)))))
+
+;; For attic-0.16
+(define-public python-llfuse-0.41
+  (package (inherit python-llfuse)
+    (version "0.41.1")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "https://bitbucket.org/nikratio/python-llfuse/downloads/"
+                    "llfuse-" version ".tar.bz2"))
+              (sha256
+               (base32
+                "1imlqw9b73086y97izr036f58pgc5akv4ihc2rrf8j5h75jbrlaa"))))
+    ;; Python-LLFUSE < 0.42 includes underscore.js, which is MIT (expat)
+    ;; licensed.  The rest of the package is licensed under LGPL2.0 or later.
+    (license (list license:expat lgpl2.0+))))
 
 (define-public python-msgpack
   (package
     (name "python-msgpack")
-    (version "0.4.6")
+    (version "0.4.7")
     (source (origin
               (method url-fetch)
-              (uri (string-append
-                    "https://pypi.python.org/packages/source/m/"
-                    "msgpack-python/msgpack-python-" version ".tar.gz"))
+              (uri (pypi-uri "msgpack-python" version))
               (sha256
                (base32
-                "1527c76b6fn4zzkgfq5xvhh7x9a9686g7fjiz717rw5vklf5ik5z"))))
+                "0syd7bs83qs9qmxw540jbgsildbqk4yb57fmrlns1021llli402y"))))
     (build-system python-build-system)
-    (native-inputs
-     `(("python-setuptools" ,python-setuptools)))
     (synopsis "MessagePack (de)serializer")
     (description "MessagePack is a fast, compact binary serialization format,
 suitable for similar data to JSON.  This package provides CPython bindings for
 reading and writing MessagePack data.")
     (home-page "https://pypi.python.org/pypi/msgpack-python/")
-    (license asl2.0)))
+    (license asl2.0)
+    (properties `((python2-variant . ,(delay python2-msgpack))))))
+
+(define-public python2-msgpack
+  (package (inherit (package-with-python2
+                     (strip-python2-variant python-msgpack)))
+    (native-inputs
+     `(("python2-setuptools" ,python2-setuptools)))))
 
 (define-public python2-msgpack
   (package-with-python2 python-msgpack))
@@ -6747,13 +6767,13 @@ WebSocket usage in Python programs.")
 (define-public python-atomicwrites
   (package
     (name "python-atomicwrites")
-    (version "0.1.9")
+    (version "1.0.0")
     (source (origin
              (method url-fetch)
              (uri (pypi-uri "atomicwrites" version))
              (sha256
               (base32
-               "08s05h211r07vs66r4din3swrbzb344vli041fihpg34q3lcxpvw"))))
+               "019fa4771q7fb1167yfbh6msdzcqini6v7i59rmf72mzdjd7x5qv"))))
     (build-system python-build-system)
     (synopsis "Atomic file writes in Python")
     (description "Library for atomic file writes using platform dependent tools

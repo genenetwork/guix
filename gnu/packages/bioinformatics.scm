@@ -3927,8 +3927,7 @@ barplots or heatmaps.")
                (base32
                 "0f16ryy5f012hvksrwlmm33bcl7lw97i2jvhbnwfwl03j4w7nhc1"))))
     (properties
-     `((upstream-name . "BiocGenerics")
-       (r-repository . bioconductor)))
+     `((upstream-name . "BiocGenerics")))
     (build-system r-build-system)
     (home-page "http://bioconductor.org/packages/BiocGenerics")
     (synopsis "S4 generic functions for Bioconductor")
@@ -3970,8 +3969,7 @@ abnormal copy number.")
                (base32
                 "12iibcs63m9iy7f45wgjcqsna2dnqwckphk682389grshz0g4x66"))))
     (properties
-     `((upstream-name . "S4Vectors")
-       (r-repository . bioconductor)))
+     `((upstream-name . "S4Vectors")))
     (build-system r-build-system)
     (propagated-inputs
      `(("r-biocgenerics" ,r-biocgenerics)))
@@ -3998,8 +3996,7 @@ S4Vectors package itself.")
                (base32
                 "0hi5k1j5jm4xrg1l506g279qw1xkvp1gg1zgsjzpbng4vx4k4iyl"))))
     (properties
-     `((upstream-name . "IRanges")
-       (r-repository . bioconductor)))
+     `((upstream-name . "IRanges")))
     (build-system r-build-system)
     (propagated-inputs
      `(("r-biocgenerics" ,r-biocgenerics)
@@ -4020,16 +4017,15 @@ possible.")
 (define-public r-genomeinfodb
   (package
     (name "r-genomeinfodb")
-    (version "1.6.1")
+    (version "1.6.3")
     (source (origin
               (method url-fetch)
               (uri (bioconductor-uri "GenomeInfoDb" version))
               (sha256
                (base32
-                "1j2n1v1mrw1fxn7cyffz112pm76wd6gy9q9qwlsfv3brbsqbvdbf"))))
+                "1ggp005n2rlkad00ilzn95y4rd484yr1chdhnd6fwg45rbi94d63"))))
     (properties
-     `((upstream-name . "GenomeInfoDb")
-       (r-repository . bioconductor)))
+     `((upstream-name . "GenomeInfoDb")))
     (build-system r-build-system)
     (propagated-inputs
      `(("r-biocgenerics" ,r-biocgenerics)
@@ -4055,8 +4051,7 @@ names in their natural, rather than lexicographic, order.")
                (base32
                 "0havwyr6xqk7w0rmbwfj9jq1djz7wzdz7w39adhklwzwz9l4ih3a"))))
     (properties
-     `((upstream-name . "XVector")
-       (r-repository . bioconductor)))
+     `((upstream-name . "XVector")))
     (build-system r-build-system)
     (arguments
      `(#:phases
@@ -4084,16 +4079,15 @@ names in their natural, rather than lexicographic, order.")
 (define-public r-genomicranges
   (package
     (name "r-genomicranges")
-    (version "1.22.2")
+    (version "1.22.4")
     (source (origin
               (method url-fetch)
               (uri (bioconductor-uri "GenomicRanges" version))
               (sha256
                (base32
-                "1jffvcs0jsi7q4l3pvjj6r73vll80csgkljvhqp0g2ixc43jjng9"))))
+                "02df5683nrpn9d10ws8jz9b55nr9055hh882xp2i154xdddir0k0"))))
     (properties
-     `((upstream-name . "GenomicRanges")
-       (r-repository . bioconductor)))
+     `((upstream-name . "GenomicRanges")))
     (build-system r-build-system)
     (propagated-inputs
      `(("r-biocgenerics" ,r-biocgenerics)
@@ -4215,13 +4209,13 @@ objects.")
 (define-public r-biostrings
   (package
     (name "r-biostrings")
-    (version "2.38.2")
+    (version "2.38.4")
     (source (origin
               (method url-fetch)
               (uri (bioconductor-uri "Biostrings" version))
               (sha256
                (base32
-                "1afp9szc8ci6jn0m3hrrqh6df65cpw3v1dcnl6xir3d3m3lwwmk4"))))
+                "0cjd7i4bdwabzb02gm753aji5xaihkj5ak8nb0d32cclxbj0hp33"))))
     (properties
      `((upstream-name . "Biostrings")))
     (build-system r-build-system)
@@ -4285,13 +4279,13 @@ files.")
 (define-public r-summarizedexperiment
   (package
     (name "r-summarizedexperiment")
-    (version "1.0.1")
+    (version "1.0.2")
     (source (origin
               (method url-fetch)
               (uri (bioconductor-uri "SummarizedExperiment" version))
               (sha256
                (base32
-                "0w1dwp99p6i7sc3cn0ir3dr8ksgxwjf16675h5i8n6gbv4rl9lz6"))))
+                "1gpmh1mi70m5k5qnyjs1h0qn8ajrzalzic7k3762xchxsmmdvxn4"))))
     (properties
      `((upstream-name . "SummarizedExperiment")))
     (build-system r-build-system)
@@ -4314,13 +4308,13 @@ samples.")
 (define-public r-genomicalignments
   (package
     (name "r-genomicalignments")
-    (version "1.6.1")
+    (version "1.6.3")
     (source (origin
               (method url-fetch)
               (uri (bioconductor-uri "GenomicAlignments" version))
               (sha256
                (base32
-                "03pxzkmwcpl0d7a09ahan0nllfv7qw2i7w361w6af2s4n3xwrniz"))))
+                "02b9j1pfd39bkvb623k5k0ziq9rpw093hifqw65vb954dwj29jhd"))))
     (properties
      `((upstream-name . "GenomicAlignments")))
     (build-system r-build-system)
@@ -4347,13 +4341,13 @@ alignments.")
 (define-public r-rtracklayer
   (package
     (name "r-rtracklayer")
-    (version "1.30.1")
+    (version "1.30.4")
     (source (origin
               (method url-fetch)
               (uri (bioconductor-uri "rtracklayer" version))
               (sha256
                (base32
-                "1if31hg56islx5vwydpgs5gkyas26kyvv2ljv1c7jikpm62w14qv"))))
+                "0knjnwywh9k726mq28s3sy013zhw6d6nfa8hfw670720nq18i2p0"))))
     (build-system r-build-system)
     (arguments
      `(#:phases
@@ -4392,13 +4386,13 @@ as well as query and modify the browser state, such as the current viewport.")
 (define-public r-genomicfeatures
   (package
     (name "r-genomicfeatures")
-    (version "1.22.7")
+    (version "1.22.13")
     (source (origin
               (method url-fetch)
               (uri (bioconductor-uri "GenomicFeatures" version))
               (sha256
                (base32
-                "1jb4s49ar5j9qslpd3kfdg2wrl4q7ciysd55h9a7zvspymxcngq8"))))
+                "0n3rkj66la6wizgcsf2rmwcsyfxz9kv5zak337lmk1raqfnancz4"))))
     (properties
      `((upstream-name . "GenomicFeatures")))
     (build-system r-build-system)
@@ -4582,13 +4576,13 @@ reference point and sorted by a user defined feature.")
 (define-public r-genomation
   (package
     (name "r-genomation")
-    (version "1.2.1")
+    (version "1.2.2")
     (source (origin
               (method url-fetch)
               (uri (bioconductor-uri "genomation" version))
               (sha256
                (base32
-                "1mzs995snwim13qk9kz4q3nczpnbsy1allwp4whfq0cflg2mndfr"))))
+                "0kvzwc21zsh2c8d34yn935ncn38bfkpzmknycd8h7b0521x20mi9"))))
     (build-system r-build-system)
     (propagated-inputs
      `(("r-biostrings" ,r-biostrings)

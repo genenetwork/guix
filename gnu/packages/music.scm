@@ -312,7 +312,10 @@ interface.  It is implemented as a frontend to @code{klick}.")
          (add-before 'configure 'prepare-configuration
           (lambda _
             (substitute* "configure"
-              (("SHELL=/bin/sh") "SHELL=sh"))
+              (("SHELL=/bin/sh") "SHELL=sh")
+              ;; When checking the fontforge version do not consider the
+              ;; version string that's part of the directory.
+              (("head -n") "tail -n"))
             (setenv "out" "www")
             (setenv "conf" "www")
             #t))
@@ -1068,14 +1071,14 @@ computer's keyboard.")
 (define-public qtractor
   (package
     (name "qtractor")
-    (version "0.7.3")
+    (version "0.7.5")
     (source (origin
               (method url-fetch)
               (uri (string-append "http://downloads.sourceforge.net/qtractor/"
                                   "qtractor-" version ".tar.gz"))
               (sha256
                (base32
-                "1vy4297myyqk0k58nzybgvgklckhngpdcnmp98k0rq98dirclbl7"))))
+                "0drqzp1rbqmqiwdzc9n3307y8rm882fha3awy5qlvir5ma2mwl80"))))
     (build-system gnu-build-system)
     (arguments `(#:tests? #f)) ; no "check" target
     (inputs
@@ -1198,9 +1201,8 @@ MusicBrainz database.")
     (build-system python-build-system)
     (home-page "https://github.com/echonest/pyechonest")
     (synopsis "Python interface to The Echo Nest APIs")
-    (description "Pyechonest is an open source Python library for the Echo Nest
-API.  With Pyechonest you have Python access to the entire set of API methods
-including:
+    (description "Pyechonest is a Python library for the Echo Nest API.  With
+Pyechonest you have Python access to the entire set of API methods including:
 
 @enumerate
 @item artist - search for artists by name, description, or attribute, and get
@@ -1272,13 +1274,16 @@ websites such as Libre.fm.")
        #:phases
        (modify-phases %standard-phases
          (add-after 'unpack 'set-HOME
-           (lambda _ (setenv "HOME" (string-append (getcwd) "/tmp")))))))
+           (lambda _ (setenv "HOME" (string-append (getcwd) "/tmp"))))
+         (replace 'check
+           (lambda _ (zero? (system* "nosetests" "-v")))))))
     (native-inputs
      `(("python2-beautifulsoup4" ,python2-beautifulsoup4)
        ("python2-flask" ,python2-flask)
        ("python2-setuptools" ,python2-setuptools)
        ("python2-mock" ,python2-mock)
        ("python2-mpd2" ,python2-mpd2)
+       ("python2-nose" ,python2-nose)
        ("python2-pathlib" ,python2-pathlib)
        ("python2-pyxdg" ,python2-pyxdg)
        ("python2-pyechonest" ,python2-pyechonest)

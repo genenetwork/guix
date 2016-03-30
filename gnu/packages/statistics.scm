@@ -1234,13 +1234,13 @@ informative error messages when it's not available.")
 (define-public r-devtools
   (package
     (name "r-devtools")
-    (version "1.9.1")
+    (version "1.10.0")
     (source (origin
               (method url-fetch)
               (uri (cran-uri "devtools" version))
               (sha256
                (base32
-                "10ycx3kkiz5x8nmgw31d9wa5hhlx2fhda2nqzxfrczqpz1jik6ci"))))
+                "11x51bqhjwypbxv5sfnrnxx06b92k8kzmmx7zrwk3537r072b6pa"))))
     (build-system r-build-system)
     (propagated-inputs
      `(("r-curl" ,r-curl)
@@ -1253,11 +1253,31 @@ informative error messages when it's not available.")
        ("r-roxygen2" ,r-roxygen2)
        ("r-rstudioapi" ,r-rstudioapi)
        ("r-rversions" ,r-rversions)
-       ("r-whisker" ,r-whisker)))
+       ("r-whisker" ,r-whisker)
+       ("r-withr" ,r-withr)))
     (home-page "https://github.com/hadley/devtools")
     (synopsis "Tools to make developing R packages easier")
     (description "The devtools package is a collection of package development
 tools to simplify the devolpment of R packages.")
+    (license license:gpl2+)))
+
+(define-public r-withr
+  (package
+    (name "r-withr")
+    (version "1.0.1")
+    (source (origin
+              (method url-fetch)
+              (uri (cran-uri "withr" version))
+              (sha256
+               (base32
+                "0zbj3rd7dc0ycknmay7y7rm1qvnh9n05jw93gjggz46j2zfmy93y"))))
+    (build-system r-build-system)
+    (home-page "https://github.com/jimhester/withr")
+    (synopsis "Run code with temporarily modified global state")
+    (description
+     "This package provides a set of functions to run R code in an environment
+in which global state has been temporarily modified.  Many of these functions
+were originally a part of the r-devtools package.")
     (license license:gpl2+)))
 
 (define-public r-readr
