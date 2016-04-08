@@ -606,14 +606,14 @@ control to Git repositories.")
 (define-public mercurial
   (package
     (name "mercurial")
-    (version "3.7.2")
+    (version "3.7.3")
     (source (origin
              (method url-fetch)
              (uri (string-append "https://www.mercurial-scm.org/"
                                  "release/mercurial-" version ".tar.gz"))
              (sha256
               (base32
-               "0ykdvj7k4yxiwbfk0gnrq2flmdlf2cracsvqn3vr7nxhda6l7aav"))))
+               "0c2vkad9piqkggyk8y310rf619qgdfcwswnk3nv21mg2fhnw96f0"))))
     (build-system python-build-system)
     (arguments
      `(;; Restrict to Python 2, as Python 3 would require
@@ -1109,15 +1109,16 @@ Mercurial, Bazaar, Darcs, CVS, Fossil, and Veracity.")
                (base32
                 "196g3jkaybjx11nbr51n0cjps3wjzb145ab76y717diqvvxp5v4r"))))
     (build-system python-build-system)
+    (arguments `(#:python ,python-2))
     (native-inputs
-     `(("python-setuptools" ,python-setuptools)
+     `(("python2-setuptools" ,python2-setuptools)
        ;; for the tests
-       ("python-six" ,python-six)))
+       ("python2-six" ,python2-six)))
     (propagated-inputs
-     `(("python-dateutil" ,python-dateutil-2)
-       ("python-futures" ,python-futures)
-       ("python-rauth" ,python-rauth)
-       ("python-swiftclient" ,python-swiftclient)))
+     `(("python2-dateutil" ,python2-dateutil-2)
+       ("python2-futures" ,python2-futures)
+       ("python2-rauth" ,python2-rauth)
+       ("python2-swiftclient" ,python2-swiftclient)))
     (home-page "https://github.com/Schnouki/git-annex-remote-hubic/")
     (synopsis "Use hubic as a git-annex remote")
     (description

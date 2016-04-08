@@ -33,6 +33,8 @@
   #:use-module (gnu packages curl)
   #:use-module (gnu packages gcc)
   #:use-module (gnu packages gtk)
+  #:use-module (gnu packages gettext)
+  #:use-module (gnu packages glib)
   #:use-module (gnu packages haskell)
   #:use-module (gnu packages icu4c)
   #:use-module (gnu packages image)
@@ -52,6 +54,45 @@
   #:use-module (gnu packages xorg)
   #:use-module (gnu packages zip)
   #:use-module (srfi srfi-1))
+
+
+(define-public pspp
+  (package
+    (name "pspp")
+    (version "0.10.1")
+    (source
+     (origin
+      (method url-fetch)
+      (uri (string-append "mirror://gnu/pspp/pspp-"
+                          version ".tar.gz"))
+      (sha256
+       (base32
+        "0xw61kq0hxh7f6a4yjhnqbhc0fj9r3wb3qnpq05qhdp79n30ik24"))))
+    (build-system gnu-build-system)
+    (inputs
+     `(("cairo" ,cairo)
+       ("gettext" ,gnu-gettext)
+       ("gsl" ,gsl)
+       ("libxml2" ,libxml2)
+       ("pango" ,pango)
+       ("readline" ,readline)
+       ("gtk" ,gtk+)
+       ("gtksourceview" ,gtksourceview)
+       ("zlib" ,zlib)))
+    (native-inputs
+     `(("glib" ,glib "bin")             ;for glib-genmarshal
+       ("perl" ,perl)
+       ("pkg-config" ,pkg-config)))
+    (home-page "http://www.gnu.org/software/pspp/")
+    (synopsis "Statistical analysis")
+    (description
+     "GNU PSPP is a statistical analysis program.  It can perform
+descriptive statistics, T-tests, linear regression and non-parametric tests.
+It features both a graphical interface as well as command-line input.  PSPP
+is designed to interoperate with Gnumeric, LibreOffice and OpenOffice.  Data
+can be imported from spreadsheets, text files and database sources and it can
+be output in text, PostScript, PDF or HTML.")
+    (license license:gpl3+)))
 
 (define-public r
   (package
@@ -2046,3 +2087,24 @@ directly from R.  Once uploaded to a plotly account, plotly graphs (and the
 data behind them) can be viewed and modified in a web browser.")
     (license license:x11)))
 
+
+(define-public r-ztable
+  (package
+    (name "r-ztable")
+    (version "0.1.5")
+    (source (origin
+              (method url-fetch)
+              (uri (cran-uri "ztable" version))
+              (sha256
+               (base32
+                "1jfqnqy9544gfvz3bsb48v4177nwp4b4n9l2743asq8sbq305b5r"))))
+    (build-system r-build-system)
+    (home-page "http://cran.r-project.org/web/packages/ztable")
+    (synopsis "Zebra-striped tables in LaTeX and HTML formats for R")
+    (description
+     "This package provides functions to make zebra-striped tables (tables
+with alternating row colors) in LaTeX and HTML formats easily from
+@code{data.frame}, @code{matrix}, @code{lm}, @code{aov}, @code{anova},
+@code{glm}, @code{coxph}, @code{nls}, @code{fitdistr}, @code{mytable} and
+@code{cbind.mytable} objects.")
+    (license license:gpl2+)))

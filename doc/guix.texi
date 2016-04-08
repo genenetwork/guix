@@ -596,12 +596,18 @@ It is also possible to run a subset of the tests by defining the
 make check TESTS="tests/store.scm tests/cpio.scm"
 @end example
 
+By default, tests results are displayed at a file level.  In order to
+see the details of every individual test cases, it is possible to define
+the @code{SCM_LOG_DRIVER_FLAGS} makefile variable as in this example:
+
+@example
+make check TESTS="tests/base64.scm" SCM_LOG_DRIVER_FLAGS="--brief=no"
+@end example
+
 Upon failure, please email @email{bug-guix@@gnu.org} and attach the
-@file{test-suite.log} file.  When @file{tests/@var{something}.scm}
-fails, please also attach the @file{@var{something}.log} file available
-in the top-level build directory.  Please specify the Guix version being
-used as well as version numbers of the dependencies
-(@pxref{Requirements}) in your message.
+@file{test-suite.log} file.  Please specify the Guix version being used
+as well as version numbers of the dependencies (@pxref{Requirements}) in
+your message.
 
 @node Setting Up the Daemon
 @section Setting Up the Daemon
@@ -2854,8 +2860,11 @@ For packages that install stand-alone Python programs under @code{bin/},
 it takes care of wrapping these programs so that their @code{PYTHONPATH}
 environment variable points to all the Python libraries they depend on.
 
-Which Python package is used can be specified with the @code{#:python}
-parameter.
+Which Python package is used to perform the build can be specified with
+the @code{#:python} parameter.  This is a useful way to force a package
+to be built for a specific version of the Python interpreter, which
+might be necessary if the package is only compatible with a single
+interpreter version.
 @end defvr
 
 @defvr {Scheme Variable} perl-build-system
@@ -3245,7 +3254,7 @@ provides a framework for working with @dfn{monads}, and a particularly
 useful monad for our uses, the @dfn{store monad}.  Monads are a
 construct that allows two things: associating ``context'' with values
 (in our case, the context is the store), and building sequences of
-computations (here computations include accesses to the store.)  Values
+computations (here computations include accesses to the store).  Values
 in a monad---values that carry this additional context---are called
 @dfn{monadic values}; procedures that return such values are called
 @dfn{monadic procedures}.
@@ -3274,7 +3283,7 @@ as a monadic function:
                                  #$output))))
 @end example
 
-There several things to note in the second version: the @code{store}
+There are several things to note in the second version: the @code{store}
 parameter is now implicit and is ``threaded'' in the calls to the
 @code{package->derivation} and @code{gexp->derivation} monadic
 procedures, and the monadic value returned by @code{package->derivation}
@@ -3541,7 +3550,7 @@ S-expressions adapted to build expressions.  G-expressions, or
 @code{ungexp}, and @code{ungexp-splicing} (or simply: @code{#~},
 @code{#$}, and @code{#$@@}), which are comparable to
 @code{quasiquote}, @code{unquote}, and @code{unquote-splicing},
-respectivel (@pxref{Expression Syntax, @code{quasiquote},, guile,
+respectively (@pxref{Expression Syntax, @code{quasiquote},, guile,
 GNU Guile Reference Manual}).  However, there are major differences:
 
 @itemize
@@ -4356,12 +4365,12 @@ facilitates the life of packagers by pointing their editor at the source
 file containing the definition of the specified packages.  For instance:
 
 @example
-guix edit gcc-4.8 vim
+guix edit gcc@@4.9 vim
 @end example
 
 @noindent
 launches the program specified in the @code{VISUAL} or in the
-@code{EDITOR} environment variable to edit the recipe of GCC@tie{}4.8.4
+@code{EDITOR} environment variable to edit the recipe of GCC@tie{}4.9.3
 and that of Vim.
 
 If you are using Emacs, note that the Emacs user interface provides the
@@ -4789,6 +4798,8 @@ the updater for @uref{https://pypi.python.org, PyPI} packages.
 the updater for @uref{https://rubygems.org, RubyGems} packages.
 @item github
 the updater for @uref{https://github.com, GitHub} packages.
+@item hackage
+the updater for @uref{https://hackage.haskell.org, Hackage} packages.
 @end table
 
 For instance, the following command only checks for updates of Emacs
@@ -5500,21 +5511,21 @@ any given store item.
 The command output looks like this:
 
 @smallexample
-$ guix challenge --substitute-urls="http://hydra.gnu.org http://guix.example.org"
-updating list of substitutes from 'http://hydra.gnu.org'... 100.0%
-updating list of substitutes from 'http://guix.example.org'... 100.0%
+$ guix challenge --substitute-urls="https://hydra.gnu.org https://guix.example.org"
+updating list of substitutes from 'https://hydra.gnu.org'... 100.0%
+updating list of substitutes from 'https://guix.example.org'... 100.0%
 /gnu/store/@dots{}-openssl-1.0.2d contents differ:
   local hash: 0725l22r5jnzazaacncwsvp9kgf42266ayyp814v7djxs7nk963q
-  http://hydra.gnu.org/nar/@dots{}-openssl-1.0.2d: 0725l22r5jnzazaacncwsvp9kgf42266ayyp814v7djxs7nk963q
-  http://guix.example.org/nar/@dots{}-openssl-1.0.2d: 1zy4fmaaqcnjrzzajkdn3f5gmjk754b43qkq47llbyak9z0qjyim
+  https://hydra.gnu.org/nar/@dots{}-openssl-1.0.2d: 0725l22r5jnzazaacncwsvp9kgf42266ayyp814v7djxs7nk963q
+  https://guix.example.org/nar/@dots{}-openssl-1.0.2d: 1zy4fmaaqcnjrzzajkdn3f5gmjk754b43qkq47llbyak9z0qjyim
 /gnu/store/@dots{}-git-2.5.0 contents differ:
   local hash: 00p3bmryhjxrhpn2gxs2fy0a15lnip05l97205pgbk5ra395hyha
-  http://hydra.gnu.org/nar/@dots{}-git-2.5.0: 069nb85bv4d4a6slrwjdy8v1cn4cwspm3kdbmyb81d6zckj3nq9f
-  http://guix.example.org/nar/@dots{}-git-2.5.0: 0mdqa9w1p6cmli6976v4wi0sw9r4p5prkj7lzfd1877wk11c9c73
+  https://hydra.gnu.org/nar/@dots{}-git-2.5.0: 069nb85bv4d4a6slrwjdy8v1cn4cwspm3kdbmyb81d6zckj3nq9f
+  https://guix.example.org/nar/@dots{}-git-2.5.0: 0mdqa9w1p6cmli6976v4wi0sw9r4p5prkj7lzfd1877wk11c9c73
 /gnu/store/@dots{}-pius-2.1.1 contents differ:
   local hash: 0k4v3m9z1zp8xzzizb7d8kjj72f9172xv078sq4wl73vnq9ig3ax
-  http://hydra.gnu.org/nar/@dots{}-pius-2.1.1: 0k4v3m9z1zp8xzzizb7d8kjj72f9172xv078sq4wl73vnq9ig3ax
-  http://guix.example.org/nar/@dots{}-pius-2.1.1: 1cy25x1a4fzq5rk0pmvc8xhwyffnqz95h2bpvqsz2mpvlbccy0gs
+  https://hydra.gnu.org/nar/@dots{}-pius-2.1.1: 0k4v3m9z1zp8xzzizb7d8kjj72f9172xv078sq4wl73vnq9ig3ax
+  https://guix.example.org/nar/@dots{}-pius-2.1.1: 1cy25x1a4fzq5rk0pmvc8xhwyffnqz95h2bpvqsz2mpvlbccy0gs
 @end smallexample
 
 @noindent
@@ -5533,14 +5544,14 @@ various things that Guix does not fully control, in spite of building
 packages in isolated environments (@pxref{Features}).  Most common
 sources of non-determinism include the addition of timestamps in build
 results, the inclusion of random numbers, and directory listings sorted
-by inode number.  See @uref{http://reproducible.debian.net/howto/}, for
+by inode number.  See @uref{https://reproducible-builds.org/docs/}, for
 more information.
 
 To find out what is wrong with this Git binary, we can do something along
 these lines (@pxref{Invoking guix archive}):
 
 @example
-$ wget -q -O - http://hydra.gnu.org/nar/@dots{}-git-2.5.0 \
+$ wget -q -O - https://hydra.gnu.org/nar/@dots{}-git-2.5.0 \
    | guix archive -x /tmp/git
 $ diff -ur --no-dereference /gnu/store/@dots{}-git.2.5.0 /tmp/git
 @end example
@@ -5550,7 +5561,7 @@ local build, and the files resulting from the build on
 @code{hydra.gnu.org} (@pxref{Overview, Comparing and Merging Files,,
 diffutils, Comparing and Merging Files}).  The @command{diff} command
 works great for text files.  When binary files differ, a better option
-is @uref{http://diffoscope.org/, Diffoscope}, a tool that helps
+is @uref{https://diffoscope.org/, Diffoscope}, a tool that helps
 visualize differences for all kinds of files.
 
 Once you have done that work, you can tell whether the differences are due
@@ -5571,13 +5582,18 @@ $ guix challenge @var{package}
 
 @noindent
 where @var{package} is a package specification such as
-@code{guile-2.0} or @code{glibc:debug}.
+@code{guile@@2.0} or @code{glibc:debug}.
 
 The general syntax is:
 
 @example
 guix challenge @var{options} [@var{packages}@dots{}]
 @end example
+
+When a difference is found between the hash of a locally-built item and
+that of a server-provided substitute, or among substitutes provided by
+different servers, the command displays it as in the example above and
+exits with a non-zero return code.
 
 The one option that matters is:
 

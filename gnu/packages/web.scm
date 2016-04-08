@@ -8,6 +8,8 @@
 ;;; Copyright © 2015, 2016 Eric Bavier <bavier@member.fsf.org>
 ;;; Copyright © 2015 Eric Dvorsak <eric@dvorsak.fr>
 ;;; Copyright © 2016 Sou Bunnbu <iyzsong@gmail.com>
+;;; Copyright © 2016 Jelle Licht <jlicht@fsfe.org>
+;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -53,10 +55,12 @@
   #:use-module (gnu packages python)
   #:use-module (gnu packages pcre)
   #:use-module (gnu packages pkg-config)
+  #:use-module (gnu packages valgrind)
   #:use-module (gnu packages xml)
   #:use-module (gnu packages curl)
   #:use-module (gnu packages perl)
   #:use-module (gnu packages texinfo)
+  #:use-module (gnu packages textutils)
   #:use-module (gnu packages tls)
   #:use-module (gnu packages statistics))
 
@@ -352,29 +356,19 @@ for efficient socket-like bidirectional reliable communication channels.")
 (define-public libpsl
   (package
     (name "libpsl")
-    (version "0.7.1")
+    (version "0.13.0")
     (source (origin
               (method url-fetch)
               (uri (string-append "https://github.com/rockdaboot/libpsl/"
-                                  "archive/libpsl-" version ".tar.gz"))
+                                  "releases/download/libpsl-" version
+                                  "/libpsl-" version ".tar.gz"))
               (sha256
                (base32
-                "1k0klj668c9v0r4993vfs3kq773mzdz61vsigqw6v1mjcwnf1si3"))))
+                "0afn2c4s2m65xifa5sfdll0s2gyqbh2q9k9nq4nsmx1b6c2i3i7x"))))
     (build-system gnu-build-system)
-    (inputs `(("icu4c" ,icu4c)))
-    ;; The release tarball lacks the generated files.
-    (native-inputs `(("autoconf" ,autoconf)
-                     ("automake" ,automake)
-                     ("gettext"  ,gnu-gettext)
-                     ("which"    ,which)
-                     ("libtool"  ,libtool)
-                     ("pkg-config" ,pkg-config)))
-    (arguments
-     `(#:phases (alist-cons-after
-                 'unpack 'bootstrap
-                 (lambda _
-                   (zero? (system* "sh" "autogen.sh")))
-                 %standard-phases)))
+    (inputs
+     `(("icu4c" ,icu4c)
+       ("python-2" ,python-2)))
     (home-page "https://github.com/rockdaboot/libpsl")
     (synopsis "C library for the Publix Suffix List")
     (description
@@ -3184,3 +3178,33 @@ embedded_plugins =
 implementing message/object passing, caching, RPC and process management.
 It uses the uwsgi protocol for all the networking/interprocess communications.")
     (license l:gpl2+))) ; with linking exception
+
+(define-public jq
+  (package
+    (name "jq")
+    (version "1.5")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "https://github.com/stedolan/" name
+                                  "/releases/download/" name "-" version
+                                  "/" name "-" version ".tar.gz"))
+              (sha256
+               (base32
+                "0g29kyz4ykasdcrb0zmbrp2jqs9kv1wz9swx849i2d1ncknbzln4"))))
+    (inputs
+     `(("oniguruma" ,oniguruma)))
+    (native-inputs
+     `(;; TODO fix gems to generate documentation
+       ;;("ruby" ,ruby)
+       ;;("bundler" ,bundler)
+       ("valgrind" ,valgrind)))
+    (build-system gnu-build-system)
+    (home-page "http://stedolan.github.io/jq/")
+    (synopsis "Command-line JSON processor")
+    (description "jq is like sed for JSON data – you can use it to slice and
+filter and map and transform structured data with the same ease that sed, awk,
+grep and friends let you play with text.  It is written in portable C.  jq can
+mangle the data format that you have into the one that you want with very
+little effort, and the program to do so is often shorter and simpler than
+you'd expect.")
+    (license (list l:expat l:cc-by3.0))))

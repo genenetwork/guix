@@ -1,7 +1,7 @@
 ;;; GNU Guix --- Functional package management for GNU
 ;;; Copyright © 2013 Nikita Karetnikov <nikita@karetnikov.org>
 ;;; Copyright © 2013, 2014, 2015, 2016 Ludovic Courtès <ludo@gnu.org>
-;;; Copyright © 2013, 2014, 2015 Andreas Enge <andreas@enge.fr>
+;;; Copyright © 2013, 2014, 2015, 2016 Andreas Enge <andreas@enge.fr>
 ;;; Copyright © 2014, 2015 Mark H Weaver <mhw@netris.org>
 ;;; Copyright © 2014 Eric Bavier <bavier@member.fsf.org>
 ;;; Copyright © 2014, 2015 Federico Beffa <beffa@fbengineering.ch>
@@ -16,7 +16,7 @@
 ;;; Copyright © 2015, 2016 Erik Edrosa <erik.edrosa@gmail.com>
 ;;; Copyright © 2015, 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;; Copyright © 2015 Kyle Meyer <kyle@kyleam.com>
-;;; Copyright © 2015 Chris Marusich <cmmarusich@gmail.com>
+;;; Copyright © 2015, 2016 Chris Marusich <cmmarusich@gmail.com>
 ;;; Copyright © 2016 Danny Milosavljevic <dannym+a@scratchpost.org>
 ;;;
 ;;; This file is part of GNU Guix.
@@ -42,6 +42,7 @@
                           zpl2.1))
   #:use-module ((guix licenses) #:select (expat zlib) #:prefix license:)
   #:use-module (gnu packages)
+  #:use-module (gnu packages algebra)
   #:use-module (gnu packages attr)
   #:use-module (gnu packages backup)
   #:use-module (gnu packages compression)
@@ -69,6 +70,7 @@
   #:use-module (gnu packages texlive)
   #:use-module (gnu packages texinfo)
   #:use-module (gnu packages tls)
+  #:use-module (gnu packages version-control)
   #:use-module (gnu packages web)
   #:use-module (gnu packages base)
   #:use-module (gnu packages xml)
@@ -712,7 +714,7 @@ concepts.")
 (define-public python-lockfile
   (package
     (name "python-lockfile")
-    (version "0.9.1")
+    (version "0.12.2")
     (source
      (origin
        (method url-fetch)
@@ -720,18 +722,25 @@ concepts.")
                            "lockfile-" version ".tar.gz"))
        (sha256
         (base32
-         "0iwif7i84gwpvrnpv4brshdk8j6l77smvknm8k3bg77mj6f5ini3"))))
+         "16gpx5hm73ah5n1079ng0vy381hl802v606npkx4x8nb0gg05vba"))))
     (build-system python-build-system)
     (arguments '(#:test-target "check"))
+    (native-inputs
+     `(("python-pbr" ,python-pbr)))
     (home-page "http://code.google.com/p/pylockfile/")
     (synopsis "Platform-independent file locking module")
     (description
      "The lockfile package exports a LockFile class which provides a simple
 API for locking files.")
-    (license license:expat)))
+    (license license:expat)
+    (properties `((python2-variant . ,(delay python2-lockfile))))))
 
 (define-public python2-lockfile
-  (package-with-python2 python-lockfile))
+  (let ((base (package-with-python2 (strip-python2-variant python-lockfile))))
+    (package
+      (inherit base)
+      (native-inputs `(("python2-setuptools" ,python2-setuptools)
+                       ,@(package-native-inputs base))))))
 
 (define-public python-mock
   (package
@@ -978,20 +987,14 @@ datetime module, available in Python 2.3+.")
 (define-public python-pandas
   (package
     (name "python-pandas")
-    (version "0.16.2")
+    (version "0.18.0")
     (source
      (origin
        (method url-fetch)
        (uri (pypi-uri "pandas" version))
        (sha256
-        (base32 "10agmrkps8bi5948vwpipfxds5kj1d076m9i0nhaxwqiw7gm6670"))))
+        (base32 "050qw0ap5bhyv5flp78x3lcq1dlminl3xaj6kbrm0jqmx0672xf9"))))
     (build-system python-build-system)
-    (arguments
-     `(;; Three tests fail:
-       ;; - test_read_google
-       ;; - test_read_yahoo
-       ;; - test_month_range_union_tz_dateutil
-       #:tests? #f))
     (propagated-inputs
      `(("python-numpy" ,python-numpy)
        ("python-pytz" ,python-pytz)
@@ -1530,7 +1533,7 @@ code introspection, and logging.")
 (define-public python-pytest
   (package
     (name "python-pytest")
-    (version "2.6.1")
+    (version "2.7.3")
     (source
      (origin
        (method url-fetch)
@@ -1539,7 +1542,7 @@ code introspection, and logging.")
              version ".tar.gz"))
        (sha256
         (base32
-         "0g2w4p0n42wvz8rq4k6gnzpkakgz3g8sfanxk8jrsra9675snkcr"))
+         "1z4yi986f9n0p8qmzmn21m21m8j1x78hk3505f89baqm6pdw7afm"))
        (modules '((guix build utils)))
        (snippet
         ;; One of the tests involves the /usr directory, so it fails.
@@ -1872,6 +1875,48 @@ and sensible default behaviors into your setuptools run.")
 
 (define-public python2-pbr-0.11
   (package-with-python2 python-pbr-0.11))
+
+(define-public python-pbr
+  (package
+    (name "python-pbr")
+    (version "1.8.1")
+    (source
+      (origin
+        (method url-fetch)
+        (uri (string-append
+               "https://pypi.python.org/packages/source/p/pbr/pbr-"
+               version
+               ".tar.gz"))
+        (sha256
+          (base32
+            "0jcny36cf3s8ar5r4a575npz080hndnrfs4np1fqhv0ym4k7c4p2"))))
+    (build-system python-build-system)
+    (arguments
+     `(#:tests? #f)) ;; Most tests seem to use the Internet.
+    (propagated-inputs
+      `(("python-testrepository" ,python-testrepository)
+        ("git" ,git))) ;; pbr actually uses the "git" binary.
+    (inputs
+      `(("python-fixtures" ,python-fixtures)
+        ("python-mimeparse" ,python-mimeparse)
+        ("python-mock" ,python-mock)
+        ("python-setuptools" ,python-setuptools)
+        ("python-six" ,python-six)
+        ("python-sphinx" ,python-sphinx)
+        ("python-testrepository" ,python-testrepository)
+        ("python-testresources" ,python-testresources)
+        ("python-testscenarios" ,python-testscenarios)
+        ("python-testtools" ,python-testtools)
+        ("python-virtualenv" ,python-virtualenv)))
+    (home-page "https://launchpad.net/pbr")
+    (synopsis "Change the default behavior of Python’s setuptools")
+    (description
+      "Python Build Reasonableness (PBR) is a library that injects some useful
+and sensible default behaviors into your setuptools run.")
+    (license asl2.0)))
+
+(define-public python2-pbr
+  (package-with-python2 python-pbr))
 
 (define-public python-fixtures
   (package
@@ -2909,14 +2954,14 @@ is designed to have a low barrier to entry.")
 (define-public python-cython
   (package
     (name "python-cython")
-    (version "0.23.4")
+    (version "0.24")
     (source
      (origin
        (method url-fetch)
        (uri (pypi-uri "Cython" version))
        (sha256
         (base32
-         "13hdffhd37mx3gjby018xl179jaj957fy7kzi01crmimxvn2zi7y"))))
+         "1wd3q97gia3zhsgcdlvxh26hkrf3m53i6r1l4g0yya119264vr3d"))))
     (build-system python-build-system)
     ;; we need the full python package and not just the python-wrapper
     ;; because we need libpython3.3m.so
@@ -5791,7 +5836,7 @@ responses, rather than doing any computation.")
 (define-public python-cryptography-vectors
   (package
     (name "python-cryptography-vectors")
-    (version "1.2.3")
+    (version "1.3.1")
     (source
      (origin
        (method url-fetch)
@@ -5800,7 +5845,7 @@ responses, rather than doing any computation.")
                            version ".tar.gz"))
        (sha256
         (base32
-         "0shawgpax79gvjrj0a313sll9gaqys7q1hxngn6j4k24lmz7bwki"))))
+         "1144l3ypz3bngxd59lb4y74xa401w92lhvvjgxzglmvbh8wzkcbb"))))
     (build-system python-build-system)
     (native-inputs
      `(("python-setuptools" ,python-setuptools)))
@@ -5817,14 +5862,14 @@ responses, rather than doing any computation.")
 (define-public python-cryptography
   (package
     (name "python-cryptography")
-    (version "1.2.3")
+    (version "1.3.1")
     (source
      (origin
        (method url-fetch)
        (uri (pypi-uri "cryptography" version))
        (sha256
         (base32
-         "0kj511z4g21fhcr649pyzpl0zzkkc7hsgxxjys6z8wwfvmvirccf"))))
+         "1qjkrpfvxcyd0kal3zpm5y7f9p3y77ixn9jw8f4dqpgrw1sn3cxl"))))
     (build-system python-build-system)
     (inputs
      `(("openssl" ,openssl)))
@@ -5868,7 +5913,7 @@ message digests and key derivation functions.")
 (define-public python-pyopenssl
   (package
     (name "python-pyopenssl")
-    (version "0.15.1")
+    (version "16.0.0")
     (source
      (origin
        (method url-fetch)
@@ -5876,29 +5921,8 @@ message digests and key derivation functions.")
                            "pyOpenSSL/pyOpenSSL-" version ".tar.gz"))
        (sha256
         (base32
-         "0wnnq15rhj7fhdcd8ycwiw6r6g3w9f9lcy6cigg8226vsrq618ph"))))
+         "0zfijaxlq4vgi6jz0d4i5xq9ygqnyps6br7lmigjhqnh8gp10g9n"))))
     (build-system python-build-system)
-    (arguments
-     `(#:phases
-       (modify-phases %standard-phases
-         (add-after 'unpack 'fix-tests
-          (lambda* (#:key inputs #:allow-other-keys)
-            (substitute* "OpenSSL/test/test_ssl.py"
-              (("client\\.connect\\(\\('verisign\\.com', 443\\)\\)")
-               "return True")
-              ;; FIXME: disable broken test
-              (("test_set_tmp_ecdh") "disabled__set_tmp_ecdh"))
-            (substitute* "OpenSSL/test/test_crypto.py"
-              (("command = b\"openssl \"")
-               (string-append "command = b\""
-                              (assoc-ref inputs "openssl")
-                              "/bin/openssl" " \""))
-              ;; FIXME: disable four broken tests
-              (("test_der")             "disabled__der")
-              (("test_digest")          "disabled__digest")
-              (("test_get_extension")   "disabled__get_extension")
-              (("test_extension_count") "disabled__extension_count"))
-            #t)))))
     (propagated-inputs
      `(("python-cryptography" ,python-cryptography)
        ("python-six" ,python-six)))
@@ -6056,7 +6080,10 @@ Python's @code{ctypes} foreign function interface (FFI).")
                         #t))))))
     (inputs `(("file" ,file)))
     (self-native-input? #f)
-    (synopsis "Python bindings to the libmagic file type guesser")))
+    (synopsis "Python bindings to the libmagic file type guesser.  Note that
+this module and the python-magic module both provide a \"magic.py\" file;
+these two modules, which are different and were developed separately, both
+serve the same purpose: provide Python bindings for libmagic.")))
 
 (define-public python2-file
   (package-with-python2 python-file))
@@ -7231,9 +7258,9 @@ authenticated session objects providing things like keep-alive.")
 3.2.3 for use with older versions of Python and PyPy.")
     (license license:expat)))
 
-(define-public python-futures
+(define-public python2-futures
   (package
-    (name "python-futures")
+    (name "python2-futures")
     (version "3.0.3")
     (source
       (origin
@@ -7243,8 +7270,9 @@ authenticated session objects providing things like keep-alive.")
          (base32
           "1vcb34dqhzkhbq1957vdjszhhm5y3j9ba88dgwhqx2zynhmk9qig"))))
     (build-system python-build-system)
+    (arguments `(#:python ,python-2))
     (native-inputs
-     `(("python-setuptools" ,python-setuptools)))
+     `(("python2-setuptools" ,python2-setuptools)))
     (home-page "https://github.com/agronholm/pythonfutures")
     (synopsis
      "Backport of the concurrent.futures package from Python 3.2")
@@ -7253,9 +7281,6 @@ authenticated session objects providing things like keep-alive.")
 asynchronously executing callables.  This package backports the
 concurrent.futures package from Python 3.2")
     (license bsd-3)))
-
-(define-public python2-futures
-  (package-with-python2 python-futures))
 
 (define-public python-urllib3
   (package
@@ -8490,3 +8515,194 @@ is made as zipfile like as possible.")
 
 (define-public python2-rarfile
   (package-with-python2 python-rarfile))
+
+(define-public python-magic
+  (package
+    (name "python-magic")
+    (version "0.4.3")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "https://github.com/ahupp/python-magic/archive/"
+                           version ".tar.gz"))
+       (sha256
+        (base32
+         "17bgy92i7sb021f2s4mw1dcvpm6p1mi9jihridwy1pyn8mzvpjgk"))
+       (file-name (string-append name "-" version "-checkout"))))
+    (build-system python-build-system)
+    (arguments
+     ;; The tests are unreliable, so don't run them.  The tests fail
+     ;; under Python3 because they were written for Python2 and
+     ;; contain import statements that do not work in Python3.  One of
+     ;; the tests fails under Python2 because its assertions are
+     ;; overly stringent; it relies on comparing output strings which
+     ;; are brittle and can change depending on the version of
+     ;; libmagic being used and the system on which the test is
+     ;; running.  In my case, under GuixSD 0.10.0, only one test
+     ;; failed, and it seems to have failed only because the version
+     ;; of libmagic that is packaged in Guix outputs a slightly
+     ;; different (but not wrong) string than the one that the test
+     ;; expected.
+     '(#:tests? #f
+       #:phases (modify-phases %standard-phases
+         ;; Replace a specific method call with a hard-coded
+         ;; path to the necessary libmagic.so file in the
+         ;; store.  If we don't do this, then the method call
+         ;; will fail to find the libmagic.so file, which in
+         ;; turn will cause any application using
+         ;; python-magic to fail.
+         (add-before 'build 'hard-code-path-to-libmagic
+           (lambda* (#:key inputs #:allow-other-keys)
+             (let ((file (assoc-ref inputs "file")))
+               (substitute* "magic.py"
+                 (("ctypes.util.find_library\\('magic'\\)")
+                  (string-append "'" file "/lib/libmagic.so'")))
+           #t))))))
+    (native-inputs
+     `(("python-setuptools" ,python-setuptools)))
+    (inputs
+     ;; python-magic needs to be able to find libmagic.so.
+     `(("file" ,file)))
+    (home-page "https://github.com/ahupp/python-magic")
+    (synopsis "File type identification using libmagic")
+    (description
+     "This module uses ctypes to access the libmagic file type
+identification library.  It makes use of the local magic database and
+supports both textual and MIME-type output.  Note that this module and
+the python-file module both provide a \"magic.py\" file; these two
+modules, which are different and were developed separately, both serve
+the same purpose: to provide Python bindings for libmagic.")
+    (license license:expat)))
+
+(define-public python2-magic
+  (package-with-python2 python-magic))
+
+(define-public python2-s3cmd
+  (package
+    (name "python2-s3cmd")
+    (version "1.6.1")
+    (source
+      (origin
+        (method url-fetch)
+        (uri (string-append "mirror://sourceforge/s3tools/"
+                            "s3cmd-" version ".tar.gz"))
+        (sha256
+          (base32
+            "0ki1rzhm5icvi9ry5jswi4b22yqwyj0d2wsqsgilwx6qhi7pjxa6"))))
+    (build-system python-build-system)
+    (arguments
+     ;; s3cmd is written for python2 only and contains no tests.
+     `(#:python ,python-2
+       #:tests? #f))
+    (native-inputs
+     `(("python2-setuptools" ,python2-setuptools)))
+    (inputs
+     `(("python2-dateutil" ,python2-dateutil)
+       ;; The python-file package also provides a magic.py module.
+       ;; This is an unfortunate state of affairs; however, s3cmd
+       ;; fails to install if it cannot find specifically the
+       ;; python-magic package.  Thus we include it, instead of using
+       ;; python-file.  Ironically, s3cmd sometimes works better
+       ;; without libmagic bindings at all:
+       ;; https://github.com/s3tools/s3cmd/issues/198
+       ("python2-magic" ,python2-magic)))
+    (home-page "http://s3tools.org/s3cmd")
+    (synopsis "Command line tool for S3-compatible storage services")
+    (description
+     "S3cmd is a command line tool for uploading, retrieving and managing data
+in storage services that are compatible with the Amazon Simple Storage
+Service (S3) protocol, including S3 itself.  It supports rsync-like backup,
+GnuPG encryption, and more.  It also supports management of Amazon's
+CloudFront content delivery network.")
+    (license gpl2+)))
+
+(define-public python-pkgconfig
+  (package
+    (name "python-pkgconfig")
+    (version "1.1.0")
+    (source
+      (origin
+        (method url-fetch)
+        (uri (pypi-uri "pkgconfig" version))
+        (sha256
+          (base32
+            "1pw0kmvc57sjmaxi6c54fqsnihqj6hvhc9y1vaz36axafzqam7bh"))))
+    (build-system python-build-system)
+    (native-inputs
+      `(("python-nose" ,python-nose)
+        ("python-setuptools" ,python-setuptools)))
+    (inputs
+      `(("pkg-config" ,pkg-config)))
+    (arguments
+      `(;; Tests fail with "ValueError: _type_ 'v' not supported" on Python 3,
+        ;; and on Python 2 they need the dl module deprecated since Python 2.6.
+        #:tests? #f
+        ;; Prevent creation of the egg. This works around
+        ;; https://debbugs.gnu.org/cgi/bugreport.cgi?bug=20765 .
+        #:configure-flags '("--single-version-externally-managed" "--root=/")
+        ;; Hard-code the path to pkg-config.
+        #:phases
+        (modify-phases %standard-phases
+          (add-before
+           'build 'patch
+           (lambda _
+             (substitute* "pkgconfig/pkgconfig.py"
+               (("cmd = 'pkg-config")
+                (string-append "cmd = '" (which "pkg-config"))))
+             #t)))))
+    (home-page "http://github.com/matze/pkgconfig")
+    (synopsis "Python interface for pkg-config")
+    (description "This module provides a Python interface to pkg-config.  It
+can be used to find all pkg-config packages, check if a package exists,
+check if a package meets certain version requirements, query CFLAGS and
+LDFLAGS and parse the output to build extensions with setup.py.")
+    (license license:expat)))
+
+(define-public python2-pkgconfig
+  (package-with-python2 python-pkgconfig))
+
+(define-public python-cysignals
+  (package
+    (name "python-cysignals")
+    (version "1.1.0")
+    (source
+      (origin
+        (method url-fetch)
+        (uri (pypi-uri "cysignals" version ".tar.bz2"))
+        (sha256
+          (base32
+            "14cbyd9znlz6cxy1s3g6v6dv5jj45hn27pywkidd9b1zanaysqc6"))))
+    (build-system python-build-system)
+    (native-inputs
+      `(("python-cython" ,python-cython)
+        ("python-setuptools" ,python-setuptools)
+        ("python-sphinx" ,python-sphinx)))
+    (inputs
+      `(("pari-gp" ,pari-gp)))
+    (arguments
+     `(#:modules ((guix build python-build-system)
+                  ((guix build gnu-build-system) #:prefix gnu:)
+                  (guix build utils))
+       ;; FIXME: Tests are executed after installation and currently fail
+       ;; when not installing into standard locations; the author is working
+       ;; on a fix.
+       #:tests? #f
+       #:phases
+       (modify-phases %standard-phases
+         (add-before
+          'build 'configure
+          (assoc-ref gnu:%standard-phases 'configure)))))
+    (home-page
+      "https://github.com/sagemath/cysignals")
+    (synopsis
+      "Handling of interrupts and signals for Cython")
+    (description
+      "The cysignals package provides mechanisms to handle interrupts (and
+other signals and errors) in Cython code, using two related approaches,
+for mixed Cython/Python code or external C libraries and pure Cython code,
+respectively.")
+    (license lgpl3+)))
+
+(define-public python2-cysignals
+  (package-with-python2 python-cysignals))
+
