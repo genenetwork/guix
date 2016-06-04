@@ -6,13 +6,14 @@
 ;;; Copyright © 2014 Julien Lepiller <julien@lepiller.eu>
 ;;; Copyright © 2015 Taylan Ulrich Bayırlı/Kammer <taylanbayirli@gmail.com>
 ;;; Copyright © 2015 Paul van der Walt <paul@denknerd.org>
-;;; Copyright © 2015 Eric Bavier <bavier@member.fsf.org>
+;;; Copyright © 2015, 2016 Eric Bavier <bavier@member.fsf.org>
 ;;; Copyright © 2015 Andreas Enge <andreas@enge.fr>
 ;;; Copyright © 2015, 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;; Copyright © 2016 Christopher Allan Webber <cwebber@dustycloud.org>
 ;;; Copyright © 2016 Al McElrath <hello@yrns.org>
 ;;; Copyright © 2016 Leo Famulari <leo@famulari.name>
 ;;; Copyright © 2016 Lukas Gradl <lgradl@openmailbox.org>
+;;; Copyright © 2016 Alex Kost <alezost@gmail.com>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -92,7 +93,7 @@
              (sha256
               (base32
                "0szbqa12zqzldqyw97lxqax3ja2adis83i7brdfsxmrfw68iaf65"))
-             (patches (list (search-patch "m4-gets-undeclared.patch")))))
+             (patches (search-patches "m4-gets-undeclared.patch"))))
     (build-system gnu-build-system)
     (arguments
      '(;; TODO: Add `--with-sql'.
@@ -177,15 +178,15 @@ aliasing facilities to work just as they would on normal mail.")
 (define-public mutt
   (package
     (name "mutt")
-    (version "1.6.0")
+    (version "1.6.1")
     (source (origin
              (method url-fetch)
              (uri (string-append "ftp://ftp.mutt.org/pub/mutt/mutt-"
                                  version ".tar.gz"))
              (sha256
               (base32
-               "06bc2drbgalkk68rzg7hq2v5m5qgjxff5357wg0419dpi8ivdbr9"))
-             (patches (list (search-patch "mutt-store-references.patch")))))
+               "087dz1y9qhl4ikhsnnb4xmyvs82w6kx480w8zj130wdiqvn6rclq"))
+             (patches (search-patches "mutt-store-references.patch"))))
     (build-system gnu-build-system)
     (inputs
      `(("cyrus-sasl" ,cyrus-sasl)
@@ -302,11 +303,21 @@ and corrections.  It is based on a Bayesian filter.")
                 "0462mal2fxvavxhwjk1a6vsnspx07yniifa687dwg46aplqznin4"))))
     (build-system python-build-system)
     (native-inputs `(("python" ,python-2)))
+    (inputs `(("python2-pysqlite" ,python2-pysqlite)))
     (arguments
      ;; The setup.py script expects python-2.
      `(#:python ,python-2
       ;; Tests require a modifiable IMAP account.
-       #:tests? #f))
+       #:tests? #f
+       #:phases
+       (modify-phases %standard-phases
+         (add-after 'install 'wrap-binary
+           (lambda* (#:key inputs outputs #:allow-other-keys)
+             (let* ((out (assoc-ref outputs "out"))
+                    (bin (string-append out "/bin/offlineimap")))
+               (wrap-program bin
+                 `("PYTHONPATH" ":" prefix (,(getenv "PYTHONPATH"))))
+               #t))))))
     (home-page "http://www.offlineimap.org")
     (synopsis "Sync emails between two repositories")
     (description
@@ -315,19 +326,10 @@ can read the same mailbox from multiple computers.  It supports IMAP as REMOTE
 repository and Maildir/IMAP as LOCAL repository.")
     (license gpl2+)))
 
-(define %mu-gtester-patch
-  ;; Ensure tests have unique names, to placate GLib 2.6's gtester.
-  (origin
-    (method url-fetch)
-    (uri "https://github.com/djcb/mu/commit/b44039ed.patch")
-    (sha256
-     (base32
-      "165hryqqhx3wah8a4f5jaq465azx1pm9r4jid7880pys9gd88qlv"))))
-
 (define-public mu
   (package
     (name "mu")
-    (version "0.9.13")
+    (version "0.9.16")
     (source (origin
               (method url-fetch)
               (uri (string-append "https://github.com/djcb/mu/archive/v"
@@ -335,37 +337,57 @@ repository and Maildir/IMAP as LOCAL repository.")
               (file-name (string-append "mu-" version ".tar.gz"))
               (sha256
                (base32
-                "0wj33pma8xgjvn2akk7khzbycwn4c9sshxvzdph9dnpy7gyqxj51"))
-              (patches (list %mu-gtester-patch))))
+                "0p7hqri1r1x6750x138cc29mh81kdav2dcim26y58s8an206h25g"))))
     (build-system gnu-build-system)
     (native-inputs
      `(("pkg-config" ,pkg-config)
        ("glib" ,glib "bin")             ; for gtester
        ("autoconf" ,autoconf)
        ("automake" ,automake)
+       ("emacs" ,emacs-minimal)
        ("libtool" ,libtool)
        ("texinfo" ,texinfo)))
     ;; TODO: Add webkit and gtk to build the mug GUI.
     (inputs
      `(("xapian" ,xapian)
-       ("emacs" ,emacs-no-x)
        ("guile" ,guile-2.0)
        ("glib" ,glib)
        ("gmime" ,gmime)
        ("tzdata" ,tzdata)))             ;for mu/test/test-mu-query.c
     (arguments
-     '(#:phases (alist-cons-after
-                 'unpack 'autoreconf
-                 (lambda _
-                   (zero? (system* "autoreconf" "-vi")))
-                 (alist-cons-before
-                   'check 'check-tz-setup
-                   (lambda* (#:key inputs #:allow-other-keys)
-                     ;; For mu/test/test-mu-query.c
-                     (setenv "TZDIR"
-                             (string-append (assoc-ref inputs "tzdata")
-                                            "/share/zoneinfo")))
-                   %standard-phases))))
+     `(#:modules ((guix build gnu-build-system)
+                  (guix build utils)
+                  (guix build emacs-utils))
+       #:imported-modules (,@%gnu-build-system-modules
+                           (guix build emacs-utils))
+       #:phases
+       (modify-phases %standard-phases
+         (add-after 'unpack 'patch-configure.ac
+           ;; By default, elisp code goes to "share/emacs/site-lisp/mu4e",
+           ;; so our Emacs package can't find it.  Setting "--with-lispdir"
+           ;; configure flag doesn't help because "mu4e" will be added to
+           ;; the lispdir anyway, so we have to modify "configure.ac".
+           (lambda _
+             (substitute* "configure.ac"
+               (("^ +lispdir=.*") ""))
+             #t))
+         (add-after 'patch-configure.ac 'autoreconf
+           (lambda _
+             (zero? (system* "autoreconf" "-vi"))))
+         (add-before 'check 'check-tz-setup
+           (lambda* (#:key inputs #:allow-other-keys)
+             ;; For mu/test/test-mu-query.c
+             (setenv "TZDIR"
+                     (string-append (assoc-ref inputs "tzdata")
+                                    "/share/zoneinfo"))
+             #t))
+         (add-after 'install 'install-emacs-autoloads
+           (lambda* (#:key outputs #:allow-other-keys)
+             (emacs-generate-autoloads
+              "mu4e"
+              (string-append (assoc-ref outputs "out")
+                             "/share/emacs/site-lisp"))
+             #t)))))
     (home-page "http://www.djcbsoftware.nl/code/mu/")
     (synopsis "Quickly find emails")
     (description
@@ -595,10 +617,18 @@ MailCore 2.")
               ("libsm" ,libsm)
               ("libxml2" ,libxml2)
               ("perl" ,perl)
-              ("python-2" ,python-2)))
+              ("python-2" ,python-2)
+              ("mime-info" ,shared-mime-info)))
     (arguments
       '(#:configure-flags
-        '("--enable-gnutls" "--enable-pgpmime-plugin" "--enable-enchant")))
+        '("--enable-gnutls" "--enable-pgpmime-plugin" "--enable-enchant")
+        #:phases (modify-phases %standard-phases
+                   (add-before 'build 'patch-mime
+                     (lambda* (#:key inputs #:allow-other-keys)
+                       (substitute* "src/procmime.c"
+                         (("/usr/share/mime/globs")
+                          (string-append (assoc-ref inputs "mime-info")
+                                         "/share/mime/globs"))))))))
     (synopsis "GTK-based Email client")
     (description
      "Claws-Mail is an email client (and news reader) based on GTK+.  The
@@ -612,14 +642,14 @@ which can add many functionalities to the base client.")
 (define-public msmtp
   (package
     (name "msmtp")
-    (version "1.6.3")
+    (version "1.6.4")
     (source
      (origin
        (method url-fetch)
        (uri (string-append
              "mirror://sourceforge/msmtp/msmtp-" version ".tar.xz"))
        (sha256 (base32
-                "0mbkflxv2swjz4185inis83v6pxcblpmapwjhgpc6wh7kh3bx0pr"))))
+                "1kfihblm769s4hv8iah5mqynqd6hfwlyz5rcg2v423a4llic0jcv"))))
     (build-system gnu-build-system)
     (inputs
      `(("libidn" ,libidn)
@@ -657,7 +687,7 @@ delivery.")
 (define-public exim
   (package
     (name "exim")
-    (version "4.86.2")
+    (version "4.87")
     (source
      (origin
        (method url-fetch)
@@ -667,7 +697,7 @@ delivery.")
                                  version ".tar.bz2")))
        (sha256
         (base32
-         "1cvfcc1hi60lydv8h3a2rxlfc0v2nflwpvzjj7h7cdsqs2pxwmkp"))))
+         "1jbxn13shq90kpn0s73qpjnx5xm8jrpwhcwwgqw5s6sdzw6iwsbl"))))
     (build-system gnu-build-system)
     (inputs
      `(("bdb" ,bdb)
@@ -1119,9 +1149,8 @@ deliver it in various ways.")
        ;; The following patch fixes an ambiguous definition of
        ;; getline() in formail.c.  The patch is provided by Debian as
        ;; patch 24.
-       (patches
-        (list
-         (search-patch "procmail-ambiguous-getline-debian.patch")))))
+       (patches (search-patches "procmail-ambiguous-getline-debian.patch"
+                                "procmail-CVE-2014-3618.patch"))))
     (arguments
      `(#:phases (modify-phases %standard-phases
                   (replace 'configure
@@ -1156,13 +1185,13 @@ maintained.")
 (define-public khard
   (package
     (name "khard")
-    (version "0.8.1")
+    (version "0.9.0")
     (source (origin
               (method url-fetch)
               (uri (pypi-uri name version))
               (sha256
                (base32
-                "098gs94qmnspdfn6ar8lycx7dbsz9bcff90aps0cmn47mw7llch0"))))
+                "0y83rji4f270hbb41m4jpr0z3yzvpvbsl32mpg9d38hlydw8fk1s"))))
     (build-system python-build-system)
     (arguments
       `(#:python ,python-2 ; only python-2 is supported.

@@ -32,8 +32,9 @@
   #:use-module (rnrs bytevectors)
   #:use-module (rnrs io ports)
   #:use-module ((rnrs bytevectors) #:select (bytevector-u8-set!))
+  #:use-module (guix combinators)
   #:use-module ((guix build utils) #:select (dump-port))
-  #:use-module ((guix build syscalls) #:select (errno mkdtemp!))
+  #:use-module ((guix build syscalls) #:select (mkdtemp!))
   #:use-module (ice-9 vlist)
   #:use-module (ice-9 format)
   #:autoload   (ice-9 popen)  (open-pipe*)
@@ -41,13 +42,12 @@
   #:use-module (ice-9 regex)
   #:use-module (ice-9 match)
   #:use-module (ice-9 format)
+  #:use-module ((ice-9 iconv) #:select (bytevector->string))
   #:use-module (system foreign)
+  #:re-export (memoize)         ; for backwards compatibility
   #:export (bytevector->base16-string
             base16-string->bytevector
 
-            compile-time-value
-            fcntl-flock
-            memoize
             strip-keyword-arguments
             default-keyword-arguments
             substitute-keyword-arguments
@@ -60,6 +60,7 @@
             location-line
             location-column
             source-properties->location
+            location->source-properties
 
             nix-system->gnu-triplet
             gnu-triplet->nix-system
@@ -80,12 +81,9 @@
             call-with-temporary-output-file
             call-with-temporary-directory
             with-atomic-file-output
-            fold2
-            fold-tree
-            fold-tree-leaves
-            split
             cache-directory
             readlink*
+            edit-expression
 
             filtered-port
             compressed-port
@@ -94,22 +92,6 @@
             compressed-output-port
             call-with-compressed-output-port
             canonical-newline-port))
-
-
-;;;
-;;; Compile-time computations.
-;;;
-
-(define-syntax compile-time-value
-  (syntax-rules ()
-    "Evaluate the given expression at compile time.  The expression must
-evaluate to a simple datum."
-    ((_ exp)
-     (let-syntax ((v (lambda (s)
-                       (let ((val exp))
-                         (syntax-case s ()
-                           (_ #`'#,(datum->syntax s val)))))))
-       v))))
 
 
 ;;;
@@ -318,95 +300,48 @@ a list of command-line arguments passed to the compression program."
         (unless (every (compose zero? cdr waitpid) pids)
           (error "compressed-output-port failure" pids))))))
 
-
-;;;
-;;; Advisory file locking.
-;;;
-
-(define %struct-flock
-  ;; 'struct flock' from <fcntl.h>.
-  (list short                                     ; l_type
-        short                                     ; l_whence
-        size_t                                    ; l_start
-        size_t                                    ; l_len
-        int))                                     ; l_pid
-
-(define F_SETLKW
-  ;; On Linux-based systems, this is usually 7, but not always
-  ;; (exceptions include SPARC.)  On GNU/Hurd, it's 9.
-  (compile-time-value
-   (cond ((string-contains %host-type "sparc") 9) ; sparc-*-linux-gnu
-         ((string-contains %host-type "linux") 7) ; *-linux-gnu
-         (else 9))))                              ; *-gnu*
-
-(define F_SETLK
-  ;; Likewise: GNU/Hurd and SPARC use 8, while the others typically use 6.
-  (compile-time-value
-   (cond ((string-contains %host-type "sparc") 8) ; sparc-*-linux-gnu
-         ((string-contains %host-type "linux") 6) ; *-linux-gnu
-         (else 8))))                              ; *-gnu*
-
-(define F_xxLCK
-  ;; The F_RDLCK, F_WRLCK, and F_UNLCK constants.
-  (compile-time-value
-   (cond ((string-contains %host-type "sparc") #(1 2 3))    ; sparc-*-linux-gnu
-         ((string-contains %host-type "hppa")  #(1 2 3))    ; hppa-*-linux-gnu
-         ((string-contains %host-type "linux") #(0 1 2))    ; *-linux-gnu
-         (else                                 #(1 2 3))))) ; *-gnu*
-
-(define fcntl-flock
-  (let* ((ptr  (dynamic-func "fcntl" (dynamic-link)))
-         (proc (pointer->procedure int ptr `(,int ,int *))))
-    (lambda* (fd-or-port operation #:key (wait? #t))
-      "Perform locking OPERATION on the file beneath FD-OR-PORT.  OPERATION
-must be a symbol, one of 'read-lock, 'write-lock, or 'unlock.  When WAIT? is
-true, block until the lock is acquired; otherwise, thrown an 'flock-error'
-exception if it's already taken."
-      (define (operation->int op)
-        (case op
-          ((read-lock)  (vector-ref F_xxLCK 0))
-          ((write-lock) (vector-ref F_xxLCK 1))
-          ((unlock)     (vector-ref F_xxLCK 2))
-          (else         (error "invalid fcntl-flock operation" op))))
-
-      (define fd
-        (if (port? fd-or-port)
-            (fileno fd-or-port)
-            fd-or-port))
-
-      ;; XXX: 'fcntl' is a vararg function, but here we happily use the
-      ;; standard ABI; crossing fingers.
-      (let ((err (proc fd
-                       (if wait?
-                           F_SETLKW               ; lock & wait
-                           F_SETLK)               ; non-blocking attempt
-                       (make-c-struct %struct-flock
-                                      (list (operation->int operation)
-                                            SEEK_SET
-                                            0 0   ; whole file
-                                            0)))))
-        (or (zero? err)
-
-            ;; Presumably we got EAGAIN or so.
-            (throw 'flock-error (errno)))))))
+(define* (edit-expression source-properties proc #:key (encoding "UTF-8"))
+  "Edit the expression specified by SOURCE-PROPERTIES using PROC, which should
+be a procedure that takes the original expression in string and returns a new
+one.  ENCODING will be used to interpret all port I/O, it default to UTF-8.
+This procedure returns #t on success."
+  (with-fluids ((%default-port-encoding encoding))
+    (let* ((file   (assq-ref source-properties 'filename))
+           (line   (assq-ref source-properties 'line))
+           (column (assq-ref source-properties 'column))
+           (in     (open-input-file file))
+           ;; The start byte position of the expression.
+           (start  (begin (while (not (and (= line (port-line in))
+                                           (= column (port-column in))))
+                            (when (eof-object? (read-char in))
+                              (error (format #f "~a: end of file~%" in))))
+                          (ftell in)))
+           ;; The end byte position of the expression.
+           (end    (begin (read in) (ftell in))))
+      (seek in 0 SEEK_SET) ; read from the beginning of the file.
+      (let* ((pre-bv  (get-bytevector-n in start))
+             ;; The expression in string form.
+             (str     (bytevector->string
+                       (get-bytevector-n in (- end start))
+                       (port-encoding in)))
+             (post-bv (get-bytevector-all in))
+             (str*    (proc str)))
+        ;; Verify the edited expression is still a scheme expression.
+        (call-with-input-string str* read)
+        ;; Update the file with edited expression.
+        (with-atomic-file-output file
+          (lambda (out)
+            (put-bytevector out pre-bv)
+            (display str* out)
+            ;; post-bv maybe the end-of-file object.
+            (when (not (eof-object? post-bv))
+              (put-bytevector out post-bv))
+            #t))))))
 
 
 ;;;
-;;; Miscellaneous.
+;;; Keyword arguments.
 ;;;
-
-(define (memoize proc)
-  "Return a memoizing version of PROC."
-  (let ((cache (make-hash-table)))
-    (lambda args
-      (let ((results (hash-ref cache args)))
-        (if results
-            (apply values results)
-            (let ((results (call-with-values (lambda ()
-                                               (apply proc args))
-                             list)))
-              (hash-set! cache args results)
-              (apply values results)))))))
 
 (define (strip-keyword-arguments keywords args)
   "Remove all of the keyword arguments listed in KEYWORDS from ARGS."
@@ -492,6 +427,11 @@ For instance:
           (loop rest (delkw kw kw/values) (cons* value kw result)))
          (#f
           (loop rest kw/values (cons* value kw result))))))))
+
+
+;;;
+;;; System strings.
+;;;
 
 (define* (nix-system->gnu-triplet
           #:optional (system (%current-system)) (vendor "unknown"))
@@ -691,83 +631,11 @@ output port, and PROC's result is returned."
       (lambda (key . args)
         (false-if-exception (delete-file template))))))
 
-(define fold2
-  (case-lambda
-    ((proc seed1 seed2 lst)
-     "Like `fold', but with a single list and two seeds."
-     (let loop ((result1 seed1)
-                (result2 seed2)
-                (lst     lst))
-       (if (null? lst)
-           (values result1 result2)
-           (call-with-values
-               (lambda () (proc (car lst) result1 result2))
-             (lambda (result1 result2)
-               (loop result1 result2 (cdr lst)))))))
-    ((proc seed1 seed2 lst1 lst2)
-     "Like `fold', but with a two lists and two seeds."
-     (let loop ((result1 seed1)
-                (result2 seed2)
-                (lst1    lst1)
-                (lst2    lst2))
-       (if (or (null? lst1) (null? lst2))
-           (values result1 result2)
-           (call-with-values
-               (lambda () (proc (car lst1) (car lst2) result1 result2))
-             (lambda (result1 result2)
-               (fold2 proc result1 result2 (cdr lst1) (cdr lst2)))))))))
-
-(define (fold-tree proc init children roots)
-  "Call (PROC NODE RESULT) for each node in the tree that is reachable from
-ROOTS, using INIT as the initial value of RESULT.  The order in which nodes
-are traversed is not specified, however, each node is visited only once, based
-on an eq? check.  Children of a node to be visited are generated by
-calling (CHILDREN NODE), the result of which should be a list of nodes that
-are connected to NODE in the tree, or '() or #f if NODE is a leaf node."
-  (let loop ((result init)
-             (seen vlist-null)
-             (lst roots))
-    (match lst
-      (() result)
-      ((head . tail)
-       (if (not (vhash-assq head seen))
-           (loop (proc head result)
-                 (vhash-consq head #t seen)
-                 (match (children head)
-                   ((or () #f) tail)
-                   (children (append tail children))))
-           (loop result seen tail))))))
-
-(define (fold-tree-leaves proc init children roots)
-  "Like fold-tree, but call (PROC NODE RESULT) only for leaf nodes."
-  (fold-tree
-   (lambda (node result)
-     (match (children node)
-       ((or () #f) (proc node result))
-       (else result)))
-   init children roots))
-
-(define (split lst e)
-  "Return two values, a list containing the elements of the list LST that
-appear before the first occurence of the object E and a list containing the
-elements after E."
-  (define (same? x)
-    (equal? e x))
-
-  (let loop ((rest lst)
-             (acc '()))
-    (match rest
-      (()
-       (values lst '()))
-      (((? same?) . tail)
-       (values (reverse acc) tail))
-      ((head . tail)
-       (loop tail (cons head acc))))))
-
 (define (cache-directory)
   "Return the cache directory for Guix, by default ~/.cache/guix."
   (or (getenv "XDG_CONFIG_HOME")
-      (and=> (getenv "HOME")
+      (and=> (or (getenv "HOME")
+                 (passwd:dir (getpwuid (getuid))))
              (cut string-append <> "/.cache/guix"))))
 
 (define (readlink* file)
@@ -855,3 +723,10 @@ etc."
     ;; In accordance with the GCS, start line and column numbers at 1.  Note
     ;; that unlike LINE and `port-column', COL is actually 1-indexed here...
     (location file (and line (+ line 1)) col)))
+
+(define (location->source-properties loc)
+  "Return the source property association list based on the info in LOC,
+a location object."
+  `((line     . ,(and=> (location-line loc) 1-))
+    (column   . ,(location-column loc))
+    (filename . ,(location-file loc))))

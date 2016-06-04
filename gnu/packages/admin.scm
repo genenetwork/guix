@@ -486,9 +486,9 @@ connection alive.")
 (define-public isc-dhcp
   (let* ((bind-major-version "9")
          (bind-minor-version "9")
-         (bind-patch-version "8")
-         (bind-release-type "-P")
-         (bind-release-version "4")
+         (bind-patch-version "9")
+         (bind-release-type "")         ; for patch release, use "-P"
+         (bind-release-version "")      ; for patch release, e.g. "4"
          (bind-version (string-append bind-major-version
                                       "."
                                       bind-minor-version
@@ -498,14 +498,14 @@ connection alive.")
                                       bind-release-version)))
     (package
       (name "isc-dhcp")
-      (version "4.3.3-P1")
+      (version "4.3.4")
       (source (origin
                 (method url-fetch)
                 (uri (string-append "http://ftp.isc.org/isc/dhcp/"
                                     version "/dhcp-" version ".tar.gz"))
                 (sha256
                  (base32
-                  "08crcsmg4dm2v533aq3883ik8mf4vvvd6r998r4vrgx1zxnqj7n1"))))
+                  "0zk0imll6bfyp9p4ndn8h6s4ifijnw5bhixswifr5rnk7pp5l4gm"))))
       (build-system gnu-build-system)
       (arguments
        `(#:parallel-build? #f
@@ -604,7 +604,7 @@ connection alive.")
                                         "/bind-" bind-version ".tar.gz"))
                     (sha256
                      (base32
-                      "1wl9kl0630dc1qjrf7fnp8cscagfm5qgmisi0zhr1p6iwi9bil2y"))))
+                      "0w8qqm6p2y6x57j2l0a3278g173wd84dsr4py9z00191f3wra74q"))))
 
                 ;; When cross-compiling, we need the cross Coreutils and sed.
                 ;; Otherwise just use those from %FINAL-INPUTS.
@@ -619,7 +619,8 @@ connection alive.")
        "ISC's Dynamic Host Configuration Protocol (DHCP) distribution provides a
 reference implementation of all aspects of DHCP, through a suite of DHCP
 tools: server, client, and relay agent.")
-      (license license:isc))))
+      (license license:isc)
+      (properties '((cpe-name . "dhcp"))))))
 
 (define-public libpcap
   (package
@@ -797,7 +798,7 @@ system administrator.")
               (sha256
                (base32
                 "0263gi6i19fyzzc488n0qw3m518i39f6a7qmrfvahk9j10bkh5j3"))
-              (patches (list (search-patch "sudo-CVE-2015-5602.patch")))))
+              (patches (search-patches "sudo-CVE-2015-5602.patch"))))
     (build-system gnu-build-system)
     (arguments
      `(#:configure-flags
@@ -871,10 +872,15 @@ commands and their arguments.")
                (base32
                 "05mkp5bx1c3z7h5biddsv0p49gkrq9ksany3anp4wdiv92p5prfc"))
               (patches
-               (map search-patch '("wpa-supplicant-CVE-2015-5310.patch"
-                                   "wpa-supplicant-CVE-2015-5314.patch"
-                                   "wpa-supplicant-CVE-2015-5315.patch"
-                                   "wpa-supplicant-CVE-2015-5316.patch")))))
+               (search-patches "wpa-supplicant-CVE-2015-5310.patch"
+                               "wpa-supplicant-CVE-2015-5314.patch"
+                               "wpa-supplicant-CVE-2015-5315.patch"
+                               "wpa-supplicant-CVE-2015-5316.patch"
+                               "wpa-supplicant-CVE-2016-4476.patch"
+                               "wpa-supplicant-CVE-2016-4477-pt1.patch"
+                               "wpa-supplicant-CVE-2016-4477-pt2.patch"
+                               "wpa-supplicant-CVE-2016-4477-pt3.patch"
+                               "wpa-supplicant-CVE-2016-4477-pt4.patch"))))
     (build-system gnu-build-system)
     (arguments
      '(#:phases (alist-replace
@@ -1247,7 +1253,7 @@ various ways that may be running with too much privilege.")
 (define-public smartmontools
   (package
     (name "smartmontools")
-    (version "6.3")
+    (version "6.5")
     (source (origin
               (method url-fetch)
               (uri (string-append
@@ -1255,7 +1261,7 @@ various ways that may be running with too much privilege.")
                     version "/smartmontools-" version ".tar.gz"))
               (sha256
                (base32
-                "06gy71jh2d3gcfmlbbrsqw7215knkfq59q3j6qdxfrar39fhcxx7"))))
+                "1g25r6sx85b5lay5n6sbnqv05qxzj6xsafsp93hnrg1h044bps49"))))
     (build-system gnu-build-system)
     (inputs `(("libcap-ng" ,libcap-ng)))
     (home-page "http://www.smartmontools.org/")
@@ -1499,20 +1505,20 @@ displays a table of current bandwidth usage by pairs of hosts.")
 (define-public munge
   (package
     (name "munge")
-    (version "0.5.11")
+    (version "0.5.12")
     (source (origin
               (method url-fetch)
-              (uri (string-append "https://github.com/dun/munge/archive/munge-"
-                                  version ".tar.gz"))
-              (file-name (string-append name "-" version ".tar.gz"))
+              (uri (string-append "https://github.com/dun/munge/releases/"
+                                  "download/munge-" version "/munge-"
+                                  version ".tar.xz"))
               (sha256
                (base32
-                "0njplyalwwqh7xr7xc7klc6x06mq0ak8w2pxh85w8n4hxkmqqnf5"))))
+                "1s0vlwgm3hcx75vcmjf2y3icy5nv8y07bx93w2cmm6a7x71y6wp9"))))
     (inputs
      `(("openssl" ,openssl)
        ("libgcrypt" ,libgcrypt)))
     (build-system gnu-build-system)
-    (home-page "http://dun.github.io/munge/")
+    (home-page "https://dun.github.io/munge/")
     (synopsis "Cluster computing authentication service")
     (description
      "Munge is an authentication service for creating and validating
@@ -1564,14 +1570,14 @@ done with the @code{auditctl} utility.")
 (define-public nmap
   (package
     (name "nmap")
-    (version "7.11")
+    (version "7.12")
     (source (origin
               (method url-fetch)
               (uri (string-append "https://nmap.org/dist/nmap-" version
                                   ".tar.bz2"))
               (sha256
                (base32
-                "0jlmq1w0gjqpa7qa523kdj73ndm1xzww2wjvb94hxh6yalargyhk"))
+                "014vagh9ak10hidwzp9s6g30y5h5fhsh8wykcnc1hnn9hwm0ipv3"))
               (modules '((guix build utils)))
               (snippet
                '(map delete-file-recursively

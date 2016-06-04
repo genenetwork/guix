@@ -38,7 +38,7 @@
   #:use-module (gnu packages pkg-config)
   #:use-module (gnu packages compression)
   #:use-module (gnu packages xorg)
-  #:use-module (gnu packages texlive)
+  #:use-module (gnu packages tex)
   #:use-module (gnu packages ghostscript)
   #:use-module (gnu packages lynx)
   #:use-module (gnu packages perl)
@@ -60,7 +60,8 @@
                     "/ocaml-" version ".tar.xz"))
               (sha256
                (base32
-                "1qwwvy8nzd87hk8rd9sm667nppakiapnx4ypdwcrlnav2dz6kil3"))))
+                "1qwwvy8nzd87hk8rd9sm667nppakiapnx4ypdwcrlnav2dz6kil3"))
+              (patches (search-patches "ocaml-CVE-2015-8869.patch"))))
     (build-system gnu-build-system)
     (native-search-paths
      (list (search-path-specification
@@ -385,7 +386,7 @@ It is developed using Objective Caml and Camlp5.")
     (build-system gnu-build-system)
     (native-inputs
      `(("which" ,which)
-       ("emacs" ,emacs-no-x)
+       ("emacs" ,emacs-minimal)
        ("texinfo" ,texinfo)))
     (inputs
      `(("host-emacs" ,emacs)
@@ -633,8 +634,7 @@ to the other.")
               (sha256
                (base32
                 "02abg1lsnwvjg3igdyb8qjgr5kv1nbwl4gaf8mdinzfii5p82721"))
-              (patches
-               (list (search-patch "ocaml-findlib-make-install.patch")))))
+              (patches (search-patches "ocaml-findlib-make-install.patch"))))
     (build-system gnu-build-system)
     (native-inputs
      `(("camlp4" ,camlp4)

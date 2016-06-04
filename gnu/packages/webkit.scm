@@ -53,14 +53,14 @@
 (define-public webkitgtk
   (package
     (name "webkitgtk")
-    (version "2.12.0")
+    (version "2.12.3")
     (source (origin
               (method url-fetch)
               (uri (string-append "http://www.webkitgtk.org/releases/"
                                   name "-" version ".tar.xz"))
               (sha256
                (base32
-                "19jyvyw8ss4bacq3f7ybdb0r16r84q12j2bpciyj9jqvzpw091m6"))))
+                "01y34v62khf03w25fnzgd42rrai5mf1m95lr5vjyw8ya5sdbng0p"))))
     (build-system cmake-build-system)
     (arguments
      '(#:tests? #f ; no tests
@@ -136,14 +136,14 @@ HTML/CSS applications to full-fledged web browsers.")
 (define-public webkitgtk-2.4
   (package (inherit webkitgtk)
     (name "webkitgtk")
-    (version "2.4.10")
+    (version "2.4.11")
     (source (origin
               (method url-fetch)
               (uri (string-append "http://www.webkitgtk.org/releases/"
                                   name "-" version ".tar.xz"))
               (sha256
                (base32
-                "0566yx5lxi40g0wpvmwbc8y76akd7zph7flrjdp2vv3z1nra9z9k"))))
+                "1xsvnvyvlywwyf6m9ainpsg87jkxjmd37q6zgz9cxb7v3c2ym2jq"))))
     (build-system gnu-build-system)
     (arguments
      '(#:tests? #f ; no tests

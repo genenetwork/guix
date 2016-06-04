@@ -4,6 +4,8 @@
 ;;; Copyright © 2015 Christopher Allan Webber <cwebber@dustycloud.org>
 ;;; Copyright © 2016 Alex Sassmannshausen <alex@pompo.co>
 ;;; Copyright © 2016 Ricardo Wurmus <rekado@elephly.net>
+;;; Copyright © 2016 Erik Edrosa <erik.edrosa@gmail.com>
+;;; Copyright © 2016 Eraim Flashner <efraim@flashner.co.il>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -72,7 +74,7 @@
             (sha256
              (base32
               "0l200a0v7h8bh0cwz6v7hc13ds39cgqsmfrks55b1rbj5vniyiy3"))
-            (patches (list (search-patch "guile-1.8-cpp-4.5.patch")))))
+            (patches (search-patches "guile-1.8-cpp-4.5.patch"))))
    (build-system gnu-build-system)
    (arguments '(#:configure-flags '("--disable-error-on-warning")
 
@@ -132,7 +134,7 @@ without requiring the source code to be rewritten.")
             (sha256
              (base32
               "1qh3j7308qvsjgwf7h94yqgckpbgz2k3yqdkzsyhqcafvfka9l5f"))
-            (patches (list (search-patch "guile-arm-fixes.patch")))))
+            (patches (search-patches "guile-arm-fixes.patch"))))
    (build-system gnu-build-system)
    (native-inputs `(("pkgconfig" ,pkg-config)))
    (inputs `(("libffi" ,libffi)
@@ -361,14 +363,14 @@ many readers as needed).")
 (define-public guile-ncurses
   (package
     (name "guile-ncurses")
-    (version "1.6")
+    (version "1.7")
     (source (origin
              (method url-fetch)
              (uri (string-append "mirror://gnu/guile-ncurses/guile-ncurses-"
                                  version ".tar.gz"))
              (sha256
               (base32
-               "0wmk681zzi1wxw543r2s2r84ndnzxp69kr7pc01aw4l55hg7jn73"))))
+               "153vv75gb7l62sp3666rc97i63rnaqbx2rjar7d9b5w81fhwv4r5"))))
     (build-system gnu-build-system)
     (inputs `(("ncurses" ,ncurses)
               ("guile" ,guile-2.0)))
@@ -377,21 +379,17 @@ many readers as needed).")
                                (string-append "--with-guilesitedir="
                                               (assoc-ref %outputs "out")
                                               "/share/guile/site/2.0"))
-
-       ;; Work around <http://bugs.gnu.org/21677>.
-       #:make-flags '("XFAIL_TESTS=curses_034_util.test")
-
-       #:phases (alist-cons-after
-                 'install 'post-install
-                 (lambda* (#:key outputs #:allow-other-keys)
-                   (let* ((out   (assoc-ref outputs "out"))
-                          (dir   (string-append out "/share/guile/site/"))
-                          (files (find-files dir ".scm")))
-                     (substitute* files
-                       (("\"libguile-ncurses\"")
-                        (format #f "\"~a/lib/libguile-ncurses\""
-                                out)))))
-                 %standard-phases)))
+       #:phases
+       (modify-phases %standard-phases
+         (add-after 'install 'post-install
+           (lambda* (#:key outputs #:allow-other-keys)
+             (let* ((out   (assoc-ref outputs "out"))
+                    (dir   (string-append out "/share/guile/site/"))
+                    (files (find-files dir ".scm")))
+               (substitute* files
+                 (("\"libguile-ncurses\"")
+                  (format #f "\"~a/lib/libguile-ncurses\""
+                          out)))))))))
     (home-page "http://www.gnu.org/software/guile-ncurses/")
     (synopsis "Guile bindings to ncurses")
     (description
@@ -410,7 +408,7 @@ library.")
              (sha256
               (base32
                "0zparwgf01jgl1x53ik71ghabldq6zz18ha4dscps1i0qrzgap1b"))
-             (patches (list (search-patch "mcron-install.patch")))))
+             (patches (search-patches "mcron-install.patch"))))
     (build-system gnu-build-system)
     (native-inputs `(("pkg-config" ,pkg-config)))
     (inputs `(("ed" ,ed) ("which" ,which) ("guile" ,guile-2.0)))
@@ -529,7 +527,7 @@ http:://json.org specification.  These are the main features:
            (setenv "GUILE_AUTO_COMPILE" "0")
            (for-each (lambda (file)
                        (let* ((dest-file (string-append module-dir "/"
-                                                        file ".scm"))
+                                                        file))
                               (go-file (match (string-split file #\.)
                                          ((base _)
                                           (string-append module-dir "/"
@@ -567,16 +565,15 @@ See http://minikanren.org/ for more on miniKanren generally.")
 (define-public guile-irregex
   (package
     (name "guile-irregex")
-    (version "0.9.3")
+    (version "0.9.4")
     (source (origin
               (method url-fetch)
               (uri (string-append
                     "http://synthcode.com/scheme/irregex/irregex-"
-                    version
-                    ".tar.gz"))
+                    version ".tar.gz"))
               (sha256
                (base32
-                "1b8jl7bycyl2ssp6sb1j24pp9hvqyxm85ki9bmwd50glyyjs5zay"))))
+                "0cmaqvqvyarcnnsyrl2p6vwyv1r3k1q7qw8p9zrlnz1vpbj7vb90"))))
     (build-system gnu-build-system)
     (arguments
      `(#:modules ((guix build utils)
@@ -711,14 +708,14 @@ Guile's foreign function interface.")
 (define-public haunt
   (package
     (name "haunt")
-    (version "0.1")
+    (version "0.2")
     (source (origin
               (method url-fetch)
-              (uri (string-append "http://files.dthompson.us/haunt/haunt-"
+              (uri (string-append "https://files.dthompson.us/haunt/haunt-"
                                   version ".tar.gz"))
               (sha256
                (base32
-                "15q1qwjnay7k90ppqrzqsmikvwyj61mjvf1zahyd9gm4vi2fgb3x"))))
+                "1id83n8fs7jxys1d8jy70vylg8gzcvlw1y7hb41y3qxv5zi4671m"))))
     (build-system gnu-build-system)
     (arguments
      `(#:modules ((ice-9 match) (ice-9 ftw)
@@ -742,8 +739,13 @@ Guile's foreign function interface.")
                                `("GUILE_LOAD_COMPILED_PATH" ":" prefix
                                  (,modules)))
                              #t)))))))))
+    (native-inputs
+     `(("pkg-config" ,pkg-config)
+       ("texinfo" ,texinfo)))
     (inputs
      `(("guile" ,guile-2.0)))
+    (propagated-inputs
+     `(("guile-reader" ,guile-reader)))
     (synopsis "Functional static site generator")
     (description "Haunt is a static site generator written in Guile
 Scheme.  Haunt features a functional build system and an extensible

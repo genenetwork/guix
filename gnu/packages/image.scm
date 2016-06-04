@@ -2,7 +2,7 @@
 ;;; Copyright © 2013, 2015, 2016 Andreas Enge <andreas@enge.fr>
 ;;; Copyright © 2014, 2015, 2016 Mark H Weaver <mhw@netris.org>
 ;;; Copyright © 2014, 2015 Alex Kost <alezost@gmail.com>
-;;; Copyright © 2014 Ricardo Wurmus <rekado@elephly.net>
+;;; Copyright © 2014, 2016 Ricardo Wurmus <rekado@elephly.net>
 ;;; Copyright © 2015 Taylan Ulrich Bayırlı/Kammer <taylanbayirli@gmail.com>
 ;;; Copyright © 2015 Amirouche Boubekki <amirouche@hypermove.net>
 ;;; Copyright © 2014 John Darrington <jmd@gnu.org>
@@ -30,7 +30,7 @@
   #:use-module (gnu packages autotools)
   #:use-module (gnu packages boost)
   #:use-module (gnu packages compression)
-  #:use-module (gnu packages doxygen)
+  #:use-module (gnu packages documentation)
   #:use-module (gnu packages fontutils)
   #:use-module (gnu packages ghostscript)
   #:use-module (gnu packages gl)
@@ -75,6 +75,22 @@
 library.  It supports almost all PNG features and is extensible.")
    (license license:zlib)
    (home-page "http://www.libpng.org/pub/png/libpng.html")))
+
+(define-public libpng-1.2
+  (package
+    (inherit libpng)
+    (version "1.2.56")
+    (source
+     (origin
+       (method url-fetch)
+       ;; Note: upstream removes older tarballs.
+       (uri (list (string-append "mirror://sourceforge/libpng/libpng12/"
+                                 version "/libpng-" version ".tar.xz")
+                  (string-append
+                   "ftp://ftp.simplesystems.org/pub/libpng/png/src"
+                   "/libpng12/libpng-" version ".tar.xz")))
+       (sha256
+        (base32 "1ghd03p353x0vi4dk83n1nlldg11w7vqdk3f99rkgfb82ic59ki4"))))))
 
 (define-public libjpeg
   (package
@@ -140,10 +156,10 @@ maximum quality factor.")
                    version ".tar.gz"))
             (sha256 (base32
                      "136nf1rj9dp5jgv1p7z4dk0xy3wki1w0vfjbk82f645m0w4samsd"))
-            (patches (map search-patch
-                          '("libtiff-oob-accesses-in-decode.patch"
-                            "libtiff-oob-write-in-nextdecode.patch"
-                            "libtiff-CVE-2015-8665+CVE-2015-8683.patch")))))
+            (patches (search-patches
+                      "libtiff-oob-accesses-in-decode.patch"
+                      "libtiff-oob-write-in-nextdecode.patch"
+                      "libtiff-CVE-2015-8665+CVE-2015-8683.patch"))))
    (build-system gnu-build-system)
    (outputs '("out"
               "doc"))                           ;1.3 MiB of HTML documentation
@@ -178,18 +194,18 @@ collection of tools for doing simple manipulations of TIFF images.")
         (sha256
          (base32 "1y3wba4q8pl7kr51212jwrsz1x6nslsx1gsjml1x0i8549lmqd2v"))
         (patches
-         (map search-patch '("libwmf-CAN-2004-0941.patch"
-                             "libwmf-CVE-2006-3376.patch"
-                             "libwmf-CVE-2007-0455.patch"
-                             "libwmf-CVE-2007-2756.patch"
-                             "libwmf-CVE-2007-3472.patch"
-                             "libwmf-CVE-2007-3473.patch"
-                             "libwmf-CVE-2007-3477.patch"
-                             "libwmf-CVE-2009-1364.patch"
-                             "libwmf-CVE-2009-3546.patch"
-                             "libwmf-CVE-2015-0848+CVE-2015-4588.patch"
-                             "libwmf-CVE-2015-4695.patch"
-                             "libwmf-CVE-2015-4696.patch")))))
+         (search-patches "libwmf-CAN-2004-0941.patch"
+                         "libwmf-CVE-2006-3376.patch"
+                         "libwmf-CVE-2007-0455.patch"
+                         "libwmf-CVE-2007-2756.patch"
+                         "libwmf-CVE-2007-3472.patch"
+                         "libwmf-CVE-2007-3473.patch"
+                         "libwmf-CVE-2007-3477.patch"
+                         "libwmf-CVE-2009-1364.patch"
+                         "libwmf-CVE-2009-3546.patch"
+                         "libwmf-CVE-2015-0848+CVE-2015-4588.patch"
+                         "libwmf-CVE-2015-4695.patch"
+                         "libwmf-CVE-2015-4696.patch"))))
 
     (build-system gnu-build-system)
     (inputs
@@ -291,7 +307,7 @@ arithmetic ops.")
                           version ".tar.gz"))
         (sha256
           (base32 "1ffhgmf2fqzk0h4k736pp06z7q5y4x41fg844bd6a9vgncq86bby"))
-        (patches (list (search-patch "jbig2dec-ignore-testtest.patch")))))
+        (patches (search-patches "jbig2dec-ignore-testtest.patch"))))
 
     (build-system gnu-build-system)
     (synopsis "Decoder of the JBIG2 image compression format")
@@ -320,8 +336,8 @@ work.")
                         version ".tar.gz"))
         (sha256
          (base32 "00zzm303zvv4ijzancrsb1cqbph3pgz0nky92k9qx3fq9y0vnchj"))
-        (patches (map search-patch '("openjpeg-use-after-free-fix.patch"
-                                     "openjpeg-CVE-2015-6581.patch")))))
+        (patches (search-patches "openjpeg-use-after-free-fix.patch"
+                                 "openjpeg-CVE-2015-6581.patch"))))
     (build-system cmake-build-system)
     (arguments
       ;; Trying to run `$ make check' results in a no rule fault.
@@ -357,8 +373,8 @@ error-resilience, a Java-viewer for j2k-images, ...")
                        version ".tar.gz"))
        (sha256
         (base32 "1c2xc3nl2mg511b63rk7hrckmy14681p1m44mzw3n1fyqnjm0b0z"))
-       (patches (map search-patch '("openjpeg-use-after-free-fix.patch"
-                                    "openjpeg-CVE-2015-6581.patch")))))))
+       (patches (search-patches "openjpeg-use-after-free-fix.patch"
+                                "openjpeg-CVE-2015-6581.patch"))))))
 
 (define-public openjpeg-1
   (package (inherit openjpeg)
@@ -376,14 +392,15 @@ error-resilience, a Java-viewer for j2k-images, ...")
 (define-public giflib
   (package
     (name "giflib")
-    (version "5.1.1")
+    (version "5.1.4")
     (source (origin
               (method url-fetch)
               (uri (string-append "mirror://sourceforge/giflib/giflib-"
                                   (first (string-split version #\.))
                                   ".x/giflib-" version ".tar.bz2"))
               (sha256
-               (base32 "1z1gzq16sdya8xnl5qjc07634kkwj5m0n3bvvj4v9j11xfn1841r"))))
+               (base32
+                "1md83dip8rf29y40cm5r7nn19705f54iraz6545zhwa6y8zyq9yz"))))
     (build-system gnu-build-system)
     (outputs '("bin"                    ; utility programs
                "out"))                  ; library
@@ -392,26 +409,25 @@ error-resilience, a Java-viewer for j2k-images, ...")
               ("libsm" ,libsm)
               ("perl" ,perl)))
     (arguments
-     `(#:phases (alist-cons-after
-                 'unpack 'disable-html-doc-gen
-                 (lambda _
-                   (substitute* "doc/Makefile.in"
-                     (("^all: allhtml manpages") "")))
-                 (alist-cons-after
-                  'install 'install-manpages
-                  (lambda* (#:key outputs #:allow-other-keys)
-                    (let* ((bin (assoc-ref outputs "bin"))
-                           (man1dir (string-append bin "/share/man/man1")))
-                      (mkdir-p man1dir)
-                      (for-each (lambda (file)
-                                  (let ((base (basename file)))
-                                    (format #t "installing `~a' to `~a'~%"
-                                            base man1dir)
-                                    (copy-file file
-                                               (string-append
-                                                man1dir "/" base))))
-                                (find-files "doc" "\\.1"))))
-                  %standard-phases))))
+     `(#:phases
+       (modify-phases %standard-phases
+         (add-after 'unpack 'disable-html-doc-gen
+           (lambda _
+             (substitute* "doc/Makefile.in"
+               (("^all: allhtml manpages") ""))))
+         (add-after 'install 'install-manpages
+           (lambda* (#:key outputs #:allow-other-keys)
+             (let* ((bin (assoc-ref outputs "bin"))
+                    (man1dir (string-append bin "/share/man/man1")))
+               (mkdir-p man1dir)
+               (for-each (lambda (file)
+                           (let ((base (basename file)))
+                             (format #t "installing `~a' to `~a'~%"
+                                     base man1dir)
+                             (copy-file file
+                                        (string-append
+                                         man1dir "/" base))))
+                         (find-files "doc" "\\.1"))))))))
     (synopsis "Tools and library for working with GIF images")
     (description
      "GIFLIB is a library for reading and writing GIF images.  It is API and
@@ -443,7 +459,7 @@ compose, and analyze GIF images.")
 (define-public imlib2
   (package
     (name "imlib2")
-    (version "1.4.7")
+    (version "1.4.9")
     (source (origin
               (method url-fetch)
               (uri (string-append
@@ -451,7 +467,7 @@ compose, and analyze GIF images.")
                     version ".tar.bz2"))
               (sha256
                (base32
-                "00a7jbwj10x3jcvxa5rplnkvhv35gv9rb400zy636zdd4g737mrm"))))
+                "08809xxk2555yj6glixzw9a0x3x8cx55imd89kj3r0h152bn8a3x"))))
     (build-system gnu-build-system)
     (native-inputs
      `(("pkgconfig" ,pkg-config)))
@@ -485,9 +501,13 @@ more modular, simple, and flexible.")
     (version "1.2.4")
     (source (origin
               (method url-fetch)
-              (uri (string-append
-                    "http://linuxbrit.co.uk/downloads/giblib-"
-                    version ".tar.gz"))
+              (uri (list
+                     (string-append
+                       "http://linuxbrit.co.uk/downloads/giblib-"
+                       version ".tar.gz")
+                     (string-append
+                       "https://sourceforge.net/projects/slackbuildsdirectlinks/"
+                       "files/giblib/giblib-" version ".tar.gz")))
               (sha256
                (base32
                 "1b4bmbmj52glq0s898lppkpzxlprq9aav49r06j2wx4dv3212rhp"))))
@@ -520,7 +540,7 @@ supplies a generic doubly-linked list and some string functions.")
             (sha256
              (base32
               "12bz57asdcfsz3zr9i9nska0fb6h3z2aizy412qjqkixkginbz7v"))
-            (patches (list (search-patch "freeimage-CVE-2015-0852.patch")))))
+            (patches (search-patches "freeimage-CVE-2015-0852.patch"))))
    (build-system gnu-build-system)
    (arguments
     '(#:phases (alist-delete
@@ -673,7 +693,8 @@ channels.")
                 "1zd850nn7nvkkhasrv7kn17kzgslr5ry933v6db62s4lr0zzlbv8"))
               ;; Backported from upstream:
               ;; https://github.com/DentonW/DevIL/commit/724194d7a9a91221a564579f64bdd6f0abd64219.patch
-              (patches (list (search-patch "devil-fix-libpng.patch")))
+              (patches (search-patches "devil-fix-libpng.patch"
+                                       "devil-CVE-2009-3994.patch"))
               (modules '((guix build utils)))
               (snippet
                ;; Fix old lcms include directives and lib flags.
@@ -723,21 +744,20 @@ convert, manipulate, filter and display a wide variety of image formats.")
               (sha256
                (base32
                 "154l7zk7yh3v8l2l6zm5s2alvd2fzkp6c9i18iajfbna5af5m43b"))
-              (patches
-                (list
-                  (search-patch "jasper-CVE-2007-2721.patch")
-                  (search-patch "jasper-CVE-2008-3520.patch")
-                  (search-patch "jasper-CVE-2008-3522.patch")
-                  (search-patch "jasper-CVE-2011-4516-and-CVE-2011-4517.patch")
-                  (search-patch "jasper-CVE-2014-8137.patch")
-                  (search-patch "jasper-CVE-2014-8138.patch")
-                  (search-patch "jasper-CVE-2014-8157.patch")
-                  (search-patch "jasper-CVE-2014-8158.patch")
-                  (search-patch "jasper-CVE-2014-9029.patch")
-                  (search-patch "jasper-CVE-2016-1577.patch")
-                  (search-patch "jasper-CVE-2016-1867.patch")
-                  (search-patch "jasper-CVE-2016-2089.patch")
-                  (search-patch "jasper-CVE-2016-2116.patch")))))
+              (patches (search-patches
+                        "jasper-CVE-2007-2721.patch"
+                        "jasper-CVE-2008-3520.patch"
+                        "jasper-CVE-2008-3522.patch"
+                        "jasper-CVE-2011-4516-and-CVE-2011-4517.patch"
+                        "jasper-CVE-2014-8137.patch"
+                        "jasper-CVE-2014-8138.patch"
+                        "jasper-CVE-2014-8157.patch"
+                        "jasper-CVE-2014-8158.patch"
+                        "jasper-CVE-2014-9029.patch"
+                        "jasper-CVE-2016-1577.patch"
+                        "jasper-CVE-2016-1867.patch"
+                        "jasper-CVE-2016-2089.patch"
+                        "jasper-CVE-2016-2116.patch"))))
     (build-system gnu-build-system)
     (native-inputs
      `(("unzip" ,unzip)))
@@ -747,3 +767,37 @@ implementation of the codec specified in the JPEG-2000 Part-1 standard (i.e.,
 ISO/IEC 15444-1).")
     (home-page "https://www.ece.uvic.ca/~frodo/jasper/")
     (license (license:x11-style "file://LICENSE"))))
+
+(define-public zimg
+  (package
+    (name "zimg")
+    (version "2.1")
+    (source
+      (origin
+        (method url-fetch)
+        (uri (string-append "https://github.com/sekrit-twc/zimg/archive/"
+                            "release-" version ".tar.gz"))
+        (file-name (string-append name "-" version ".tar.gz"))
+        (sha256
+         (base32
+          "1hqp1gcsa2zhypms5dnasb1srjgxdqm7cip3w5i571kk9nxkn289"))))
+    (build-system gnu-build-system)
+    (native-inputs
+     `(("autoconf" ,autoconf)
+       ("automake" ,automake)
+       ("libtool" ,libtool)))
+    (arguments
+     '(#:phases
+       (modify-phases %standard-phases
+         (add-after 'unpack 'autogen
+           (lambda _
+             (zero? (system* "sh" "autogen.sh")))))))
+    (synopsis "Scaling, colorspace conversion, and dithering library")
+    (description "Zimg implements the commonly required image processing basics
+of scaling, colorspace conversion, and depth conversion.  A simple API enables
+conversion between any supported formats to operate with minimal knowledge from
+the programmer.")
+    (home-page "https://github.com/sekrit-twc/zimg")
+    ;; test/extra/ contains musl-libm, 
+    ;; which is MIT/expat licensed, but only used for tests
+    (license (license:fsf-free "file://COPYING")))) ;WTFPL version 2

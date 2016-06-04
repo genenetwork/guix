@@ -3,6 +3,7 @@
 ;;; Copyright © 2014, 2015 Eric Bavier <bavier@member.fsf.org>
 ;;; Copyright © 2013, 2014, 2015, 2016 Ludovic Courtès <ludo@gnu.org>
 ;;; Copyright © 2015, 2016 Mathieu Lirzin <mthl@gnu.org>
+;;; Copyright © 2016 Danny Milosavljevic <dannym+a@scratchpost.org>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -30,6 +31,7 @@
   #:use-module (guix records)
   #:use-module (guix ui)
   #:use-module (guix utils)
+  #:use-module (guix combinators)
   #:use-module (guix scripts)
   #:use-module (guix gnu-maintenance)
   #:use-module (guix monads)
@@ -186,13 +188,17 @@ by two spaces; possible infraction~p at ~{~a~^, ~}")
                       'description))))
 
   (let ((description (package-description package)))
-    (when (string? description)
-      (check-not-empty description)
-      ;; Use raw description for this because Texinfo rendering automatically
-      ;; fixes end of sentence space.
-      (check-end-of-sentence-space description)
-      (and=> (check-texinfo-markup description)
-             check-proper-start))))
+    (if (string? description)
+        (begin
+          (check-not-empty description)
+          ;; Use raw description for this because Texinfo rendering
+          ;; automatically fixes end of sentence space.
+          (check-end-of-sentence-space description)
+          (and=> (check-texinfo-markup description)
+                 check-proper-start))
+        (emit-warning package
+                      (format #f (_ "invalid description: ~s") description)
+                      'description))))
 
 (define (check-inputs-should-be-native package)
   ;; Emit a warning if some inputs of PACKAGE are likely to belong to its
@@ -261,14 +267,19 @@ the synopsis")
                     (_ "synopsis should not start with the package name")
                     'synopsis)))
 
- (let ((synopsis (package-synopsis package)))
-   (when (string? synopsis)
-     (check-not-empty synopsis)
-     (check-proper-start synopsis)
-     (check-final-period synopsis)
-     (check-start-article synopsis)
-     (check-start-with-package-name synopsis)
-     (check-synopsis-length synopsis))))
+  (define checks
+    (list check-not-empty check-proper-start check-final-period
+          check-start-article check-start-with-package-name
+          check-synopsis-length))
+
+  (match (package-synopsis package)
+    ((? string? synopsis)
+     (for-each (lambda (proc)
+                 (proc synopsis))
+               checks))
+    (invalid
+     (emit-warning package (format #f (_ "invalid synopsis: ~s") invalid)
+                   'synopsis))))
 
 (define* (probe-uri uri #:key timeout)
   "Probe URI, a URI object, and return two values: a symbol denoting the
@@ -458,12 +469,14 @@ descriptions maintained upstream."
                (official-gnu-packages*))
     (#f                                   ;not a GNU package, so nothing to do
      #t)
-    (descriptor                           ;a genuine GNU package
+    (descriptor                                   ;a genuine GNU package
      (let ((upstream   (gnu-package-doc-summary descriptor))
            (downstream (package-synopsis package))
            (loc        (or (package-field-location package 'synopsis)
                            (package-location package))))
-       (unless (and upstream (string=? upstream downstream))
+       (when (and upstream
+                  (or (not (string? downstream))
+                      (not (string=? upstream downstream))))
          (format (guix-warning-port)
                  (_ "~a: ~a: proposed synopsis: ~s~%")
                  (location->string loc) (package-full-name package)
@@ -474,8 +487,9 @@ descriptions maintained upstream."
            (loc        (or (package-field-location package 'description)
                            (package-location package))))
        (when (and upstream
-                  (not (string=? (fill-paragraph upstream 100)
-                                 (fill-paragraph downstream 100))))
+                  (or (not (string? downstream))
+                      (not (string=? (fill-paragraph upstream 100)
+                                     (fill-paragraph downstream 100)))))
          (format (guix-warning-port)
                  (_ "~a: ~a: proposed description:~%     \"~a\"~%")
                  (location->string loc) (package-full-name package)
@@ -586,15 +600,6 @@ be determined."
     ((? origin?)
      (and=> (origin-actual-file-name patch) basename))))
 
-(define (package-name->cpe-name name)
-  "Do a basic conversion of NAME, a Guix package name, to the corresponding
-Common Platform Enumeration (CPE) name."
-  (match name
-    ("icecat"   "firefox")                        ;or "firefox_esr"
-    ("grub"     "grub2")
-    ;; TODO: Add more.
-    (_          name)))
-
 (define (current-vulnerabilities*)
   "Like 'current-vulnerabilities', but return the empty list upon networking
 or HTTP errors.  This allows network-less operation and makes problems with
@@ -621,9 +626,15 @@ from ~s: ~a (~s)~%")
                         (current-vulnerabilities*)))))
     (lambda (package)
       "Return a list of vulnerabilities affecting PACKAGE."
-      ((force lookup)
-       (package-name->cpe-name (package-name package))
-       (package-version package)))))
+      ;; First we retrieve the Common Platform Enumeration (CPE) name and
+      ;; version for PACKAGE, then we can pass them to LOOKUP.
+      (let ((name    (or (assoc-ref (package-properties package)
+                                    'cpe-name)
+                         (package-name package)))
+            (version (or (assoc-ref (package-properties package)
+                                    'cpe-version)
+                         (package-version package))))
+        ((force lookup) name version)))))
 
 (define (check-vulnerabilities package)
   "Check for known vulnerabilities for PACKAGE."
@@ -631,7 +642,8 @@ from ~s: ~a (~s)~%")
     (()
      #t)
     ((vulnerabilities ...)
-     (let* ((patches   (filter-map patch-file-name
+     (let* ((package   (or (package-replacement package) package))
+            (patches   (filter-map patch-file-name
                                    (or (and=> (package-source package)
                                               origin-patches)
                                        '())))
@@ -799,11 +811,14 @@ or a list thereof")
         (name (package-full-name package)))
     (for-each (lambda (checker)
                 (when tty?
-                  (format (current-error-port) "checking ~a [~a]...\r"
+                  (format (current-error-port) "checking ~a [~a]...\x1b[K\r"
                           name (lint-checker-name checker))
                   (force-output (current-error-port)))
                 ((lint-checker-check checker) package))
-              checkers)))
+              checkers)
+    (when tty?
+      (format (current-error-port) "\x1b[K")
+      (force-output (current-error-port)))))
 
 
 ;;;

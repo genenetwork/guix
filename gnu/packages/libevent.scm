@@ -42,7 +42,7 @@
              (sha256
               (base32
                "18qz9qfwrkakmazdlwxvjmw8p76g70n3faikwvdwznns1agw9hki"))
-             (patches (list (search-patch "libevent-dns-tests.patch")))))
+             (patches (search-patches "libevent-dns-tests.patch"))))
     (build-system gnu-build-system)
     (inputs
      `(;; Dependencies used for the tests and for `event_rpcgen.py'.
@@ -89,7 +89,7 @@ programs.")
 (define-public libuv
   (package
     (name "libuv")
-    (version "1.8.0")
+    (version "1.9.0")
     (source (origin
               (method url-fetch)
               (uri (string-append "https://github.com/libuv/libuv/archive/v"
@@ -97,7 +97,7 @@ programs.")
               (file-name (string-append name "-" version ".tar.gz"))
               (sha256
                (base32
-                "1plwz98ljdi161gxhl4wgj7llnx611rxpb6y38kcp59wcxf1lvlh"))))
+                "1sx5lahhg2w92y6mgyg7c7nrx2biyyxd5yiqkmq8n4w01lm2gf7q"))))
     (build-system gnu-build-system)
     (arguments
      '(#:phases (alist-cons-after

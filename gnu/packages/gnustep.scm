@@ -1,6 +1,6 @@
 ;;; GNU Guix --- Functional package management for GNU
 ;;; Copyright © 2014 Ludovic Courtès <ludo@gnu.org>
-;;; Copyright © 2016 Kei Yamashita <kei@openmailbox.org>
+;;; Copyright © 2016 Kei Kebreau <kei@openmailbox.org>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -24,6 +24,7 @@
   #:use-module (guix licenses)
   #:use-module (gnu packages xorg)
   #:use-module (gnu packages gnome)
+  #:use-module (gnu packages gtk)
   #:use-module (gnu packages texinfo)
   #:use-module (gnu packages autotools)
   #:use-module (gnu packages glib)
@@ -100,7 +101,15 @@ interface.  It is fast, feature rich, easy to configure, and easy to use.")
                     version ".orig.tar.gz"))
               (sha256
                (base32
-                "0hi6bivv3xd2k68w08krndfl68wdx7nmc2wjzsmcd4q3qgwgyk44"))))
+                "0hi6bivv3xd2k68w08krndfl68wdx7nmc2wjzsmcd4q3qgwgyk44"))
+              (modules '((guix build utils)))
+              (snippet
+               ;; Fix memory leak:
+               ;; <https://lists.gnu.org/archive/html/guix-devel/2016-05/msg00466.html>.
+               '(substitute* "upower.c"
+                  (("up = up_client_new\\(\\);")
+                   (string-append "if (!up)\n"
+                                  "                up = up_client_new();"))))))
     (build-system gnu-build-system)
     (arguments
      `(#:tests? #f              ; no "check" target
@@ -180,4 +189,67 @@ chart, and has an LCD look-alike user interface.  The back-light may be turned
 on and off by clicking the mouse button over the application.  If the CPU usage
 hits a certain threshold, an alarm-mode will alert you by turning back-light
 on.")
+    (license gpl2+)))
+
+(define-public wmclock
+  (package
+    (name "wmclock")
+    (version "1.0.16")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "mirror://debian/pool/main/w/wmclock/"
+                    name "_" version ".orig.tar.gz"))
+              (sha256
+               (base32
+                "1lx276ba8r2yydhmwj1g586jdqg695ad89ng36fr3mb067gvb2rz"))))
+    (build-system gnu-build-system)
+    (arguments
+     `(#:phases
+       (modify-phases %standard-phases
+         (add-after 'unpack 'autoconf
+           (lambda _ (zero? (system* "autoreconf" "-vfi")))))))
+    ;; wmclock requires autoreconf to generate its configure script.
+    (inputs
+     `(("libx11" ,libx11)
+       ("libxext" ,libxext)
+       ("libxpm" ,libxpm)))
+    (native-inputs
+     `(("autoconf" ,autoconf)
+       ("automake" ,automake)
+       ("pkg-config" ,pkg-config)))
+    (home-page "http://windowmaker.org/dockapps/?name=wmclock")
+    (synopsis "Display the date and time")
+    (description
+     "wmclock is an applet for Window Maker which displays the date and time in
+a dockable tile.  It features multiple language support, 24h or 12h time
+display, and can run a user-specified program on mouse click.")
+    (license gpl2+)))
+
+(define-public wmfire
+  (package
+    (name "wmfire")
+    (version "1.2.4")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "http://www.improbability.net/"
+                                  name "/" name "-" version ".tar.gz"))
+              (sha256
+               (base32
+                "101grahd80n97y2dczb629clmcgiavdpbbwy78kk5wgs362m12z3"))))
+    (build-system gnu-build-system)
+    (inputs
+     `(("gtk+" ,gtk+-2)
+       ("libgtop" ,libgtop)))
+    (native-inputs
+     `(("pkg-config" ,pkg-config)))
+    (home-page "http://www.improbability.net/")
+    (synopsis "Display flames to represent CPU usage, memory usage, etc.")
+    (description
+     "wmfire is an applet for Window Maker that can monitor the average cpu
+load, or individual cpu load on SMP computers.  Additionally it can monitor the
+memory, network load, a file or just be set to show a pretty flame.  On
+entering the dock a burning spot replaces the cursor, and after two seconds
+symbols to represent the current monitor are \"burnt\" onscreen.  The flame
+colour can also be changed.")
     (license gpl2+)))

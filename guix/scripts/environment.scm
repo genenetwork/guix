@@ -25,7 +25,6 @@
   #:use-module (guix packages)
   #:use-module (guix profiles)
   #:use-module (guix search-paths)
-  #:use-module (guix utils)
   #:use-module (guix build utils)
   #:use-module (guix monads)
   #:use-module ((guix gexp) #:select (lower-inputs))
@@ -334,11 +333,11 @@ requisite store items i.e. the union closure of all the inputs."
     (requisites*
      (match input
        ((drv output)
-        (derivation->output-path drv output))
+        (list (derivation->output-path drv output)))
        ((drv)
-        (derivation->output-path drv))
+        (list (derivation->output-path drv)))
        ((? direct-store-path? path)
-        path))))
+        (list path)))))
 
   (mlet %store-monad ((reqs (sequence %store-monad
                                       (map input->requisites inputs))))
@@ -499,12 +498,13 @@ Otherwise, return the derivation for the Bash package."
 
   ;; The '--' token is used to separate the command to run from the rest of
   ;; the operands.
-  (let-values (((args command) (split args "--")))
+  (let-values (((args command) (break (cut string=? "--" <>) args)))
     (let ((opts (parse-command-line args %options (list %default-options)
                                     #:argument-handler handle-argument)))
-      (if (null? command)
-          opts
-          (alist-cons 'exec command opts)))))
+      (match command
+        (() opts)
+        (("--") opts)
+        (("--" command ...) (alist-cons 'exec command opts))))))
 
 (define (assert-container-features)
   "Check if containers can be created and exit with an informative error

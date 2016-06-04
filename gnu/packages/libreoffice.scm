@@ -37,7 +37,7 @@
   #:use-module (gnu packages curl)
   #:use-module (gnu packages cyrus-sasl)
   #:use-module (gnu packages databases)
-  #:use-module (gnu packages doxygen)
+  #:use-module (gnu packages documentation)
   #:use-module (gnu packages flex)
   #:use-module (gnu packages fontutils)
   #:use-module (gnu packages ghostscript)
@@ -250,7 +250,7 @@ working with graphics in the WPG (WordPerfect Graphics) format.")
                           version ".tar.gz"))
       (sha256 (base32
                "1dprvk4fibylv24l7gr49gfqbkfgmxynvgssvdcycgpf7n8h4zm8"))
-      (patches (list (search-patch "libcmis-fix-test-onedrive.patch")))))
+      (patches (search-patches "libcmis-fix-test-onedrive.patch"))))
     (build-system gnu-build-system)
     (native-inputs
      `(("cppunit" ,cppunit)

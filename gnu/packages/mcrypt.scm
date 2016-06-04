@@ -1,5 +1,6 @@
 ;;; GNU Guix --- Functional package management for GNU
 ;;; Copyright © 2014 Eric Bavier <bavier@member.fsf.org>
+;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -36,7 +37,11 @@
                           version ".tar.gz"))
       (sha256
        (base32
-        "161031n1w9pb4yzz9i47szc12a4mwpcpvyxnvafsik2l9s2aliai"))))
+        "161031n1w9pb4yzz9i47szc12a4mwpcpvyxnvafsik2l9s2aliai"))
+      (patches (search-patches
+                 "mcrypt-CVE-2012-4409.patch"
+                 "mcrypt-CVE-2012-4426.patch"
+                 "mcrypt-CVE-2012-4527.patch"))))
     (build-system gnu-build-system)
     (inputs
      `(("zlib" ,zlib)
@@ -90,7 +95,7 @@ XTEA, 3WAY, TWOFISH, BLOWFISH, ARCFOUR, WAKE and more.")
       (sha256
        (base32
         "1w7yiljan8gf1ibiypi6hm3r363imm3sxl1j8hapjdq3m591qljn"))
-      (patches (list (search-patch "mhash-keygen-test-segfault.patch")))))
+      (patches (search-patches "mhash-keygen-test-segfault.patch"))))
     (build-system gnu-build-system)
     (native-inputs
      `(("perl" ,perl)))                 ;for tests

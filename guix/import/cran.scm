@@ -1,6 +1,6 @@
 ;;; GNU Guix --- Functional package management for GNU
-;;; Copyright © 2015 Ricardo Wurmus <rekado@elephly.net>
-;;; Copyright © 2015 Ludovic Courtès <ludo@gnu.org>
+;;; Copyright © 2015, 2016 Ricardo Wurmus <rekado@elephly.net>
+;;; Copyright © 2015, 2016 Ludovic Courtès <ludo@gnu.org>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -32,7 +32,6 @@
   #:use-module ((guix build-system r) #:select (cran-uri bioconductor-uri))
   #:use-module (guix upstream)
   #:use-module (guix packages)
-  #:use-module (gnu packages)
   #:export (cran->guix-package
             bioconductor->guix-package
             %cran-updater
@@ -112,11 +111,11 @@ package definition."
 (define %cran-url "http://cran.r-project.org/web/packages/")
 (define %bioconductor-url "http://bioconductor.org/packages/")
 
-;; The latest Bioconductor release is 3.2.  Bioconductor packages should be
+;; The latest Bioconductor release is 3.3.  Bioconductor packages should be
 ;; updated together.
 (define %bioconductor-svn-url
   (string-append "https://readonly:readonly@"
-                 "hedgehog.fhcrc.org/bioconductor/branches/RELEASE_3_2/"
+                 "hedgehog.fhcrc.org/bioconductor/branches/RELEASE_3_3/"
                  "madman/Rpacks/"))
 
 
@@ -240,7 +239,7 @@ s-expression corresponding to that package, or #f on failure."
   "Return an <upstream-source> for the latest release of PACKAGE."
 
   (define upstream-name
-    (package->upstream-name (specification->package package)))
+    (package->upstream-name package))
 
   (define meta
     (fetch-description %cran-url upstream-name))
@@ -249,7 +248,7 @@ s-expression corresponding to that package, or #f on failure."
        (let ((version (assoc-ref meta "Version")))
          ;; CRAN does not provide signatures.
          (upstream-source
-          (package package)
+          (package (package-name package))
           (version version)
           (urls (cran-uri upstream-name version))))))
 
@@ -257,7 +256,7 @@ s-expression corresponding to that package, or #f on failure."
   "Return an <upstream-source> for the latest release of PACKAGE."
 
   (define upstream-name
-    (package->upstream-name (specification->package package)))
+    (package->upstream-name package))
 
   (define meta
     (fetch-description %bioconductor-svn-url upstream-name))
@@ -266,9 +265,9 @@ s-expression corresponding to that package, or #f on failure."
        (let ((version (assoc-ref meta "Version")))
          ;; Bioconductor does not provide signatures.
          (upstream-source
-          (package package)
+          (package (package-name package))
           (version version)
-          (urls (bioconductor-uri upstream-name version))))))
+          (urls (list (bioconductor-uri upstream-name version)))))))
 
 (define (cran-package? package)
   "Return true if PACKAGE is an R package from CRAN."

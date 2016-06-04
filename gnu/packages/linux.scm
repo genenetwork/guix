@@ -10,6 +10,9 @@
 ;;; Copyright © 2016 Tobias Geerinckx-Rice <tobias.geerinckx.rice@gmail.com>
 ;;; Copyright © 2016 Alex Kost <alezost@gmail.com>
 ;;; Copyright © 2016 Raymond Nicholson <rain1@openmailbox.org>
+;;; Copyright © 2016 Mathieu Lirzin <mthl@gnu.org>
+;;; Copyright © 2016 Nicolas Goaziou <mail@nicolasgoaziou.fr>
+;;; Copyright © 2016 Ricardo Wurmus <rekado@elephly.net>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -58,10 +61,11 @@
   #:use-module (gnu packages elf)
   #:use-module (gnu packages gtk)
   #:use-module (gnu packages docbook)
-  #:use-module (gnu packages asciidoc)
+  #:use-module (gnu packages documentation)
   #:use-module (gnu packages readline)
   #:use-module (gnu packages calendar)
   #:use-module (gnu packages tls)
+  #:use-module (gnu packages freedesktop)
   #:use-module (guix packages)
   #:use-module (guix download)
   #:use-module (guix utils)
@@ -81,6 +85,7 @@
     (cond ((string=? arch "i686") "i386")
           ((string-prefix? "mips" arch) "mips")
           ((string-prefix? "arm" arch) "arm")
+          ((string-prefix? "aarch64" arch) "arm64")
           (else arch))))
 
 (define (linux-libre-urls version)
@@ -170,8 +175,7 @@
              (sha256
               (base32
                "0jxnz9ahfic79rp93l5wxcbgh4pkv85mwnjlbv1gz3jawv5cvwp1"))
-             (patches
-              (list (search-patch "module-init-tools-moduledir.patch")))))
+             (patches (search-patches "module-init-tools-moduledir.patch"))))
     (build-system gnu-build-system)
     (arguments
      ;; FIXME: The upstream tarball lacks man pages, and building them would
@@ -221,7 +225,7 @@ for SYSTEM and optionally VARIANT, or #f if there is no such configuration."
     (search-path %load-path file)))
 
 (define-public linux-libre
-  (let* ((version "4.5")
+  (let* ((version "4.6.1")
          (build-phase
           '(lambda* (#:key system inputs #:allow-other-keys #:rest args)
              ;; Avoid introducing timestamps
@@ -299,7 +303,7 @@ for SYSTEM and optionally VARIANT, or #f if there is no such configuration."
              (uri (linux-libre-urls version))
              (sha256
               (base32
-               "0km863vwy557flpygkr869yshpjs1v11ni78p8k9p9nm31ai6yn3"))))
+               "16cwr2jhd688bxdjfjpymap7sq0qsl24k5dylbz1rwfblnv2wn51"))))
     (build-system gnu-build-system)
     (supported-systems '("x86_64-linux" "i686-linux"))
     (native-inputs `(("perl" ,perl)
@@ -336,13 +340,13 @@ It has been modified to remove all non-free binary blobs.")
 (define-public linux-libre-4.4
   (package
     (inherit linux-libre)
-    (version "4.4.6")
+    (version "4.4.12")
     (source (origin
               (method url-fetch)
               (uri (linux-libre-urls version))
               (sha256
                (base32
-                "0sf623knc4j23p96r0w1ng725kj45ra50bwix01z5nvl5aqpnsrp"))))
+                "1zbds4ihk4x3lxr1jw7yrjzv1dkl995m41a54dfgqm0kj70li8ws"))))
     (native-inputs
      (let ((conf (kernel-config (or (%current-target-system)
                                     (%current-system))
@@ -353,13 +357,13 @@ It has been modified to remove all non-free binary blobs.")
 (define-public linux-libre-4.1
   (package
     (inherit linux-libre)
-    (version "4.1.21")
+    (version "4.1.25")
     (source (origin
               (method url-fetch)
               (uri (linux-libre-urls version))
               (sha256
                (base32
-                "1gfzwiinpxzhqb5xi7b1iv7ay96nrjlhia6bvcyq8ffkx7a2r715"))))
+                "1vpgcnmfnn005rcd60wyyg0f84fgapdmz2dpcy77p2l66mw4pakf"))))
     (native-inputs
      (let ((conf (kernel-config (or (%current-target-system)
                                     (%current-system))
@@ -453,7 +457,7 @@ providing the system administrator with some help in common tasks.")
               (sha256
                (base32
                 "1ivdx1bhjbakf77agm9dn3wyxia1wgz9lzxgd61zqxw3xzih9gzw"))
-              (patches (list (search-patch "util-linux-tests.patch")))
+              (patches (search-patches "util-linux-tests.patch"))
               (modules '((guix build utils)))
               (snippet
                ;; We take the 'logger' program from GNU Inetutils and 'kill'
@@ -598,7 +602,7 @@ slabtop, and skill.")
     (native-inputs `(("pkg-config" ,pkg-config)
                      ("texinfo" ,texinfo)))     ;for the libext2fs Info manual
     (arguments
-     '(;; util-linux is not the preferred source for some of the libraries and
+     '(;; util-linux is the preferred source for some of the libraries and
        ;; commands, so disable them (see, e.g.,
        ;; <http://git.buildroot.net/buildroot/commit/?id=e1ffc2f791b33633>.)
        #:configure-flags '("--disable-libblkid"
@@ -808,7 +812,7 @@ intercept and print the system calls executed by the program.")
              (sha256
               (base32
                "0fx057746dj7rjdi0jnvx2m9b0y1lgdkh1hks87d8w32xyihf3k9"))
-             (patches (list (search-patch "alsa-lib-mips-atomic-fix.patch")))))
+             (patches (search-patches "alsa-lib-mips-atomic-fix.patch"))))
     (build-system gnu-build-system)
     (home-page "http://www.alsa-project.org/")
     (synopsis "The Advanced Linux Sound Architecture libraries")
@@ -865,7 +869,7 @@ MIDI functionality to the Linux-based operating system.")
 (define-public iptables
   (package
     (name "iptables")
-    (version "1.4.16.2")
+    (version "1.4.21")
     (source (origin
              (method url-fetch)
              (uri (string-append
@@ -873,7 +877,7 @@ MIDI functionality to the Linux-based operating system.")
                    version ".tar.bz2"))
              (sha256
               (base32
-               "0vkg5lzkn4l3i1sm6v3x96zzvnv9g7mi0qgj6279ld383mzcws24"))))
+               "1q6kg7sf0pgpq0qhab6sywl23cngxxfzc9zdzscsba8x09l4q02j"))))
     (build-system gnu-build-system)
     (arguments
      '(#:tests? #f       ; no test suite
@@ -969,8 +973,7 @@ manpages.")
              (sha256
               (base32
                "0yvxrzk0mzmspr7sa34hm1anw6sif39gyn85w4c5ywfn8inxvr3s"))
-             (patches
-              (list (search-patch "net-tools-bitrot.patch")))))
+             (patches (search-patches "net-tools-bitrot.patch"))))
     (build-system gnu-build-system)
     (arguments
      '(#:modules ((guix build gnu-build-system)
@@ -1166,15 +1169,15 @@ configuration and monitoring interfaces.")
 (define-public iw
   (package
     (name "iw")
-    (version "3.17")
+    (version "4.3")
     (source (origin
               (method url-fetch)
               (uri (string-append
-                    "https://www.kernel.org/pub/software/network/iw/iw-"
+                    "mirror://kernel.org/software/network/iw/iw-"
                     version ".tar.xz"))
               (sha256
                (base32
-                "14zsapqhivk0ws5z21y1ys2c2czi05mzk7bl2yb7qxcfrnsjx9j8"))))
+                "085jyvrxzarvn5jl0fk618jjxy50nqx7ifngszc4jxk6a4ddibd6"))))
     (build-system gnu-build-system)
     (native-inputs `(("pkg-config" ,pkg-config)))
     (inputs `(("libnl" ,libnl)))
@@ -1182,11 +1185,11 @@ configuration and monitoring interfaces.")
      `(#:make-flags (list (string-append "PREFIX=" (assoc-ref %outputs "out"))
                           "CC=gcc")
        #:phases (alist-delete 'configure %standard-phases)))
-    (home-page "http://wireless.kernel.org/en/users/Documentation/iw")
+    (home-page "https://wireless.wiki.kernel.org/")
     (synopsis "Tool for configuring wireless devices")
     (description
      "iw is a new nl80211 based CLI configuration utility for wireless
-devices.  It replaces 'iwconfig', which is deprecated.")
+devices.  It replaces @code{iwconfig}, which is deprecated.")
     (license license:isc)))
 
 (define-public powertop
@@ -1203,11 +1206,31 @@ devices.  It replaces 'iwconfig', which is deprecated.")
         (base32
          "0nlwazxbnn0k6q5f5b09wdhw0f194lpzkp3l7vxansqhfczmcyx8"))))
     (build-system gnu-build-system)
+    (arguments
+     '(#:phases
+       (modify-phases %standard-phases
+         ;; TODO: Patch some hardcoded "wlan0" in calibrate/calibrate.cpp to
+         ;; allow calibrating the network interface in GuixSD.
+         (add-after 'unpack 'patch-absolute-file-names
+           (lambda* (#:key inputs #:allow-other-keys)
+             (let ((kmod (assoc-ref inputs "kmod")))
+               (substitute* (find-files "src" "\\.cpp$")
+                 ;; Give the right 'modprobe' file name so that essential
+                 ;; modules such as msr.ko can be loaded.
+                 (("/sbin/modprobe") (string-append kmod "/bin/modprobe"))
+                 ;; These programs are only needed to calibrate, so using
+                 ;; relative file names avoids adding extra inputs.  When they
+                 ;; are missing powertop gracefully handles it.
+                 (("/usr/bin/hcitool") "hcitool")
+                 (("/usr/bin/xset") "xset")
+                 (("/usr/sbin/hciconfig") "hciconfig"))
+               #t))))))
     (inputs
-     `(("zlib" ,zlib)
-       ("pciutils" ,pciutils)
+     `(("kmod" ,kmod)
+       ("libnl" ,libnl)
        ("ncurses" ,ncurses)
-       ("libnl" ,libnl)))
+       ("pciutils" ,pciutils)
+       ("zlib" ,zlib)))
     (native-inputs
      `(("pkg-config" ,pkg-config)))
     (home-page "https://01.org/powertop/")
@@ -1270,18 +1293,15 @@ processes currently causing I/O.")
 (define-public fuse
   (package
     (name "fuse")
-    (version "2.9.5")
+    (version "2.9.6")
     (source (origin
               (method url-fetch)
-              (uri (let ((version-with-underscores
-                          (string-join (string-split version #\.) "_")))
-                     (string-append
-                       "https://github.com/libfuse/libfuse/"
-                       "releases/download/fuse_" version-with-underscores
-                       "/fuse-" version ".tar.gz")))
+              (uri (string-append "https://github.com/libfuse/libfuse/releases/"
+                                  "download/fuse-" version
+                                  "/fuse-" version ".tar.gz"))
               (sha256
                (base32
-                "1dfvbi1p57svbv2sfnbqwpnsk219spvjnlapf35azhgzqlf3g7sp"))))
+                "0szi2vlsjxg03y4ji51jks34p269jqj5ify6l0ajsqq6f6y8pd0c"))))
     (build-system gnu-build-system)
     (inputs `(("util-linux" ,util-linux)))
     (arguments
@@ -1317,7 +1337,7 @@ processes currently causing I/O.")
                     (("-DFUSERMOUNT_DIR=[[:graph:]]+")
                      "-DFUSERMOUNT_DIR=\\\"/var/empty\\\"")))
                 %standard-phases)))
-    (home-page "http://fuse.sourceforge.net/")
+    (home-page "https://github.com/libfuse/libfuse")
     (synopsis "Support file systems implemented in user space")
     (description
      "As a consequence of its monolithic design, file system code for Linux
@@ -1465,14 +1485,14 @@ system.")
 (define-public kbd
   (package
     (name "kbd")
-    (version "2.0.2")
+    (version "2.0.3")
     (source (origin
               (method url-fetch)
               (uri (string-append "mirror://kernel.org/linux/utils/kbd/kbd-"
                                   version ".tar.xz"))
               (sha256
                (base32
-                "04mrms12nm5sas0nxs94yrr3hz7gmqhnmfgb9ff34bh1jszxmzcx"))
+                "0ppv953gn2zylcagr4z6zg5y2x93dxrml29plypg6xgbq3hrv2bs"))
               (modules '((guix build utils)))
               (snippet
                '(begin
@@ -1486,27 +1506,26 @@ system.")
                      "tty"))))))
     (build-system gnu-build-system)
     (arguments
-     '(#:phases (alist-cons-before
-                 'build 'pre-build
-                 (lambda* (#:key inputs #:allow-other-keys)
-                   (let ((gzip  (assoc-ref %build-inputs "gzip"))
-                         (bzip2 (assoc-ref %build-inputs "bzip2")))
-                     (substitute* "src/libkeymap/findfile.c"
-                       (("gzip")
-                        (string-append gzip "/bin/gzip"))
-                       (("bzip2")
-                        (string-append bzip2 "/bin/bzip2")))))
-                 (alist-cons-after
-                  'install 'post-install
-                  (lambda* (#:key outputs #:allow-other-keys)
-                    ;; Make sure these programs find their comrades.
-                    (let* ((out (assoc-ref outputs "out"))
-                           (bin (string-append out "/bin")))
-                      (for-each (lambda (prog)
-                                  (wrap-program (string-append bin "/" prog)
-                                                `("PATH" ":" prefix (,bin))))
-                                '("unicode_start" "unicode_stop"))))
-                  %standard-phases))))
+     '(#:phases
+       (modify-phases %standard-phases
+         (add-before 'build 'pre-build
+           (lambda* (#:key inputs #:allow-other-keys)
+             (let ((gzip  (assoc-ref %build-inputs "gzip"))
+                   (bzip2 (assoc-ref %build-inputs "bzip2")))
+               (substitute* "src/libkeymap/findfile.c"
+                 (("gzip")
+                  (string-append gzip "/bin/gzip"))
+                 (("bzip2")
+                  (string-append bzip2 "/bin/bzip2"))))))
+         (add-after 'install 'post-install
+           (lambda* (#:key outputs #:allow-other-keys)
+             ;; Make sure these programs find their comrades.
+             (let* ((out (assoc-ref outputs "out"))
+                    (bin (string-append out "/bin")))
+               (for-each (lambda (prog)
+                           (wrap-program (string-append bin "/" prog)
+                             `("PATH" ":" prefix (,bin))))
+                         '("unicode_start" "unicode_stop"))))))))
     (inputs `(("check" ,check)
               ("gzip" ,gzip)
               ("bzip2" ,bzip2)
@@ -1552,7 +1571,7 @@ to use Linux' inotify mechanism, which allows file accesses to be monitored.")
               (sha256
                (base32
                 "1yid3a9b64a60ybj66fk2ysrq5klnl0ijl4g624cl16y8404g9rv"))
-              (patches (list (search-patch "kmod-module-directory.patch")))))
+              (patches (search-patches "kmod-module-directory.patch"))))
     (build-system gnu-build-system)
     (native-inputs
      `(("pkg-config" ,pkg-config)))
@@ -1597,7 +1616,7 @@ from the module-init-tools project.")
               (sha256
                (base32
                 "0akg9gcc3c2p56xbhlvbybqavcprly5q0bvk655zwl6d62j8an7p"))
-              (patches (list (search-patch "eudev-rules-directory.patch")))))
+              (patches (search-patches "eudev-rules-directory.patch"))))
     (build-system gnu-build-system)
     (native-inputs
      `(("pkg-config" ,pkg-config)
@@ -1731,7 +1750,7 @@ interface.")
               (sha256
                (base32
                 "1gydiqgb08d9gbx4l6gv98zg3pljc984m50hmn3ysxcbkxkvkz23"))
-              (patches (list (search-patch "crda-optional-gcrypt.patch")))))
+              (patches (search-patches "crda-optional-gcrypt.patch"))))
     (build-system gnu-build-system)
     (arguments
      '(#:phases (modify-phases %standard-phases
@@ -1792,7 +1811,7 @@ compliance.")
 (define-public wireless-regdb
   (package
     (name "wireless-regdb")
-    (version "2015.04.06")
+    (version "2016.05.02")
     (source (origin
               (method url-fetch)
               (uri (string-append
@@ -1800,7 +1819,7 @@ compliance.")
                     "wireless-regdb-" version ".tar.xz"))
               (sha256
                (base32
-                "0czi83k311fp27z42hxjm8vi88fsbc23mhavv96lkb4pmari0jjc"))
+                "07n6gcwfbddz3awbdflv3dhxjszsqq2lrdwih0a0ahcliac4qry9"))
 
               ;; We're building 'regulatory.bin' by ourselves.
               (snippet '(delete-file "regulatory.bin"))))
@@ -1849,7 +1868,7 @@ country-specific regulations for the wireless spectrum.")
               (sha256
                (base32
                 "1ksgrynxgrq590nb2fwxrl1gwzisjkqlyg3ljfd1al0ibrk6mbjx"))
-              (patches (list (search-patch "lm-sensors-hwmon-attrs.patch")))))
+              (patches (search-patches "lm-sensors-hwmon-attrs.patch"))))
     (build-system gnu-build-system)
     (inputs `(("rrdtool" ,rrdtool)
               ("perl" ,perl)
@@ -2106,6 +2125,26 @@ WLAN, Bluetooth and mobile broadband.")
     (license (license:non-copyleft "file://COPYING"
                                    "See COPYING in the distribution."))))
 
+(define-public acpi
+  (package
+    (name "acpi")
+    (version "1.7")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "mirror://sourceforge/acpiclient/"
+                                  name "-" version ".tar.gz"))
+              (sha256
+               (base32
+                "01ahldvf0gc29dmbd5zi4rrnrw2i1ajnf30sx2vyaski3jv099fp"))))
+    (build-system gnu-build-system)
+    (home-page "http://acpiclient.sourceforge.net")
+    (synopsis "Display information on ACPI devices")
+    (description "@code{acpi} attempts to replicate the functionality of the
+\"old\" @code{apm} command on ACPI systems, including battery and thermal
+information.  It does not support ACPI suspending, only displays information
+about ACPI devices.")
+    (license license:gpl2+)))
+
 (define-public acpid
   (package
     (name "acpid")
@@ -2189,7 +2228,7 @@ also contains the libsysfs library.")
          version ".tar.gz"))
        (sha256
         (base32 "0qfqv7nqmjfr3p0bwrdlxkiqwqr7vmx053cadaa548ybqbghxmvm"))
-       (patches (list (search-patch "cpufrequtils-fix-aclocal.patch")))))
+       (patches (search-patches "cpufrequtils-fix-aclocal.patch"))))
     (build-system gnu-build-system)
     (native-inputs
      `(("sysfsutils" ,sysfsutils-1)))
@@ -2277,7 +2316,7 @@ MPEG-2 and audio over Linux IEEE 1394.")
 (define-public mdadm
   (package
     (name "mdadm")
-    (version "3.3.2")
+    (version "3.4")
     (source (origin
               (method url-fetch)
               (uri (string-append
@@ -2285,8 +2324,7 @@ MPEG-2 and audio over Linux IEEE 1394.")
                     version ".tar.xz"))
               (sha256
                (base32
-                "132vdvh3myjgcjn6i9w90ck16ddjxjcszklzkyvr4f5ifqd7wfhg"))
-              (patches (list (search-patch "mdadm-gcc-4.9-fix.patch")))))
+                "0248v9f28mrbwabl94ck22gfim29sqhkf70wrpfi52nk4x3bxl17"))))
     (build-system gnu-build-system)
     (inputs
      `(("udev" ,eudev)))
@@ -2346,18 +2384,41 @@ system calls, important for the performance of databases and other advanced
 applications.")
     (license license:lgpl2.1+)))
 
+(define-public sbc
+  (package
+    (name "sbc")
+    (version "1.3")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "https://www.kernel.org/pub/linux/bluetooth/"
+                                  name "-" version ".tar.xz"))
+              (sha256
+               (base32
+                "02ckd2z51z0h85qgv7x8vv8ybp5czm9if1z78411j53gaz7j4476"))))
+    (build-system gnu-build-system)
+    (inputs
+     `(("libsndfile" ,libsndfile)))
+    (native-inputs
+     `(("pkg-config" ,pkg-config)))
+    (home-page "https://www.kernel.org/pub/linux/bluetooth/")
+    (synopsis "Bluetooth subband audio codec")
+    (description
+     "The SBC is a digital audio encoder and decoder used to transfer data to
+Bluetooth audio output devices like headphones or loudspeakers.")
+    (license license:gpl2+)))
+
 (define-public bluez
   (package
     (name "bluez")
-    (version "5.36")
+    (version "5.39")
     (source (origin
               (method url-fetch)
               (uri (string-append
-                    "https://www.kernel.org/pub/linux/bluetooth/bluez-"
+                    "mirror://kernel.org/linux/bluetooth/bluez-"
                     version ".tar.xz"))
               (sha256
                (base32
-                "1wkqwmi5krr37mxcqqlp5m2xnw7vw70v3ww7j09vvlskxcdflhx3"))))
+                "0fsrf9rdmrdyx0vmcpfji4imjsvliawyy5sjb6b64myka28vrl91"))))
     (build-system gnu-build-system)
     (arguments
      '(#:configure-flags
@@ -2487,7 +2548,7 @@ and copy/paste text in the console and in xterm.")
 (define-public btrfs-progs
   (package
     (name "btrfs-progs")
-    (version "4.4.1")
+    (version "4.5.3")
     (source (origin
               (method url-fetch)
               (uri (string-append "mirror://kernel.org/linux/kernel/"
@@ -2495,7 +2556,7 @@ and copy/paste text in the console and in xterm.")
                                   "btrfs-progs-v" version ".tar.xz"))
               (sha256
                (base32
-                "1z5882zx9jx02vyg067siws0irsl8pg37myx17hr4imn9ypf6r4r"))))
+                "1lzbw275xgv69v4z8hmsf3jnip38116hxhkpv0madk8wv049drz6"))))
     (build-system gnu-build-system)
     (arguments
      '(#:test-target "test"
@@ -2552,3 +2613,93 @@ where they are less likely to cause damage to the spinning disc.  Requires a
 drive that supports the ATA/ATAPI-7 IDLE IMMEDIATE command with unload
 feature, and a laptop with an accelerometer.  It has no effect on SSDs.")
     (license license:gpl2)))
+
+(define-public thinkfan
+  (package
+    (name "thinkfan")
+    (version "0.9.3")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "mirror://sourceforge/thinkfan/"
+                                  version "/thinkfan-" version ".tar.gz"))
+              (sha256
+               (base32
+                "0nz4c48f0i0dljpk5y33c188dnnwg8gz82s4grfl8l64jr4n675n"))
+              (modules '((guix build utils)))
+              ;; Fix erroneous man page location in Makefile leading to
+              ;; a compilation failure.
+              (snippet
+               '(substitute* "CMakeLists.txt"
+                  (("thinkfan\\.1") "src/thinkfan.1")))))
+    (build-system cmake-build-system)
+    (arguments
+     `(#:modules ((guix build cmake-build-system)
+                  (guix build utils)
+                  (srfi srfi-26))
+       #:tests? #f                      ;no test target
+       #:configure-flags
+       ;; Enable reading temperatures from hard disks via S.M.A.R.T.
+       `("-DUSE_ATASMART:BOOL=ON")
+       #:phases
+       (modify-phases %standard-phases
+         ;; Install scripts for various foreign init systems. Also fix
+         ;; hard-coded path for daemon.
+         (add-after 'install 'install-rc-scripts
+           (lambda* (#:key outputs #:allow-other-keys)
+             (let ((out (assoc-ref outputs "out"))
+                   (files (find-files
+                           (string-append "../thinkfan-" ,version "/rcscripts")
+                           ".*")))
+               (substitute* files
+                 (("/usr/sbin/(\\$NAME|thinkfan)" _ name)
+                  (string-append out "/sbin/" name)))
+               (for-each (cute install-file <>
+                               (string-append out "/share/thinkfan"))
+                         files))
+             #t)))))
+    (inputs
+     `(("libatasmart" ,libatasmart)))
+    (home-page "http://thinkfan.sourceforge.net/")
+    (synopsis "Simple fan control program")
+    (description
+     "Thinkfan is a simple fan control program.  It reads temperatures,
+checks them against configured limits and switches to appropriate (also
+pre-configured) fan level.  It requires a working @code{thinkpad_acpi} or any
+other @code{hwmon} driver that enables temperature reading and fan control
+from userspace.")
+    (license license:gpl3+)))
+
+(define-public ntfs-3g
+  (package
+    (name "ntfs-3g")
+    (version "2016.2.22")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "https://tuxera.com/opensource/"
+                                  "ntfs-3g_ntfsprogs-" version ".tgz"))
+              (sha256
+               (base32
+                "180y5y09h30ryf2vim8j30a2npwz1iv9ly5yjmh3wjdkwh2jrdyp"))
+              (modules '((guix build utils)))
+              (snippet
+               ;; Install under $prefix.
+               '(substitute* '("src/Makefile.in" "ntfsprogs/Makefile.in")
+                  (("/sbin")
+                   "@sbindir@")))))
+    (build-system gnu-build-system)
+    (inputs `(("util-linux" ,util-linux)
+              ("fuse" ,fuse)))                    ;libuuid
+    (native-inputs `(("pkg-config" ,pkg-config)))
+    (arguments
+     '(#:configure-flags (list "--exec-prefix=${prefix}"
+                               "--with-fuse=external" ;use our own FUSE
+                               "--enable-mount-helper"
+                               "--enable-posix-acls"
+                               "--enable-xattr-mappings")))
+    (home-page "http://www.tuxera.com/community/open-source-ntfs-3g/")
+    (synopsis "Read-write access to NTFS file systems")
+    (description
+     "NTFS-3G provides read-write access to NTFS file systems, which are
+commonly found on Microsoft Windows.  It is implemented as a FUSE file system.
+The package provides additional NTFS tools.")
+    (license license:gpl2+)))

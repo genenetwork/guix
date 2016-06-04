@@ -145,6 +145,11 @@ current store is on a RAM disk."
         (chmod #$directory #o1775)))
 
   #~(begin
+      ;; Bind-mount TARGET's /tmp in case we need space to build things.
+      (let ((tmpdir (string-append #$target "/tmp")))
+        (mkdir-p tmpdir)
+        (mount tmpdir "/tmp" "none" MS_BIND))
+
       (unless (file-exists? "/.ro-store")
         (mkdir "/.ro-store")
         (mount #$(%store-prefix) "/.ro-store" "none"
@@ -255,7 +260,7 @@ Welcome to the installation of the Guix System Distribution!
 
 There is NO WARRANTY, to the extent permitted by law.  In particular, you may
 LOSE ALL YOUR DATA as a side effect of the installation process.  Furthermore,
-it is alpha software, so it may BREAK IN UNEXPECTED WAYS.
+it is 'beta' software, so it may contain bugs.
 
 You have been warned.  Thanks for being so brave.
 ")))

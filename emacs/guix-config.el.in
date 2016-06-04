@@ -1,7 +1,7 @@
 ;;; guix-config.el --- Compile-time configuration of Guix.
 
 ;; Copyright © 2015 Mathieu Lirzin <mthl@openmailbox.org>
-;; Copyright © 2015 Alex Kost <alezost@gmail.com>
+;; Copyright © 2015, 2016 Alex Kost <alezost@gmail.com>
 
 ;; This file is part of GNU Guix.
 
@@ -20,11 +20,17 @@
 
 ;;; Code:
 
+(defconst guix-config-name "@PACKAGE_NAME@"
+  "Guix full name.")
+
+(defconst guix-config-version "@PACKAGE_VERSION@"
+  "Guix version.")
+
 (defconst guix-config-emacs-interface-directory
   (replace-regexp-in-string "${prefix}" "@prefix@" "@emacsuidir@"))
 
 (defconst guix-config-state-directory
-  ;; This must match `NIX_STATE_DIR' as defined in `daemon.am'.
+  ;; This must match `NIX_STATE_DIR' as defined in `nix/local.mk'.
   (or (getenv "NIX_STATE_DIR") "@guix_localstatedir@/guix"))
 
 (defconst guix-config-guile-program "@GUILE@"

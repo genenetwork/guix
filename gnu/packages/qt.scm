@@ -2,7 +2,7 @@
 ;;; Copyright © 2013, 2014, 2015 Andreas Enge <andreas@enge.fr>
 ;;; Copyright © 2015 Sou Bunnbu <iyzsong@gmail.com>
 ;;; Copyright © 2015 Ludovic Courtès <ludo@gnu.org>
-;;; Copyright © 2015 Efraim Flashner <efraim@flashner.co.il>
+;;; Copyright © 2015, 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -55,44 +55,6 @@
   #:use-module (gnu packages xdisorg)
   #:use-module (gnu packages xorg)
   #:use-module (gnu packages xml))
-
-(define-public libxkbcommon
-  (package
-    (name "libxkbcommon")
-    (version "0.5.0")
-    (source (origin
-             (method url-fetch)
-             (uri (string-append "http://xkbcommon.org/download/" name "-"
-                                 version ".tar.xz"))
-             (sha256
-              (base32
-               "176ii5dn2wh74q48sd8ac37ljlvgvp5f506glr96z6ibfhj7igch"))))
-    (build-system gnu-build-system)
-    (inputs
-     `(("libx11" ,libx11)
-       ("libxcb" ,libxcb)
-       ("xkeyboard-config" ,xkeyboard-config)))
-    (native-inputs
-     `(("bison" ,bison)
-       ("pkg-config" ,pkg-config)))
-    (arguments
-     `(#:configure-flags
-       (list (string-append "--with-xkb-config-root="
-                            (assoc-ref %build-inputs "xkeyboard-config")
-                            "/share/X11/xkb")
-             (string-append "--with-x-locale-root="
-                            (assoc-ref %build-inputs "libx11")
-                            "/share/X11/locale"))))
-    (home-page "http://xkbcommon.org/")
-    (synopsis "Library to handle keyboard descriptions")
-    (description "Xkbcommon is a library to handle keyboard descriptions,
-including loading them from disk, parsing them and handling their
-state.  It is mainly meant for client toolkits, window systems, and other
-system applications; currently that includes Wayland, kmscon, GTK+, Qt,
-Clutter, and more.  Despite the name, it is not currently used by anything
-X11 (yet).")
-    (license (x11-style "file://COPYING"
-                        "See 'COPYING' in the distribution."))))
 
 (define-public qt
   (package
@@ -252,8 +214,7 @@ developers using C++ or QML, a CSS & JavaScript like language.")
              (sha256
               (base32
                "183fca7n7439nlhxyg1z7aky0izgbyll3iwakw4gwivy16aj5272"))
-             (patches (map search-patch
-                           '("qt4-ldflags.patch")))
+             (patches (search-patches "qt4-ldflags.patch"))
              (modules '((guix build utils)))
              (snippet
               ;; Remove webkit module, which is not built.
@@ -440,7 +401,7 @@ module provides support functions to the automatically generated code.")
         (sha256
          (base32
           "056qmkv02wdcfblqdaxiswrgn4wa88sz22i1x58dpb1iniavplfd"))
-       (patches (list (search-patch "pyqt-configure.patch")))))
+       (patches (search-patches "pyqt-configure.patch"))))
     (build-system gnu-build-system)
     (native-inputs
      `(("python-sip" ,python-sip)
@@ -544,7 +505,7 @@ contain over 620 classes.")
 (define-public qtkeychain
   (package
     (name "qtkeychain")
-    (version "0.5.0")
+    (version "0.6.2")
     (source
       (origin
         (method url-fetch)
@@ -552,7 +513,7 @@ contain over 620 classes.")
                             "archive/v" version ".tar.gz"))
         (file-name (string-append name "-" version ".tar.gz"))
         (sha256
-         (base32 "055mkd4pz6cyff4cw0784wjc1w92m8x223sxi96ph15fr3lplbg6"))))
+         (base32 "0g76pa786mg0fxy52hrljw09dvi6kffk2ms42lxapvpy6j94a4xf"))))
     (build-system cmake-build-system)
     (inputs
      `(("qt" ,qt)))

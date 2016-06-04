@@ -37,7 +37,7 @@
   #:use-module (gnu packages check)
   #:use-module (gnu packages cyrus-sasl)
   #:use-module (gnu packages databases)
-  #:use-module (gnu packages doxygen)
+  #:use-module (gnu packages documentation)
   #:use-module (gnu packages enchant)
   #:use-module (gnu packages gnome)
   #:use-module (gnu packages gtk)
@@ -71,8 +71,7 @@
               (sha256
                (base32
                 "1x8rliydhbibmzwdbyr7pd7n87m2jmxnqkpvaalnf4154hj1hfwb"))
-              (patches
-               (list (search-patch "libotr-test-auth-fix.patch")))))
+              (patches (search-patches "libotr-test-auth-fix.patch"))))
     (build-system gnu-build-system)
     (propagated-inputs
      `(("libgcrypt" ,libgcrypt)))  ; libotr headers include gcrypt.h
@@ -92,16 +91,37 @@ keys, no previous conversation is compromised.")
     (home-page "https://otr.cypherpunks.ca/")
     (license (list lgpl2.1 gpl2))))
 
+;; These patches together fix https://github.com/bitlbee/bitlbee/pull/55, are
+;; already upstream, and should be unnecessary when the next bitlbee comes
+;; out.
+(define %bitlbee-buddy-nick-change-patch
+  (origin
+    (method url-fetch)
+    (uri "https://github.com/bitlbee/bitlbee/commit/a42fda42.patch")
+    (sha256
+     (base32
+      "1mzjhcdn0rxir5mzgqz9kv142ai38p1iq2lajqx89wb7x0bp51zx"))))
+(define %bitlbee-always-use-nicks-patch
+  (origin
+    (method url-fetch)
+    (uri "https://github.com/bitlbee/bitlbee/commit/3320d6d9.patch")
+    (sha256
+     (base32
+      "14d9kb5zdzh5hzakdvrbviz83rix0j2lq9rzb58b2fn92fp8yixd"))))
+
 (define-public bitlbee
   (package
     (name "bitlbee")
-    (version "3.4.1")
+    (version "3.4.2")
     (source (origin
               (method url-fetch)
               (uri (string-append "https://get.bitlbee.org/src/bitlbee-"
                                   version ".tar.gz"))
               (sha256
-               (base32 "1qf0ypa9ba5jvsnpg9slmaran16hcc5fnfzbb1sdch1hjhchn2jh"))))
+               (base32 "0mza8lnfwibmklz8hdzg4f7p83hblf4h6fbf7d732kzpvra5bj39"))
+              (patches
+               (list %bitlbee-buddy-nick-change-patch
+                     %bitlbee-always-use-nicks-patch))))
     (build-system gnu-build-system)
     (native-inputs `(("pkg-config" ,pkg-config)
                      ("check" ,check)))
@@ -180,8 +200,8 @@ dictionaries.  HexChat can be extended with multiple addons.")
               (sha256
                (base32
                 "17k3g9qd9d010czk5846qxvzkmw4fihv8l6m2a2287crbxm3xhd4"))
-              (patches (list (search-patch "ngircd-no-dns-in-tests.patch")
-                             (search-patch "ngircd-handle-zombies.patch")))))
+              (patches (search-patches "ngircd-no-dns-in-tests.patch"
+                                       "ngircd-handle-zombies.patch"))))
     (build-system gnu-build-system)
     ;; Needed for the test suite.
     (native-inputs `(("procps" ,procps)
@@ -246,7 +266,7 @@ supports IPv6, SSL-protected connections as well as PAM for authentication.")
        (sha256
         (base32
          "01s0q30qrjlzj7kkz6f8lvrwsdd55a9yjh2xjjwyyxzw849j3bpj"))
-       (patches (list (search-patch "pidgin-add-search-path.patch")))))
+       (patches (search-patches "pidgin-add-search-path.patch"))))
     (build-system glib-or-gtk-build-system)
     (native-inputs
      `(("pkg-config" ,pkg-config)

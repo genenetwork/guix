@@ -24,6 +24,7 @@
   #:use-module (guix derivations)
   #:use-module (guix packages)
   #:use-module (guix grafts)
+  #:use-module (guix combinators)
 
   ;; Use the procedure that destructures "NAME-VERSION" forms.
   #:use-module ((guix utils) #:hide (package-name->name+version))
@@ -64,9 +65,13 @@
 found.  Return #f if no build log was found."
   (define (valid-url? url)
     ;; Probe URL and return #t if it is accessible.
-    (guard (c ((http-get-error? c) #f))
-      (close-port (http-fetch url #:buffered? #f))
-      #t))
+    (catch 'getaddrinfo-error
+      (lambda ()
+        (guard (c ((http-get-error? c) #f))
+          (close-port (http-fetch url #:buffered? #f))
+          #t))
+      (lambda _
+        #f)))
 
   (define (find-url file)
     (let ((base (basename file)))
@@ -680,7 +685,8 @@ needed."
                                       (_ #f))
                                     opts)))
 
-            (unless (assoc-ref opts 'log-file?)
+            (unless (or (assoc-ref opts 'log-file?)
+                        (assoc-ref opts 'derivations-only?))
               (show-what-to-build store drv
                                   #:use-substitutes?
                                   (assoc-ref opts 'substitutes?)

@@ -1,5 +1,5 @@
 ;;; GNU Guix --- Functional package management for GNU
-;;; Copyright © 2013, 2014, 2015 Ludovic Courtès <ludo@gnu.org>
+;;; Copyright © 2013, 2014, 2015, 2016 Ludovic Courtès <ludo@gnu.org>
 ;;; Copyright © 2013, 2015 Andreas Enge <andreas@enge.fr>
 ;;; Copyright © 2015 Eric Bavier <bavier@member.fsf.org>
 ;;; Copyright © 2015 Sou Bunnbu <iyzsong@gmail.com>
@@ -7,6 +7,7 @@
 ;;; Copyright © 2015 Mark H Weaver <mhw@netris.org>
 ;;; Copyright © 2015 Efraim Flashner <efraim@flashner.co.il>
 ;;; Copyright © 2015 Raimon Grau <raimonster@gmail.com>
+;;; Copyright © 2016 Leo Famulari <leo@famulari.name>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -44,6 +45,7 @@
 (define-public expat
   (package
     (name "expat")
+    (replacement expat/fixed)
     (version "2.1.0")
     (source (origin
              (method url-fetch)
@@ -52,7 +54,7 @@
              (sha256
               (base32
                "11pblz61zyxh68s5pdcbhc30ha1b2vfjd83aiwfg4vc15x3hadw2"))
-             (patches (list (search-patch "expat-CVE-2015-1283.patch")))))
+             (patches (search-patches "expat-CVE-2015-1283.patch"))))
     (build-system gnu-build-system)
     (home-page "http://www.libexpat.org/")
     (synopsis "Stream-oriented XML parser library written in C")
@@ -62,10 +64,20 @@ stream-oriented parser in which an application registers handlers for
 things the parser might find in the XML document (like start tags).")
     (license license:expat)))
 
+(define expat/fixed
+  (package
+    (inherit expat)
+    (source (origin
+              (inherit (package-source expat))
+              (patches (search-patches "expat-CVE-2015-1283.patch"
+                                       "expat-CVE-2015-1283-refix.patch"
+                                       "expat-CVE-2016-0718.patch"))))))
+
 (define-public libxml2
   (package
     (name "libxml2")
     (version "2.9.3")
+    (replacement libxml2/fixed)                   ;multiple CVEs
     (source (origin
              (method url-fetch)
              (uri (string-append "ftp://xmlsoft.org/libxml2/libxml2-"
@@ -92,9 +104,24 @@ things the parser might find in the XML document (like start tags).")
 project (but it is usable outside of the Gnome platform).")
     (license license:x11)))
 
+(define libxml2/fixed
+  (package
+    (inherit libxml2)
+    (source
+     (let ((name "libxml2")
+           (version "2.9.4"))
+       (origin
+         (method url-fetch)
+         (uri (string-append "ftp://xmlsoft.org/libxml2/libxml2-"
+                             version ".tar.gz"))
+         (sha256
+          (base32
+           "0g336cr0bw6dax1q48bblphmchgihx9p1pjmxdnrd6sh3qci3fgz")))))))
+
 (define-public python-libxml2
   (package (inherit libxml2)
     (name "python-libxml2")
+    (replacement #f)
     (build-system python-build-system)
     (arguments
      `(;; XXX: Tests are specified in 'Makefile.am', but not in 'setup.py'.
@@ -132,7 +159,7 @@ project (but it is usable outside of the Gnome platform).")
              (sha256
               (base32
                "13029baw9kkyjgr7q3jccw2mz38amq7mmpr5p3bh775qawd1bisz"))
-             (patches (list (search-patch "libxslt-CVE-2015-7995.patch")))))
+             (patches (search-patches "libxslt-CVE-2015-7995.patch"))))
     (build-system gnu-build-system)
     (home-page "http://xmlsoft.org/XSLT/index.html")
     (synopsis "C library for applying XSLT stylesheets to XML documents")
@@ -654,7 +681,7 @@ UTF-8 and UTF-16 encoding.")
               (sha256
                (base32
                 "14smciid19lvkxqznfig77jxn5s4iq3jpb47vh5a6zcaqp7gvg8m"))
-              (patches (list (search-patch "tinyxml-use-stl.patch")))))
+              (patches (search-patches "tinyxml-use-stl.patch"))))
     (build-system gnu-build-system)
     ;; This library is missing *a lot* of the steps to make it usable, so we
     ;; have to add them here, like every other distro must do.

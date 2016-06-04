@@ -1,5 +1,5 @@
 ;;; GNU Guix --- Functional package management for GNU
-;;; Copyright © 2012, 2013, 2014, 2015 Ludovic Courtès <ludo@gnu.org>
+;;; Copyright © 2012, 2013, 2014, 2015, 2016 Ludovic Courtès <ludo@gnu.org>
 ;;; Copyright © 2014, 2015 Mark H Weaver <mhw@netris.org>
 ;;;
 ;;; This file is part of GNU Guix.
@@ -27,7 +27,8 @@
   #:use-module (guix build-system trivial)
   #:use-module ((guix store) #:select (add-to-store add-text-to-store))
   #:use-module ((guix derivations) #:select (derivation))
-  #:use-module (guix utils)
+  #:use-module ((guix utils) #:select (gnu-triplet->nix-system))
+  #:use-module (guix combinators)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 match)
@@ -125,7 +126,7 @@ successful, or false to signal an error."
        ("tarball" ,(bootstrap-origin (source (%current-system))))))
     (source #f)
     (synopsis description)
-    (description #f)
+    (description description)
     (home-page #f)
     (license gpl3+)))
 
@@ -166,11 +167,13 @@ successful, or false to signal an error."
         ((string=? system "mips64el-linux") "/lib/ld.so.1")
         ((string=? system "i586-gnu") "/lib/ld.so.1")
         ((string=? system "i686-gnu") "/lib/ld.so.1")
+        ((string=? system "aarch64-linux") "/lib/ld-linux-aarch64.so.1")
 
         ;; XXX: This one is used bare-bones, without a libc, so add a case
         ;; here just so we can keep going.
         ((string=? system "xtensa-elf") "no-ld.so")
         ((string=? system "avr") "no-ld.so")
+        ((string=? system "i686-mingw") "no-ld.so")
 
         (else (error "dynamic linker name not known for this system"
                      system))))
@@ -410,7 +413,7 @@ $out/bin/guile --version~%"
                          (base32
                           "0k97a3whzx3apsi9n2cbsrr79ad6lh00klxph9hw4fqyp1abkdsg")))))))))
     (synopsis "Bootstrap binaries and headers of the GNU C Library")
-    (description #f)
+    (description synopsis)
     (home-page #f)
     (license lgpl2.1+)))
 
@@ -495,7 +498,7 @@ exec ~a/bin/.gcc-wrapped -B~a/lib \
             (variable "LIBRARY_PATH")
             (files '("lib" "lib64")))))
     (synopsis "Bootstrap binaries of the GNU Compiler Collection")
-    (description #f)
+    (description synopsis)
     (home-page #f)
     (license gpl3+)))
 

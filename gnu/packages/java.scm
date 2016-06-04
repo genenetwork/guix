@@ -1,6 +1,7 @@
 ;;; GNU Guix --- Functional package management for GNU
-;;; Copyright © 2015 Ricardo Wurmus <rekado@elephly.net>
+;;; Copyright © 2015, 2016 Ricardo Wurmus <rekado@elephly.net>
 ;;; Copyright © 2016 Leo Famulari <leo@famulari.name>
+;;; Copyright © 2016 Roel Janssen <roel@gnu.org>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -22,6 +23,7 @@
   #:use-module (guix packages)
   #:use-module (guix download)
   #:use-module (guix utils)
+  #:use-module (guix build-system ant)
   #:use-module (guix build-system gnu)
   #:use-module (gnu packages)
   #:use-module (gnu packages attr)
@@ -51,61 +53,54 @@
   #:use-module (gnu packages texinfo)
   #:use-module ((srfi srfi-1) #:select (fold alist-delete)))
 
-(define-public swt
+(define-public java-swt
   (package
-    (name "swt")
-    (version "4.4.2")
+    (name "java-swt")
+    (version "4.5")
     (source (origin
               (method url-fetch)
               (uri (string-append
                     "http://ftp-stud.fht-esslingen.de/pub/Mirrors/"
                     "eclipse/eclipse/downloads/drops4/R-" version
-                    "-201502041700/swt-" version "-gtk-linux-x86.zip"))
+                    "-201506032000/swt-" version "-gtk-linux-x86.zip"))
               (sha256
                (base32
-                "0lzyqr8k2zm5s8fmnrx5kxpslxfs0i73y26fwfms483x45izzwj8"))))
-    (build-system gnu-build-system)
+                "03mhzraikcs4fsz7d3h5af9pw1bbcfd6dglsvbk2ciwimy9zj30q"))))
+    (build-system ant-build-system)
     (arguments
-     `(#:make-flags '("-f" "make_linux.mak")
+     `(#:jar-name "swt.jar"
        #:tests? #f ; no "check" target
        #:phases
-       (alist-replace
-        'unpack
-        (lambda _
-          (and (mkdir "swt")
-               (zero? (system* "unzip" (assoc-ref %build-inputs "source") "-d" "swt"))
-               (chdir "swt")
-               (mkdir "src")
-               (zero? (system* "unzip" "src.zip" "-d" "src"))
-               (chdir "src")))
-        (alist-replace
-         'build
-         (lambda* (#:key inputs outputs #:allow-other-keys)
-           (let ((lib (string-append (assoc-ref outputs "out") "/lib")))
-             (setenv "JAVA_HOME" (assoc-ref inputs "jdk"))
-
-             ;; Build shared libraries.  Users of SWT have to set the system
-             ;; property swt.library.path to the "lib" directory of this
-             ;; package output.
-             (mkdir-p lib)
-             (setenv "OUTPUT_DIR" lib)
-             (zero? (system* "bash" "build.sh"))
-
-             ;; build jar
-             (mkdir "build")
-             (for-each (lambda (file)
-                         (format #t "Compiling ~s\n" file)
-                         (system* "javac" "-d" "build" file))
-                       (find-files "." "\\.java"))
-             (zero? (system* "jar" "cvf" "swt.jar" "-C" "build" "."))))
-         (alist-cons-after
-          'install 'install-java-files
-          (lambda* (#:key outputs #:allow-other-keys)
-            (let ((java (string-append (assoc-ref outputs "out")
-                                       "/share/java")))
-              (install-file "swt.jar" java)
-              #t))
-          (alist-delete 'configure %standard-phases))))))
+       (modify-phases %standard-phases
+         (replace 'unpack
+           (lambda* (#:key source #:allow-other-keys)
+             (and (mkdir "swt")
+                  (zero? (system* "unzip" source "-d" "swt"))
+                  (chdir "swt")
+                  (mkdir "src")
+                  (zero? (system* "unzip" "src.zip" "-d" "src")))))
+         ;; The classpath contains invalid icecat jars.  Since we don't need
+         ;; anything other than the JDK on the classpath, we can simply unset
+         ;; it.
+         (add-after 'configure 'unset-classpath
+           (lambda _ (unsetenv "CLASSPATH") #t))
+         (add-before 'build 'build-native
+           (lambda* (#:key inputs outputs #:allow-other-keys)
+             (let ((lib (string-append (assoc-ref outputs "out") "/lib")))
+               ;; Build shared libraries.  Users of SWT have to set the system
+               ;; property swt.library.path to the "lib" directory of this
+               ;; package output.
+               (mkdir-p lib)
+               (setenv "OUTPUT_DIR" lib)
+               (with-directory-excursion "src"
+                 (zero? (system* "bash" "build.sh"))))))
+         (add-after 'install 'install-native
+           (lambda* (#:key outputs #:allow-other-keys)
+             (let ((lib (string-append (assoc-ref outputs "out") "/lib")))
+               (for-each (lambda (file)
+                           (install-file file lib))
+                         (find-files "." "\\.so$"))
+               #t))))))
     (inputs
      `(("xulrunner" ,icecat)
        ("gtk" ,gtk+-2)
@@ -115,8 +110,7 @@
        ("glu" ,glu)))
     (native-inputs
      `(("pkg-config" ,pkg-config)
-       ("unzip" ,unzip)
-       ("jdk" ,icedtea "jdk")))
+       ("unzip" ,unzip)))
     (home-page "https://www.eclipse.org/swt/")
     (synopsis "Widget toolkit for Java")
     (description
@@ -187,15 +181,16 @@ build process and its dependencies, whereas Make uses Makefile format.")
 (define-public icedtea-6
   (package
     (name "icedtea")
-    (version "1.13.10")
+    (version "1.13.11")
     (source (origin
               (method url-fetch)
               (uri (string-append
                     "http://icedtea.wildebeest.org/download/source/icedtea6-"
                     version ".tar.xz"))
+              (patches (search-patches "icedtea-remove-overrides.patch"))
               (sha256
                (base32
-                "1mq08sfyfjlfw0c1czjs47303zv4h91s1jc0nhdlra4rbbx0g2d0"))
+                "1grki39a4rf8n74zc0iglcggxxbpniyfh1gk1lb10p63zvvcsvjj"))
               (modules '((guix build utils)))
               (snippet
                '(substitute* "Makefile.in"
@@ -545,6 +540,7 @@ build process and its dependencies, whereas Make uses Makefile format.")
        ("mit-krb5" ,mit-krb5)
        ("nss" ,nss)
        ("libx11" ,libx11)
+       ("libxcomposite" ,libxcomposite)
        ("libxt" ,libxt)
        ("libxtst" ,libxtst)
        ("libxi" ,libxi)
@@ -558,10 +554,10 @@ build process and its dependencies, whereas Make uses Makefile format.")
        ("openjdk6-src"
         ,(origin
            (method url-fetch)
-           (uri "https://java.net/downloads/openjdk6/openjdk-6-src-b38-20_jan_2016.tar.gz")
+           (uri "https://java.net/downloads/openjdk6/openjdk-6-src-b39-03_may_2016.tar.gz")
            (sha256
             (base32
-             "1fapj9w4ahzf5nwvdgi1dsxjyh9dqbcvf9638r60h1by13wjqk5p"))))
+             "1brxbsgwcj4js26y5lk6capc3pvghgjidvv9cavw6z8n7c7aw8af"))))
        ("lcms" ,lcms)
        ("zlib" ,zlib)
        ("gtk" ,gtk+-2)
@@ -577,7 +573,7 @@ build process and its dependencies, whereas Make uses Makefile format.")
     (license license:gpl2+)))
 
 (define-public icedtea-7
-  (let* ((version "2.6.4")
+  (let* ((version "2.6.6")
          (drop (lambda (name hash)
                  (origin
                    (method url-fetch)
@@ -594,7 +590,7 @@ build process and its dependencies, whereas Make uses Makefile format.")
                       version ".tar.xz"))
                 (sha256
                  (base32
-                  "0r31h8nlsrbfdkgbjbb7phwgcwglc9siznzrr40lqnm9xrgkc2nj"))
+                  "0jjldnig382yqvzzsflilcz897v2lwnw4n57sggdjn318d29g53r"))
                 (modules '((guix build utils)))
                 (snippet
                  '(substitute* "Makefile.in"
@@ -669,6 +665,8 @@ build process and its dependencies, whereas Make uses Makefile format.")
                       (setenv "CC" "gcc")
                       (setenv "CPATH"
                               (string-append gcjinclude ":"
+                                             (assoc-ref inputs "libxcomposite")
+                                             "/include/X11/extensions" ":"
                                              (assoc-ref inputs "libxrender")
                                              "/include/X11/extensions" ":"
                                              (assoc-ref inputs "libxtst")
@@ -719,26 +717,329 @@ build process and its dependencies, whereas Make uses Makefile format.")
       (native-inputs
        `(("openjdk-src"
           ,(drop "openjdk"
-                 "1qjjf71nq80ac2d08hbaa8589d31vk313z3rkirnwq5df8cyf0mv"))
+                 "1wxd5kbsmd4gdiz78iq7pq9hp0l6m946pd1pvaj750lkrgk17y14"))
          ("corba-drop"
           ,(drop "corba"
-                 "025warxhjal3nr7w1xyd16k0f32fwkchifpaslzyidsga3hgmfr6"))
+                 "0bba7drdpbggzgn7cnqv10myxa3bygaq2hkclgrmsijhl6bnr26f"))
          ("jaxp-drop"
           ,(drop "jaxp"
-                 "0qiz6swb78w9c0mf88pf0gflgm5rp9k0l6fv6sdl7dki691b0z09"))
+                 "0c1d4yjaxzh9fi9bx50yi2psb9f475bfivivf6c31smgaihb97k7"))
          ("jaxws-drop"
           ,(drop "jaxws"
-                 "18fz4gl4fdlcmqvh1mlpd9h0gj0qizpfa7njkax97aysmsm08xns"))
+                 "0662wzws45jwzwfc4pgizxdywz737vflkj9w3hw1xlgljs017bzr"))
          ("jdk-drop"
           ,(drop "jdk"
-                 "0qsx5d9pgwlz9vbpapw4jwpajqc6rwk1150cjb33i4n3z709jccx"))
+                 "17qaf5mdijsn6jzyxv7rgn9g5mazkva6p8lcy7zq06yvfb595ahv"))
          ("langtools-drop"
           ,(drop "langtools"
-                 "1k6plx96smf86z303gb30hncssa8f40qdryzsdv349iwqwacxc7r"))
+                 "1wv34cyba1f4wynjkwf765agf4ifc04717ac7b3bpiagggp2rfsl"))
          ("hotspot-drop"
           ,(drop "hotspot"
-                 "0r9ffzyf5vxs8wg732szqcil0ksc8lcxzihdv3viz7d67dy42irp"))
+                 "1hhd5q2g7mnw3pqqv72labki5zv09vgc3hp3xig4x8r4yzzg9s54"))
          ,@(fold alist-delete (package-native-inputs icedtea-6)
-                 '("openjdk6-src")))))))
+                 '("openjdk6-src"))))
+      (inputs
+       `(("libxcomposite" ,libxcomposite)
+         ,@(package-inputs icedtea-6))))))
+
+(define-public icedtea-8
+  (let* ((version "3.0.1")
+         (drop (lambda (name hash)
+                 (origin
+                   (method url-fetch)
+                   (uri (string-append
+                         "http://icedtea.classpath.org/download/drops/"
+                         "/icedtea8/" version "/" name ".tar.xz"))
+                   (sha256 (base32 hash))))))
+    (package (inherit icedtea-7)
+      (version "3.0.1")
+      (source (origin
+                (method url-fetch)
+                (uri (string-append
+                      "http://icedtea.wildebeest.org/download/source/icedtea-"
+                      version ".tar.xz"))
+                (sha256
+                 (base32
+                  "1wislw090zx955rf9sppimdzqf044mpj96xp54vljv6yw46y6v1l"))
+                (modules '((guix build utils)))
+                (snippet
+                 '(substitute* "Makefile.am"
+                    ;; do not leak information about the build host
+                    (("DISTRIBUTION_ID=\"\\$\\(DIST_ID\\)\"")
+                     "DISTRIBUTION_ID=\"\\\"guix\\\"\"")))))
+      (arguments
+       (substitute-keyword-arguments (package-arguments icedtea-7)
+         ((#:configure-flags flags)
+          `(let ((jdk (assoc-ref %build-inputs "jdk")))
+             `(;;"--disable-bootstrap"
+               "--enable-bootstrap"
+               "--enable-nss"
+               "--disable-downloading"
+               "--disable-tests"      ;they are run in the check phase instead
+               "--with-openjdk-src-dir=./openjdk.src"
+               ,(string-append "--with-jdk-home=" jdk))))
+         ((#:phases phases)
+          `(modify-phases ,phases
+             (delete 'fix-x11-extension-include-path)
+             (delete 'patch-paths)
+             (delete 'set-additional-paths)
+             (delete 'patch-patches)
+             (replace 'install
+               (lambda* (#:key outputs #:allow-other-keys)
+                 (let ((doc (string-append (assoc-ref outputs "doc")
+                                           "/share/doc/icedtea"))
+                       (jre (assoc-ref outputs "out"))
+                       (jdk (assoc-ref outputs "jdk")))
+                   (copy-recursively "openjdk.build/docs" doc)
+                   (copy-recursively "openjdk.build/images/j2re-image" jre)
+                   (copy-recursively "openjdk.build/images/j2sdk-image" jdk)
+                   #t)))))))
+      (native-inputs
+       `(("jdk" ,icedtea-7 "jdk")
+         ("openjdk-src"
+          ,(drop "openjdk"
+                 "1141wfz6vz889f5naj7zdbyw42ibw0ixvkd808lfcrwxlgznyxlb"))
+         ("corba-drop"
+          ,(drop "corba"
+                 "0l3fmfw88hf8709z033az1x6wzmcb0jnakj2br1r721zw01i0da2"))
+         ("jaxp-drop"
+          ,(drop "jaxp"
+                 "1i1pvyrdkk3w8vcnk6kfcbsjkfpbbrcywiypdl39bf2ishixbaf0"))
+         ("jaxws-drop"
+          ,(drop "jaxws"
+                 "0f1kglci65zsfy8ygw5w2zza7v1280znihvls4kraz06dgsc2y73"))
+         ("jdk-drop"
+          ,(drop "jdk"
+                 "1pcwb1kjd1ph4jbv07icgk0fb8jqnck2y24qjfd7dzg7gm45c1am"))
+         ("langtools-drop"
+          ,(drop "langtools"
+                 "1jjil9s244wp0blj1qkzk7sy7y1jrxb4wq18c1rj2q2pa88n00i6"))
+         ("hotspot-drop"
+          ,(drop "hotspot"
+                 "1pl0cz1gja6z5zbywni1x1pj4qkh745fpj55fcmj4lpfj2p98my1"))
+         ("nashorn-drop"
+          ,(drop "nashorn"
+                 "1p0ynm2caraq1sal38qrrf42yah7j14c9vfwdv6h5h4rliahs177"))
+         ,@(fold alist-delete (package-native-inputs icedtea-7)
+                 '("gcj" "openjdk-src" "corba-drop" "jaxp-drop" "jaxws-drop"
+                   "jdk-drop" "langtools-drop" "hotspot-drop")))))))
 
 (define-public icedtea icedtea-7)
+
+(define-public java-xz
+  (package
+   (name "java-xz")
+   (version "1.5")
+   (source (origin
+     (method url-fetch)
+     (uri (string-append "http://tukaani.org/xz/xz-java-" version ".zip"))
+     (sha256
+      (base32
+       "0x6vn9dp9kxk83x2fp3394n95dk8fx9yg8jns9371iqsn0vy8ih1"))))
+   (build-system ant-build-system)
+   (arguments
+    `(#:tests? #f ; There are no tests to run.
+      #:jar-name ,(string-append "xz-" version  ".jar")
+      #:phases
+      (modify-phases %standard-phases
+        ;; The unpack phase enters the "maven" directory by accident.
+        (add-after 'unpack 'chdir
+          (lambda _ (chdir "..") #t)))))
+   (native-inputs
+    `(("unzip" ,unzip)))
+   (home-page "http://tukaani.org/xz/java.html")
+   (synopsis "Implementation of XZ data compression in pure Java")
+   (description "This library aims to be a complete implementation of XZ data
+compression in pure Java.  Single-threaded streamed compression and
+decompression and random access decompression have been fully implemented.")
+   (license license:public-domain)))
+
+;; java-hamcrest-core uses qdox version 1.12.  We package this version instead
+;; of the latest release.
+(define-public java-qdox-1.12
+  (package
+    (name "java-qdox")
+    (version "1.12.1")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "http://central.maven.org/maven2/"
+                                  "com/thoughtworks/qdox/qdox/" version
+                                  "/qdox-" version "-sources.jar"))
+              (sha256
+               (base32
+                "0hlfbqq2avf5s26wxkksqmkdyk6zp9ggqn37c468m96mjv0n9xfl"))))
+    (build-system ant-build-system)
+    (arguments
+     `(;; Tests require junit
+       #:tests? #f
+       #:jar-name "qdox.jar"
+       #:phases
+       (modify-phases %standard-phases
+         (replace 'unpack
+           (lambda* (#:key source #:allow-other-keys)
+             (mkdir "src")
+             (with-directory-excursion "src"
+               (zero? (system* "jar" "-xf" source)))))
+         ;; At this point we don't have junit, so we must remove the API
+         ;; tests.
+         (add-after 'unpack 'delete-tests
+           (lambda _
+             (delete-file-recursively "src/com/thoughtworks/qdox/junit")
+             #t)))))
+    (home-page "http://qdox.codehaus.org/")
+    (synopsis "Parse definitions from Java source files")
+    (description
+     "QDox is a high speed, small footprint parser for extracting
+class/interface/method definitions from source files complete with JavaDoc
+@code{@@tags}.  It is designed to be used by active code generators or
+documentation tools.")
+    (license license:asl2.0)))
+
+(define-public java-jarjar
+  (package
+    (name "java-jarjar")
+    (version "1.4")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "https://storage.googleapis.com/google-code-archive-downloads/v2/"
+                    "code.google.com/jarjar/jarjar-src-" version ".zip"))
+              (sha256
+               (base32
+                "1v8irhni9cndcw1l1wxqgry013s2kpj0qqn57lj2ji28xjq8ndjl"))))
+    (build-system ant-build-system)
+    (arguments
+     `(;; Tests require junit, which ultimately depends on this package.
+       #:tests? #f
+       #:build-target "jar"
+       #:phases
+       (modify-phases %standard-phases
+         (replace 'install
+           (lambda* (#:key outputs #:allow-other-keys)
+             (let ((target (string-append (assoc-ref outputs "out")
+                                          "/share/java")))
+               (install-file (string-append "dist/jarjar-" ,version ".jar")
+                             target))
+             #t)))))
+    (native-inputs
+     `(("unzip" ,unzip)))
+    (home-page "https://code.google.com/archive/p/jarjar/")
+    (synopsis "Repackage Java libraries")
+    (description
+     "Jar Jar Links is a utility that makes it easy to repackage Java
+libraries and embed them into your own distribution.  Jar Jar Links includes
+an Ant task that extends the built-in @code{jar} task.")
+    (license license:asl2.0)))
+
+(define-public java-hamcrest-core
+  (package
+    (name "java-hamcrest-core")
+    (version "1.3")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "https://hamcrest.googlecode.com/files/"
+                                  "hamcrest-" version ".tgz"))
+              (sha256
+               (base32
+                "1hi0jv0zrgsf4l25aizxrgvxpsrmdklsmvw0jzwz7zv9s108whn6"))
+              (modules '((guix build utils)))
+              (snippet
+               '(begin
+                  ;; Delete bundled jar archives.
+                  (for-each delete-file (find-files "." "\\.jar$"))
+                  #t))))
+    (build-system ant-build-system)
+    (arguments
+     `(#:tests? #f ; Tests require junit
+       #:make-flags (list (string-append "-Dversion=" ,version))
+       #:build-target "core"
+       #:phases
+       (modify-phases %standard-phases
+         ;; Disable unit tests, because they require junit, which requires
+         ;; hamcrest-core.  We also give a fixed value to the "Built-Date"
+         ;; attribute from the manifest for reproducibility.
+         (add-before 'configure 'patch-build.xml
+           (lambda _
+             (substitute* "build.xml"
+               (("unit-test, ") "")
+               (("\\$\\{build.timestamp\\}") "guix"))
+             #t))
+         ;; Java's "getMethods()" returns methods in an unpredictable order.
+         ;; To make the output of the generated code deterministic we must
+         ;; sort the array of methods.
+         (add-after 'unpack 'make-method-order-deterministic
+           (lambda _
+             (substitute* "hamcrest-generator/src/main/java/org/hamcrest/generator/ReflectiveFactoryReader.java"
+               (("import java\\.util\\.Iterator;" line)
+                (string-append line "\n"
+                               "import java.util.Arrays; import java.util.Comparator;"))
+               (("allMethods = cls\\.getMethods\\(\\);" line)
+                (string-append "_" line
+                               "
+private Method[] getSortedMethods() {
+  Arrays.sort(_allMethods, new Comparator<Method>() {
+    @Override
+    public int compare(Method a, Method b) {
+      return a.toString().compareTo(b.toString());
+    }
+  });
+  return _allMethods;
+}
+
+private Method[] allMethods = getSortedMethods();")))))
+         (add-before 'build 'do-not-use-bundled-qdox
+           (lambda* (#:key inputs #:allow-other-keys)
+             (substitute* "build.xml"
+               (("lib/generator/qdox-1.12.jar")
+                (string-append (assoc-ref inputs "java-qdox-1.12")
+                               "/share/java/qdox.jar")))
+             #t))
+         (replace 'install
+           (lambda* (#:key outputs #:allow-other-keys)
+             (install-file (string-append "build/hamcrest-core-"
+                                          ,version ".jar")
+                           (string-append (assoc-ref outputs "out")
+                                          "/share/java")))))))
+    (native-inputs
+     `(("java-qdox-1.12" ,java-qdox-1.12)
+       ("java-jarjar" ,java-jarjar)))
+    (home-page "http://hamcrest.org/")
+    (synopsis "Library of matchers for building test expressions")
+    (description
+     "This package provides a library of matcher objects (also known as
+constraints or predicates) allowing @code{match} rules to be defined
+declaratively, to be used in other frameworks.  Typical scenarios include
+testing frameworks, mocking libraries and UI validation rules.")
+    (license license:bsd-2)))
+
+(define-public java-junit
+  (package
+    (name "java-junit")
+    (version "4.12")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "https://github.com/junit-team/junit/"
+                                  "archive/r" version ".tar.gz"))
+              (file-name (string-append name "-" version ".tar.gz"))
+              (sha256
+               (base32
+                "090dn5v1vs0b3acyaqc0gjf6p8lmd2h24wfzsbq7sly6b214anws"))
+              (modules '((guix build utils)))
+              (snippet
+               '(begin
+                  ;; Delete bundled jar archives.
+                  (delete-file-recursively "lib")
+                  #t))))
+    (build-system ant-build-system)
+    (arguments
+     `(#:tests? #f ; no tests
+       #:jar-name "junit.jar"))
+    (inputs
+     `(("java-hamcrest-core" ,java-hamcrest-core)))
+    (home-page "http://junit.org/")
+    (synopsis "Test framework for Java")
+    (description
+     "JUnit is a simple framework to write repeatable tests for Java projects.
+JUnit provides assertions for testing expected results, test fixtures for
+sharing common test data, and test runners for running tests.")
+    (license license:epl1.0)))

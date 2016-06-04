@@ -61,8 +61,8 @@
       (sha256
        (base32
         "0jh79syhr8n3l81jxlwsmwm1pklb4d923m2lgqbswyavh1fqmvwb"))
-      (patches (list (search-patch "duplicity-piped-password.patch")
-                     (search-patch "duplicity-test_selection-tmp.patch")))))
+      (patches (search-patches "duplicity-piped-password.patch"
+                               "duplicity-test_selection-tmp.patch"))))
     (build-system python-build-system)
     (native-inputs
      `(("python2-setuptools" ,python2-setuptools)
@@ -136,6 +136,7 @@ backups (called chunks) to allow easy burning to CD/DVD.")
 (define-public libarchive
   (package
     (name "libarchive")
+    (replacement libarchive/fixed)
     (version "3.1.2")
     (source
      (origin
@@ -146,10 +147,10 @@ backups (called chunks) to allow easy burning to CD/DVD.")
         (base32
          "0pixqnrcf35dnqgv0lp7qlcw7k13620qkhgxr288v7p4iz6ym1zb"))
        (patches
-        (list (search-patch "libarchive-mtree-filename-length-fix.patch")
-              (search-patch "libarchive-fix-lzo-test-case.patch")
-              (search-patch "libarchive-CVE-2013-0211.patch")
-              (search-patch "libarchive-bsdtar-test.patch")))))
+        (search-patches "libarchive-mtree-filename-length-fix.patch"
+                        "libarchive-fix-lzo-test-case.patch"
+                        "libarchive-CVE-2013-0211.patch"
+                        "libarchive-bsdtar-test.patch"))))
     (build-system gnu-build-system)
     ;; TODO: Add -L/path/to/nettle in libarchive.pc.
     (inputs
@@ -192,6 +193,14 @@ serially iterate through the archive, writers serially add things to the
 archive.  In particular, note that there is currently no built-in support for
 random access nor for in-place modification.")
     (license license:bsd-2)))
+
+(define libarchive/fixed
+  (package
+    (inherit libarchive)
+    (source (origin
+              (inherit (package-source libarchive))
+              (patches (cons (search-patch "libarchive-CVE-2016-1541.patch")
+                             (origin-patches (package-source libarchive))))))))
 
 (define-public rdup
   (package
@@ -377,8 +386,7 @@ changes are stored.")
               (sha256
                (base32
                 "0fpdyxww41ba52d98blvnf543xvirq1v9xz1i3x1gm9lzlzpmc2g"))
-              (patches
-               (list (search-patch "diffutils-gets-undeclared.patch")))))
+              (patches (search-patches "diffutils-gets-undeclared.patch"))))
     (build-system gnu-build-system)
     (native-inputs
      `(("guile" ,guile-2.0)
@@ -410,13 +418,17 @@ detection, and lossless compression.")
 (define-public borg
   (package
     (name "borg")
-    (version "1.0.0")
+    (version "1.0.3")
     (source (origin
               (method url-fetch)
-              (uri (pypi-uri "borgbackup" version))
+              (uri (string-append
+                     "https://pypi.python.org/packages/"
+                     "c9/c6/1efc338724b054d4d264dfeadfcba11cefa6c3c50f474cec91b8f0c21d3a"
+                     "/borgbackup-" version ".tar.gz"))
+
               (sha256
                (base32
-                "0wa6cvqs3rni5nwrgagigchcly8a53rxk56z0zn8iaii2cqrw2sh"))))
+                "0kzr0xa00yjfxx27aipli67qg5ffj52yrnqhpf3sdy6k5wzwaybs"))))
     (build-system python-build-system)
     (arguments
      `(#:phases

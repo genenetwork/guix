@@ -3,13 +3,15 @@
 ;;; Copyright © 2013 Aljosha Papsch <misc@rpapsch.de>
 ;;; Copyright © 2014, 2015, 2016 Ludovic Courtès <ludo@gnu.org>
 ;;; Copyright © 2014, 2015, 2016 Mark H Weaver <mhw@netris.org>
-;;; Copyright © 2015 Ricardo Wurmus <rekado@elephly.net>
+;;; Copyright © 2015, 2016 Ricardo Wurmus <rekado@elephly.net>
 ;;; Copyright © 2015 Taylan Ulrich Bayırlı/Kammer <taylanbayirli@gmail.com>
 ;;; Copyright © 2015, 2016 Eric Bavier <bavier@member.fsf.org>
 ;;; Copyright © 2015 Eric Dvorsak <eric@dvorsak.fr>
 ;;; Copyright © 2016 Sou Bunnbu <iyzsong@gmail.com>
 ;;; Copyright © 2016 Jelle Licht <jlicht@fsfe.org>
 ;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
+;;; Copyright © 2016 Rene Saavedra <rennes@openmailbox.org>
+;;; Copyright © 2016 Ben Woodcroft <donttrustben@gmail.com>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -35,12 +37,13 @@
   #:use-module (guix cvs-download)
   #:use-module (guix utils)
   #:use-module (guix build-system gnu)
+  #:use-module (guix build-system glib-or-gtk)
   #:use-module (guix build-system perl)
   #:use-module (guix build-system cmake)
   #:use-module (guix build-system r)
   #:use-module (gnu packages)
   #:use-module (gnu packages apr)
-  #:use-module (gnu packages asciidoc)
+  #:use-module (gnu packages documentation)
   #:use-module (gnu packages docbook)
   #:use-module (gnu packages autotools)
   #:use-module (gnu packages compression)
@@ -49,9 +52,12 @@
   #:use-module (gnu packages mit-krb5)
   #:use-module (gnu packages gd)
   #:use-module (gnu packages gettext)
+  #:use-module (gnu packages glib)
+  #:use-module (gnu packages gnome)
   #:use-module (gnu packages icu4c)
   #:use-module (gnu packages lua)
   #:use-module (gnu packages base)
+  #:use-module (gnu packages perl)
   #:use-module (gnu packages python)
   #:use-module (gnu packages pcre)
   #:use-module (gnu packages pkg-config)
@@ -105,14 +111,14 @@ and its related documentation.")
 (define-public nginx
   (package
     (name "nginx")
-    (version "1.8.1")
+    (version "1.10.1")
     (source (origin
               (method url-fetch)
               (uri (string-append "http://nginx.org/download/nginx-"
                                   version ".tar.gz"))
               (sha256
                (base32
-                "1dwpyw4pvhj68vxramqxm8f79pqz9lrm8mvifbn49h3615ikqjwg"))))
+                "00d8hxj8453c7989qd7z4f1mjp0k3ib8k29i1qyf11b4ar35ilqz"))))
     (build-system gnu-build-system)
     (inputs `(("pcre" ,pcre)
               ("openssl" ,openssl)
@@ -226,7 +232,8 @@ and UNIX socket support.")
                              version ".tar.gz"))
              (sha256
               (base32
-               "1mvq9p85khsl818i4vbszyfab0fd45mdrwrxjkzw05mk1xcyc1br"))))
+               "1mvq9p85khsl818i4vbszyfab0fd45mdrwrxjkzw05mk1xcyc1br"))
+             (patches (search-patches "jansson-CVE-2016-4425.patch"))))
     (build-system gnu-build-system)
     (home-page "http://www.digip.org/jansson/")
     (synopsis "JSON C library")
@@ -269,6 +276,100 @@ data.")
 easily construct JSON objects in C, output them as JSON formatted strings and
 parse JSON formatted strings back into the C representation of JSON objects.")
     (license l:x11)))
+
+(define-public krona-tools
+  (package
+   (name "krona-tools")
+   (version "2.6.1")
+   (source (origin
+             (method url-fetch)
+             (uri (string-append
+                   "https://github.com/marbl/Krona/releases/download/v"
+                   version "/KronaTools-" version ".tar"))
+             (sha256
+              (base32
+               "1fj5mf6wbwz7v74n2safbw7fpw32fik19vf0wdbc2srn82i8fiwz"))))
+   (build-system perl-build-system)
+   (arguments
+     `(#:tests? #f ; no tests
+       #:phases
+       (modify-phases %standard-phases
+         ;; There is no configure or build steps.
+         (delete 'configure)
+         (replace 'build
+           ;; Remove 'use lib' statements from scripts as PERL5LIB is set
+           ;; correctly during installation.
+           (lambda _
+             (for-each
+              (lambda (executable)
+                (display executable)(display "\n")
+                (substitute* executable
+                  (("use lib \\(`ktGetLibPath`\\);") "")))
+              (find-files "scripts/" ".*"))
+             #t))
+         ;; Install script "install.pl" expects the build directory to remain
+         ;; after installation, creating symlinks etc., so re-implement it
+         ;; here.
+         (replace 'install
+           (lambda* (#:key outputs #:allow-other-keys)
+             (let ((bin   (string-append (assoc-ref outputs "out") "/bin"))
+                   (perl  (string-append (assoc-ref outputs "out")
+                                         "/lib/perl5/site_perl"))
+                   (share (string-append
+                           (assoc-ref outputs "out") "/share/krona-tools")))
+               (mkdir-p bin)
+               (for-each
+                (lambda (script)
+                  (let* ((executable (string-append "scripts/" script ".pl")))
+                    ;; Prefix executables with 'kt' as install script does.
+                    (copy-file executable (string-append bin "/kt" script))))
+                '("ClassifyBLAST"
+                  "GetContigMagnitudes"
+                  "GetTaxIDFromGI"
+                  "ImportBLAST"
+                  "ImportDiskUsage"
+                  "ImportEC"
+                  "ImportFCP"
+                  "ImportGalaxy"
+                  "ImportKrona"
+                  "ImportMETAREP-BLAST"
+                  "ImportMETAREP-EC"
+                  "ImportMGRAST"
+                  "ImportPhymmBL"
+                  "ImportRDP"
+                  "ImportRDPComparison"
+                  "ImportTaxonomy"
+                  "ImportText"
+                  "ImportXML"))
+               (mkdir-p share)
+               (copy-recursively "data" (string-append share "/data"))
+               (copy-recursively "img" (string-append share "/img"))
+               (copy-recursively "taxonomy" (string-append share "/taxonomy"))
+               (substitute* '("lib/KronaTools.pm")
+                 (("taxonomyDir = \".libPath/../taxonomy\"")
+                  (string-append "taxonomyDir = \"" share "/taxonomy\"")))
+               (install-file "lib/KronaTools.pm" perl))))
+         (add-after 'install 'wrap-program
+           (lambda* (#:key inputs outputs #:allow-other-keys)
+             (let* ((out (assoc-ref outputs "out"))
+                    (path (getenv "PERL5LIB")))
+               (for-each
+                (lambda (executable)
+                  (wrap-program executable
+                    `("PERL5LIB" ":" prefix
+                      (,(string-append out "/lib/perl5/site_perl")))))
+                (find-files (string-append out "/bin/") ".*"))))))))
+   (inputs
+    `(("perl" ,perl)))
+   (home-page "https://github.com/marbl/Krona/wiki")
+   (synopsis "Hierarchical data exploration with zoomable HTML5 pie charts")
+   (description
+    "Krona is a flexible tool for exploring the relative proportions of
+hierarchical data, such as metagenomic classifications, using a radial,
+space-filling display.  It is implemented using HTML5 and JavaScript, allowing
+charts to be explored locally or served over the Internet, requiring only a
+current version of any major web browser.")
+   (license l:bsd-3)))
 
 (define-public rapidjson
   (package
@@ -402,7 +503,7 @@ UTS#46.")
               (sha256
                (base32
                 "14dsnmirjcrvwsffqp3as70qr6bbfaig2fv3zvs5g7005jrsbvpb"))
-              (patches (list (search-patch "tidy-CVE-2015-5522+5523.patch")))))
+              (patches (search-patches "tidy-CVE-2015-5522+5523.patch"))))
     (build-system gnu-build-system)
     (arguments
      '(#:phases (alist-cons-after
@@ -427,16 +528,15 @@ used to validate and fix HTML data.")
 (define-public tinyproxy
   (package
     (name "tinyproxy")
-    (version "1.8.3")
+    (version "1.8.4")
     (source (origin
               (method url-fetch)
-              (uri (string-append
-                    "https://download.banu.com/tinyproxy/"
-                    (version-major+minor version)
-                    "/tinyproxy-" version ".tar.gz"))
+              (uri (string-append "https://github.com/tinyproxy/tinyproxy/"
+                                  "releases/download/" version "/tinyproxy-"
+                                  version ".tar.xz"))
               (sha256
                (base32
-                "05y0y2q9j10x72y1fipya6bmc8hjcdf3kfw7dh8ahczpy341c938"))))
+                "002hi97687czhfkwsjkr174yvlp10224qi6gd5s53z230bgls7x4"))))
     (build-system gnu-build-system)
     (arguments
      `(#:configure-flags
@@ -459,7 +559,7 @@ used to validate and fix HTML data.")
                      ("docbook-xml" ,docbook-xml)
                      ("docbook-xsl" ,docbook-xsl)
                      ("libxslt" ,libxslt)))
-    (home-page "https://banu.com/tinyproxy/")
+    (home-page "https://tinyproxy.github.io/")
     (synopsis "Light-weight HTTP/HTTPS proxy daemon")
     (description "Tinyproxy is a light-weight HTTP/HTTPS proxy
 daemon.  Designed from the ground up to be fast and yet small, it is an ideal
@@ -504,16 +604,17 @@ of people.")
 (define-public libyaml
   (package
     (name "libyaml")
-    (version "0.1.5")
+    (version "0.1.6")
     (source
      (origin
        (method url-fetch)
        (uri (string-append
              "http://pyyaml.org/download/libyaml/yaml-"
              version ".tar.gz"))
+       (patches (search-patches "libyaml-CVE-2014-9130.patch"))
        (sha256
         (base32
-         "1vrv5ly58bkmcyc049ad180f2m8iav6l9h3v8l2fqdmrny7yx1zs"))))
+         "0j9731s5zjb8mjx7wzf6vh7bsqi38ay564x6s9nri2nh9cdrg9kx"))))
     (build-system gnu-build-system)
     (home-page "http://pyyaml.org/wiki/LibYAML")
     (synopsis "YAML 1.1 parser and emitter written in C")
@@ -601,12 +702,12 @@ from streaming URLs.  It is a command-line wrapper for the libquvi library.")
     (source
      (origin
        (method url-fetch)
-       (uri (string-append "http://serf.googlecode.com/svn/src_releases/serf-"
+       (uri (string-append "https://archive.apache.org/dist/serf/serf-"
                            version ".tar.bz2"))
        (sha256
         (base32 "14155g48gamcv5s0828bzij6vr14nqmbndwq8j8f9g6vcph0nl70"))
-       (patches (map search-patch '("serf-comment-style-fix.patch"
-                                    "serf-deflate-buckets-test-fix.patch")))
+       (patches (search-patches "serf-comment-style-fix.patch"
+                                "serf-deflate-buckets-test-fix.patch"))
        (patch-flags '("-p0"))))
     (build-system gnu-build-system)
     (native-inputs
@@ -652,7 +753,7 @@ from streaming URLs.  It is a command-line wrapper for the libquvi library.")
                                       (string-append "PREFIX=" out))))))
          (replace 'check   (lambda _ (zero? (system* "scons" "check"))))
          (replace 'install (lambda _ (zero? (system* "scons" "install")))))))
-    (home-page "https://code.google.com/p/serf/")
+    (home-page "https://serf.apache.org/")
     (synopsis "High-performance asynchronous HTTP client library")
     (description
      "serf is a C-based HTTP client library built upon the Apache Portable
@@ -1718,8 +1819,8 @@ which can be used to parse directory listings.")
       (sha256
        (base32
         "1b6pbh7f76fb5sa4f0lhx085xy55pprz5v7z7li7pqiyw7i4f4bf"))
-      (patches (list
-                (search-patch "perl-finance-quote-unuse-mozilla-ca.patch")))))
+      (patches (search-patches
+                "perl-finance-quote-unuse-mozilla-ca.patch"))))
    (build-system perl-build-system)
    (propagated-inputs
     `(("perl-cgi" ,perl-cgi)
@@ -2288,9 +2389,8 @@ and IPv6 sockets, intended as a replacement for IO::Socket::INET.")
               (sha256
                (base32
                 "1mph52lw6x5v44wf8mw00llzi8pp6k5c4jnrnrvlacrlfv260jb8"))
-              (patches
-               (list
-                (search-patch "perl-io-socket-ssl-openssl-1.0.2f-fix.patch")))))
+              (patches (search-patches
+                        "perl-io-socket-ssl-openssl-1.0.2f-fix.patch"))))
     (build-system perl-build-system)
     (propagated-inputs `(("perl-net-ssleay" ,perl-net-ssleay)))
     (synopsis "Nearly transparent SSL encapsulation for IO::Socket::INET")
@@ -2418,8 +2518,8 @@ and retry a few times.")
        (sha256
         (base32
          "10dcsq4s2kc9cb1vccx17r187c81drirc3s1hbxh3rb8489kg2b2"))
-       (patches (list
-                 (search-patch "perl-net-amazon-s3-moose-warning.patch")))))
+       (patches (search-patches
+                 "perl-net-amazon-s3-moose-warning.patch"))))
     (build-system perl-build-system)
     (native-inputs
      `(("perl-libwww" ,perl-libwww)
@@ -2961,13 +3061,13 @@ particularly easy to create complete web applications using httpuv alone.")
 (define-public r-jsonlite
   (package
     (name "r-jsonlite")
-    (version "0.9.17")
+    (version "0.9.20")
     (source (origin
               (method url-fetch)
               (uri (cran-uri "jsonlite" version))
               (sha256
                (base32
-                "07s11m8z43dh5pyci5rpjqj5js69q8prjar42qhhxbvdmcrjk4z7"))))
+                "08b2gifd81yzj0h4k7pqp2cc2r5lwsg3sxnssi6c96rgqvl4702n"))))
     (build-system r-build-system)
     (home-page "http://arxiv.org/abs/1403.2805")
     (synopsis "Robust, high performance JSON parser and generator for R")
@@ -2985,13 +3085,13 @@ in systems and applications.")
 (define-public r-servr
   (package
     (name "r-servr")
-    (version "0.2")
+    (version "0.4")
     (source (origin
               (method url-fetch)
               (uri (cran-uri "servr" version))
               (sha256
                (base32
-                "0gah99snaj8lk5zfzbxi3jwvpnlff9diz9gqv4qalfxpmb7fp6lc"))))
+                "1fkqf5ynd1g0932qwv5nr70bw42m8vxpc9rhi0qxmdamwqcw8qjn"))))
     (build-system r-build-system)
     (propagated-inputs
      `(("r-httpuv" ,r-httpuv)
@@ -3010,16 +3110,17 @@ directory.")
 (define-public r-htmltools
   (package
     (name "r-htmltools")
-    (version "0.2.6")
+    (version "0.3.5")
     (source (origin
               (method url-fetch)
               (uri (cran-uri "htmltools" version))
               (sha256
                (base32
-                "1gp6f6388xy3cvnb08q08vraidjp740gfxlafdd19m2s04v5hncz"))))
+                "0j9bf80grd6gwh7116m575pycv87c0wcwkxsz3gzzfs4aw3pxyr9"))))
     (build-system r-build-system)
     (propagated-inputs
-     `(("r-digest" ,r-digest)))
+     `(("r-digest" ,r-digest)
+       ("r-rcpp" ,r-rcpp)))
     (home-page "http://cran.r-project.org/web/packages/htmltools")
     (synopsis "R tools for HTML")
     (description
@@ -3029,13 +3130,13 @@ directory.")
 (define-public r-htmlwidgets
   (package
     (name "r-htmlwidgets")
-    (version "0.5")
+    (version "0.6")
     (source (origin
               (method url-fetch)
               (uri (cran-uri "htmlwidgets" version))
               (sha256
                (base32
-                "1d583kk7g29r4sq0y1scri7fs48z6q17c051nyjywcvnpy4lvi8j"))))
+                "1sljs7zajzj1lsrrvqv7anpma4plzs79mqwmw7b2c5d7mn9py8lw"))))
     (build-system r-build-system)
     (propagated-inputs
      `(("r-htmltools" ,r-htmltools)
@@ -3052,13 +3153,13 @@ applications.")
 (define-public r-curl
   (package
     (name "r-curl")
-    (version "0.9.3")
+    (version "0.9.7")
     (source (origin
               (method url-fetch)
               (uri (cran-uri "curl" version))
               (sha256
                (base32
-                "02p9s1jlk8dcbvn71ivn4xnrqh9dwqyhgn4s1fzcfmnmfxhl5gld"))))
+                "1p24bcaf1wbfdi1r9ibyyp0l0zp4kzs4g3srv8vikz93hycm1qa6"))))
     (build-system r-build-system)
     (inputs
      `(("libcurl" ,curl)))
@@ -3208,3 +3309,41 @@ mangle the data format that you have into the one that you want with very
 little effort, and the program to do so is often shorter and simpler than
 you'd expect.")
     (license (list l:expat l:cc-by3.0))))
+
+(define-public uhttpmock
+  (package
+    (name "uhttpmock")
+    (version "0.5.0")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "http://tecnocode.co.uk/downloads/uhttpmock/"
+                           name "-" version ".tar.xz"))
+       (sha256
+        (base32
+         "0vniyx341pnnmvxmqacc49k0g7h9a9nhknfslidrqmxj5lm1ini6"))))
+    (build-system glib-or-gtk-build-system)
+    (arguments
+     `(#:phases
+       (modify-phases %standard-phases
+         (add-before 'check 'use-empty-ssl-cert-file
+           (lambda _
+             ;; Search for ca-certificates.crt files
+             ;; during the check phase.
+             (setenv "SSL_CERT_FILE" "/dev/null")
+             #t)))))
+    (native-inputs
+     `(("gobject-introspection" ,gobject-introspection)
+       ;; For check phase.
+       ("glib-networking" ,glib-networking)
+       ("gsettings-desktop-schemas" ,gsettings-desktop-schemas)
+       ("pkg-config" ,pkg-config)))
+    (inputs
+     `(("libsoup" ,libsoup)))
+    (home-page "https://gitlab.com/groups/uhttpmock")
+    (synopsis "Library for mocking web service APIs which use HTTP or HTTPS")
+    (description
+     "Uhttpmock is a project for mocking web service APIs which use HTTP or
+HTTPS.  It provides a library, libuhttpmock, which implements recording and
+playback of HTTP request/response traces.")
+    (license l:lgpl2.1+)))

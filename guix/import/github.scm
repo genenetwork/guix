@@ -25,7 +25,6 @@
   #:use-module (guix import utils)
   #:use-module (guix packages)
   #:use-module (guix upstream)
-  #:use-module (gnu packages)
   #:use-module (web uri)
   #:export (%github-updater))
 
@@ -44,8 +43,8 @@ failure."
 (define (find-extension url)
   "Return the extension of the archive e.g. '.tar.gz' given a URL, or
 false if none is recognized"
-  (find (lambda x (string-suffix? (first x) url))
-        (list ".tar.gz" ".tar.bz2" ".tar.xz" ".zip" ".tar")))
+  (find (lambda (x) (string-suffix? x url))
+        (list ".tar.gz" ".tar.bz2" ".tar.xz" ".zip" ".tar" ".tgz")))
 
 (define (updated-github-url old-package new-version)
   ;; Return a url for the OLD-PACKAGE with NEW-VERSION.  If no source url in
@@ -175,15 +174,14 @@ https://github.com/settings/tokens"))
                    (if (eq? (string-ref tag 0) #\v)
                        (substring tag 1) tag)))))))))
 
-(define (latest-release guix-package)
-  "Return an <upstream-source> for the latest release of GUIX-PACKAGE."
-  (let* ((pkg (specification->package guix-package))
-         (source-uri (origin-uri (package-source pkg)))
+(define (latest-release pkg)
+  "Return an <upstream-source> for the latest release of PKG."
+  (let* ((source-uri (origin-uri (package-source pkg)))
          (name (package-name pkg))
          (newest-version (latest-released-version source-uri name)))
     (if newest-version
         (upstream-source
-         (package pkg)
+         (package name)
          (version newest-version)
          (urls (list (updated-github-url pkg newest-version))))
         #f))) ; On GitHub but no proper releases

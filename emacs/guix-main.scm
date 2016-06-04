@@ -32,14 +32,6 @@
 ;; still "name-version" string.  So ‘id’ package parameter in the code
 ;; below is either an object-address number or a full-name string.
 
-;; To speed-up the process of getting information, the following
-;; auxiliary variables are used:
-;;
-;; - `%packages' - VHash of "package address"/"package" pairs.
-;;
-;; - `%package-table' - Hash table of
-;;   "name+version key"/"list of packages" pairs.
-
 ;;; Code:
 
 (use-modules
@@ -52,12 +44,14 @@
  (srfi srfi-19)
  (srfi srfi-26)
  (guix)
+ (guix combinators)
  (guix git-download)
  (guix packages)
  (guix profiles)
  (guix licenses)
  (guix utils)
  (guix ui)
+ (guix scripts)
  (guix scripts package)
  (gnu packages)
  (gnu system))
@@ -99,38 +93,6 @@ return two values: name and version.  For example, for SPEC
     (if output
         (string-append full-name ":" output)
         full-name)))
-
-(define name+version->key cons)
-(define key->name+version car+cdr)
-
-(define %package-vhash
-  (delay
-    (fold-packages (lambda (pkg res)
-                     (vhash-consq (object-address pkg) pkg res))
-                   vlist-null)))
-
-(define (package-vhash)
-  "Return vhash of 'package ID (address)'/'package' pairs."
-  (force %package-vhash))
-
-(define %package-table
-  (delay
-    (let ((table (make-hash-table (vlist-length (package-vhash)))))
-      (vlist-for-each
-       (lambda (elem)
-         (match elem
-           ((address . pkg)
-            (let* ((key (name+version->key (package-name pkg)
-                                           (package-version pkg)))
-                   (ref (hash-ref table key)))
-              (hash-set! table key
-                         (if ref (cons pkg ref) (list pkg)))))))
-       (package-vhash))
-      table)))
-
-(define (package-table)
-  "Return hash table of 'name+version key'/'list of packages' pairs."
-  (force %package-table))
 
 (define (manifest-entry->name+version+output entry)
   (values
@@ -339,15 +301,39 @@ Example:
 
 ;;; Finding packages.
 
-(define (package-by-address address)
-  (match (vhash-assq address (package-vhash))
-    ((_ . package) package)
-    (_ #f)))
+(define-values (package-by-address
+                register-package)
+  (let ((table (delay (fold-packages
+                       (lambda (package table)
+                         (vhash-consq (object-address package)
+                                      package table))
+                       vlist-null))))
+    (values
+     (lambda (address)
+       "Return package by its object ADDRESS."
+       (match (vhash-assq address (force table))
+         ((_ . package) package)
+         (_ #f)))
+     (lambda (package)
+       "Register PACKAGE by its 'object-address', so that later
+'package-by-address' can be used to access it."
+       (let ((table* (force table)))
+         (set! table
+               (delay (vhash-consq (object-address package)
+                                   package table*))))))))
 
-(define (packages-by-name+version name version)
-  (or (hash-ref (package-table)
-                (name+version->key name version))
-      '()))
+(define packages-by-name+version
+  (let ((table (delay (fold-packages
+                       (lambda (package table)
+                         (let ((file (location-file
+                                      (package-location package))))
+                           (vhash-cons (cons (package-name package)
+                                             (package-version package))
+                                       package table)))
+                       vlist-null))))
+    (lambda (name version)
+      "Return packages matching NAME and VERSION."
+      (vhash-fold* cons '() (cons name version) (force table)))))
 
 (define (packages-by-full-name full-name)
   (call-with-values
@@ -433,6 +419,15 @@ MATCH-PARAMS is a list of parameters that REGEXP can match."
                    (cons newest res))))
               '()
               (find-newest-available-packages)))
+
+(define (packages-from-file file)
+  "Return a list of packages from FILE."
+  (let ((package (load (canonicalize-path file))))
+    (if (package? package)
+        (begin
+          (register-package package)
+          (list package))
+        '())))
 
 
 ;;; Making package/output patterns.
@@ -684,6 +679,10 @@ ENTRIES is a list of installed manifest entries."
          (license-proc          (lambda (_ license-name)
                                   (packages-by-license
                                    (lookup-license license-name))))
+         (location-proc         (lambda (_ location)
+                                  (packages-by-location-file location)))
+         (file-proc             (lambda (_ file)
+                                  (packages-from-file file)))
          (all-proc              (lambda _ (all-available-packages)))
          (newest-proc           (lambda _ (newest-available-packages))))
     `((package
@@ -693,6 +692,8 @@ ENTRIES is a list of installed manifest entries."
        (obsolete         . ,(apply-to-first obsolete-package-patterns))
        (regexp           . ,regexp-proc)
        (license          . ,license-proc)
+       (location         . ,location-proc)
+       (from-file        . ,file-proc)
        (all-available    . ,all-proc)
        (newest-available . ,newest-proc))
       (output
@@ -702,6 +703,8 @@ ENTRIES is a list of installed manifest entries."
        (obsolete         . ,(apply-to-first obsolete-output-patterns))
        (regexp           . ,regexp-proc)
        (license          . ,license-proc)
+       (location         . ,location-proc)
+       (from-file        . ,file-proc)
        (all-available    . ,all-proc)
        (newest-available . ,newest-proc)))))
 
@@ -951,6 +954,17 @@ GENERATIONS is a list of generation numbers."
                ((package _ ...) package)))
          (compose location->string package-location)))
 
+(define (package-store-path package-id)
+  "Return a list of store directories of outputs of package PACKAGE-ID."
+  (match (package-by-id package-id)
+    (#f '())
+    (package
+      (with-store store
+        (map (match-lambda
+               ((_ . drv)
+                (derivation-output-path drv)))
+             (derivation-outputs (package-derivation store package)))))))
+
 (define (package-source-derivation->store-path derivation)
   "Return a store path of the package source DERIVATION."
   (match (derivation-outputs derivation)
@@ -985,6 +999,16 @@ GENERATIONS is a list of generation numbers."
           (build-derivations store derivations))
         (format #t "The source store path: ~a~%"
                 (package-source-derivation->store-path derivation))))))
+
+(define (package-build-log-file package-id)
+  "Return the build log file of a package PACKAGE-ID.
+Return #f if the build log is not found."
+  (and-let* ((package (package-by-id package-id)))
+    (with-store store
+      (let* ((derivation (package-derivation store package))
+             (file       (derivation-file-name derivation)))
+        (or (log-file store file)
+            ((@@ (guix scripts build) log-url) store file))))))
 
 
 ;;; Executing guix commands
@@ -1097,3 +1121,41 @@ Return #t if the shell command was executed successfully."
 (define (license-entries search-type . search-values)
   (map license->sexp
        (apply find-licenses search-type search-values)))
+
+
+;;; Package locations
+
+(define-values (packages-by-location-file
+                package-location-files)
+  (let* ((table (delay (fold-packages
+                        (lambda (package table)
+                          (let ((file (location-file
+                                       (package-location package))))
+                            (vhash-cons file package table)))
+                        vlist-null)))
+         (files (delay (vhash-fold
+                        (lambda (file _ result)
+                          (if (member file result)
+                              result
+                              (cons file result)))
+                        '()
+                        (force table)))))
+    (values
+     (lambda (file)
+       "Return the (possibly empty) list of packages defined in location FILE."
+       (vhash-fold* cons '() file (force table)))
+     (lambda ()
+       "Return the list of file names of all package locations."
+       (force files)))))
+
+(define %package-location-param-alist
+  `((id       . ,identity)
+    (location . ,identity)
+    (number-of-packages . ,(lambda (location)
+                             (length (packages-by-location-file location))))))
+
+(define package-location->sexp
+  (object-transformer %package-location-param-alist))
+
+(define (package-location-entries)
+  (map package-location->sexp (package-location-files)))

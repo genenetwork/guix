@@ -27,7 +27,7 @@ nodist_noinst_SCRIPTS =				\
   pre-inst-env					\
   test-env
 
-include gnu-system.am
+include gnu/local.mk
 
 MODULES =					\
   guix/base32.scm				\
@@ -38,6 +38,7 @@ MODULES =					\
   guix/hash.scm					\
   guix/pk-crypto.scm				\
   guix/pki.scm					\
+  guix/combinators.scm				\
   guix/utils.scm				\
   guix/sets.scm					\
   guix/download.scm				\
@@ -173,8 +174,8 @@ dist_noinst_DATA = guix/tests.scm
 
 # Linux-Libre configurations.
 KCONFIGS =					\
-  gnu/packages/linux-libre-4.5-i686.conf	\
-  gnu/packages/linux-libre-4.5-x86_64.conf	\
+  gnu/packages/linux-libre-4.6-i686.conf	\
+  gnu/packages/linux-libre-4.6-x86_64.conf	\
   gnu/packages/linux-libre-4.4-i686.conf	\
   gnu/packages/linux-libre-4.4-x86_64.conf	\
   gnu/packages/linux-libre-4.1-i686.conf	\
@@ -231,6 +232,7 @@ SCM_TESTS =					\
   tests/ui.scm					\
   tests/records.scm				\
   tests/upstream.scm				\
+  tests/combinators.scm				\
   tests/utils.scm				\
   tests/build-utils.scm				\
   tests/packages.scm				\
@@ -295,8 +297,11 @@ TESTS = $(SCM_TESTS) $(SH_TESTS)
 
 AM_TESTS_ENVIRONMENT = abs_top_srcdir="$(abs_top_srcdir)" GUILE_AUTO_COMPILE=0
 
-SCM_LOG_DRIVER = $(top_builddir)/test-env $(GUILE) --no-auto-compile \
-                   -e main $(top_srcdir)/build-aux/test-driver.scm
+SCM_LOG_DRIVER =				\
+  $(top_builddir)/test-env --quiet-stderr	\
+  $(GUILE) --no-auto-compile -e main		\
+      $(top_srcdir)/build-aux/test-driver.scm
+
 AM_SCM_LOG_DRIVER_FLAGS = --brief=yes
 
 SH_LOG_COMPILER = $(top_builddir)/test-env $(SHELL)
@@ -325,6 +330,13 @@ check-local:
 
 endif !CAN_RUN_TESTS
 
+check-system: $(GOBJECTS)
+	$(AM_V_at)echo "Running system tests..."
+	$(AM_V_at)$(top_builddir)/pre-inst-env			\
+	   $(GUILE) --no-auto-compile				\
+	   -e '(@@ (run-system-tests) run-system-tests)'	\
+	   $(top_srcdir)/build-aux/run-system-tests.scm
+
 # Public key used to sign substitutes from hydra.gnu.org.
 dist_pkgdata_DATA = hydra.gnu.org.pub
 
@@ -339,6 +351,7 @@ EXTRA_DIST =						\
   .dir-locals.el					\
   build-aux/build-self.scm				\
   build-aux/compile-all.scm				\
+  build-aux/hydra/evaluate.scm				\
   build-aux/hydra/gnu-system.scm			\
   build-aux/hydra/demo-os.scm				\
   build-aux/hydra/guix.scm				\
@@ -348,6 +361,7 @@ EXTRA_DIST =						\
   build-aux/make-binary-tarball.scm			\
   build-aux/generate-authors.scm			\
   build-aux/test-driver.scm				\
+  build-aux/run-system-tests.scm			\
   srfi/srfi-37.scm.in					\
   srfi/srfi-64.scm					\
   srfi/srfi-64.upstream.scm				\
@@ -415,11 +429,11 @@ install-data-hook: set-bootstrap-executable-permissions
 SUBDIRS = po/guix po/packages
 BUILT_SOURCES =
 
-include doc.am
+include doc/local.mk
 
 if BUILD_DAEMON
 
-include daemon.am
+include nix/local.mk
 
 endif BUILD_DAEMON
 
@@ -436,7 +450,7 @@ AM_DISTCHECK_CONFIGURE_FLAGS =			\
 
 dist_emacsui_DATA = emacs/guix-main.scm
 nodist_emacsui_DATA = emacs/guix-helper.scm
-include emacs.am
+include emacs/local.mk
 
 # The self-contained tarball.
 guix-binary.%.tar.xz:
@@ -480,14 +494,22 @@ assert-no-store-file-names:
 	fi
 
 # Make sure hydra.gnu.org has the important binaries.
-assert-binaries-available:
+assert-binaries-available: $(GOBJECTS)
 	$(AM_V_at)$(top_builddir)/pre-inst-env "$(GUILE)"			\
 	  "$(top_srcdir)/build-aux/check-available-binaries.scm"
 
 # Make sure the final inputs don't refer to bootstrap tools.
-assert-final-inputs-self-contained:
+assert-final-inputs-self-contained: $(GOBJECTS)
 	$(AM_V_at)$(top_builddir)/pre-inst-env "$(GUILE)"			\
 	  "$(top_srcdir)/build-aux/check-final-inputs-self-contained.scm"
+
+# Compute the Hydra jobs and write them in the target file.
+hydra-jobs.scm: $(GOBJECTS)
+	$(AM_V_at)$(MKDIR_P) "`dirname "$@"`"
+	$(AM_V_GEN)$(top_builddir)/pre-inst-env "$(GUILE)"		\
+	  "$(top_srcdir)/build-aux/hydra/evaluate.scm"			\
+	  "$(top_srcdir)/build-aux/hydra/gnu-system.scm" > "$@.tmp"
+	$(AM_V_at)mv "$@.tmp" "$@"
 
 .PHONY: sync-descriptions gen-ChangeLog gen-AUTHORS clean-go make-go
 .PHONY: assert-no-store-file-names assert-binaries-available

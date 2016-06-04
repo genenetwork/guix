@@ -2,7 +2,7 @@
 ;;; Copyright © 2013, 2014 Andreas Enge <andreas@enge.fr>
 ;;; Copyright © 2014, 2015 Mark H Weaver <mhw@netris.org>
 ;;; Copyright © 2014 Eric Bavier <bavier@member.fsf.org>
-;;; Copyright © 2014, 2015 Alex Kost <alezost@gmail.com>
+;;; Copyright © 2014, 2015, 2016 Alex Kost <alezost@gmail.com>
 ;;; Copyright © 2013, 2015 Ludovic Courtès <ludo@gnu.org>
 ;;; Copyright © 2015 Mathieu Lirzin <mthl@openmailbox.org>
 ;;; Copyright © 2015 Alexander I.Grafov <grafov@gmail.com>
@@ -11,6 +11,7 @@
 ;;; Copyright © 2015 Florian Paul Schmidt <mista.tapas@gmx.net>
 ;;; Copyright © 2016 Christopher Allan Webber <cwebber@dustycloud.org>
 ;;; Copyright © 2016 Ricardo Wurmus <rekado@elephly.net>
+;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -32,26 +33,30 @@
   #:use-module (guix packages)
   #:use-module (guix download)
   #:use-module (guix utils)
+  #:use-module (guix build-system cmake)
   #:use-module (guix build-system gnu)
   #:use-module (guix build-system glib-or-gtk)
   #:use-module (guix build-system python)
   #:use-module (gnu packages)
-  #:use-module (gnu packages asciidoc)
+  #:use-module (gnu packages documentation)
+  #:use-module (gnu packages algebra)
   #:use-module (gnu packages compression)
   #:use-module (gnu packages image)
   #:use-module (gnu packages pkg-config)
   #:use-module (gnu packages gettext)
+  #:use-module (gnu packages gl)
   #:use-module (gnu packages glib)
   #:use-module (gnu packages gnome)               ;for libgudev
   #:use-module (gnu packages ncurses)
   #:use-module (gnu packages perl)
   #:use-module (gnu packages python)
   #:use-module (gnu packages linux)
+  #:use-module (gnu packages gl)
   #:use-module (gnu packages guile)
   #:use-module (gnu packages xml)
   #:use-module (gnu packages gtk)
-  #:use-module (gnu packages qt)
-  #:use-module (gnu packages xorg))
+  #:use-module (gnu packages xorg)
+  #:use-module (gnu packages bison))
 
 ;; packages outside the x.org system proper
 
@@ -118,6 +123,44 @@ can also be used for copying files, as an alternative to sftp/scp, thus
 avoiding password prompts when X11 forwarding has already been setup.")
     (license license:gpl2+)))
 
+(define-public libxkbcommon
+  (package
+    (name "libxkbcommon")
+    (version "0.5.0")
+    (source (origin
+             (method url-fetch)
+             (uri (string-append "http://xkbcommon.org/download/" name "-"
+                                 version ".tar.xz"))
+             (sha256
+              (base32
+               "176ii5dn2wh74q48sd8ac37ljlvgvp5f506glr96z6ibfhj7igch"))))
+    (build-system gnu-build-system)
+    (inputs
+     `(("libx11" ,libx11)
+       ("libxcb" ,libxcb)
+       ("xkeyboard-config" ,xkeyboard-config)))
+    (native-inputs
+     `(("bison" ,bison)
+       ("pkg-config" ,pkg-config)))
+    (arguments
+     `(#:configure-flags
+       (list (string-append "--with-xkb-config-root="
+                            (assoc-ref %build-inputs "xkeyboard-config")
+                            "/share/X11/xkb")
+             (string-append "--with-x-locale-root="
+                            (assoc-ref %build-inputs "libx11")
+                            "/share/X11/locale"))))
+    (home-page "http://xkbcommon.org/")
+    (synopsis "Library to handle keyboard descriptions")
+    (description "Xkbcommon is a library to handle keyboard descriptions,
+including loading them from disk, parsing them and handling their
+state.  It is mainly meant for client toolkits, window systems, and other
+system applications; currently that includes Wayland, kmscon, GTK+, Qt,
+Clutter, and more.  Despite the name, it is not currently used by anything
+X11 (yet).")
+    (license (license:x11-style "file://COPYING"
+                                "See 'COPYING' in the distribution."))))
+
 (define-public xdotool
   (package
     (name "xdotool")
@@ -131,7 +174,7 @@ avoiding password prompts when X11 forwarding has already been setup.")
         (sha256
           (base32
            "1lcngsw33fy9my21rdiz1gs474bfdqcfxjrnfggbx4aypn1nhcp8"))
-        (patches (list (search-patch "xdotool-fix-makefile.patch")))))
+        (patches (search-patches "xdotool-fix-makefile.patch"))))
     (build-system gnu-build-system)
     (arguments
      '(#:tests? #f ; Test suite requires a lot of black magic
@@ -192,7 +235,7 @@ following the mouse.")
 (define-public pixman
   (package
     (name "pixman")
-    (version "0.32.8")
+    (version "0.34.0")
     (source (origin
               (method url-fetch)
               (uri (string-append
@@ -200,7 +243,7 @@ following the mouse.")
                     version ".tar.gz"))
               (sha256
                (base32
-                "0pfn0247sjsi95kwjih0wwqpp28wadihqk1bn28x6iqbqhbxwnjp"))))
+                "13m842m9ffac3m9r0b4lvwjhwzg3w4353djkjpf00s0wnm4v5di1"))))
     (build-system gnu-build-system)
     (inputs
      `(("libpng" ,libpng)
@@ -229,7 +272,7 @@ rasterisation.")
         (sha256
           (base32
             "1i4n7mz49l0j4kr0dg9n1j3hlc786ncqgj0v5fci1mz7pp40m5ki"))
-        (patches (list (search-patch "libdrm-symbol-check.patch")))))
+        (patches (search-patches "libdrm-symbol-check.patch"))))
     (build-system gnu-build-system)
     (inputs
       `(("libpciaccess" ,libpciaccess)
@@ -311,7 +354,7 @@ System style license, and has no special dependencies.")
               (sha256
                (base32
                 "1afclc57b9017a73mfs9w7lbdvdipmf9q0xdk116f61gnvyix2np"))
-              (patches (list (search-patch "wmctrl-64-fix.patch")))))
+              (patches (search-patches "wmctrl-64-fix.patch"))))
     (build-system gnu-build-system)
     (arguments
      '(#:configure-flags
@@ -339,9 +382,12 @@ move windows, switch between desktops, etc.).")
     (version "0.8")
     (source (origin
               (method url-fetch)
-              (uri (string-append
-                    "http://linuxbrit.co.uk/downloads/scrot-"
-                    version ".tar.gz"))
+              (uri (list (string-append
+                           "http://linuxbrit.co.uk/downloads/scrot-"
+                           version ".tar.gz")
+                         (string-append
+                           "https://fossies.org/linux/privat/old/scrot-"
+                           version ".tar.gz")))
               (sha256
                (base32
                 "1wll744rhb49lvr2zs6m93rdmiq59zm344jzqvijrdn24ksiqgb1"))))
@@ -353,16 +399,16 @@ move windows, switch between desktops, etc.).")
        (list (string-append "--mandir="
                             (assoc-ref %outputs "out")
                             "/share/man"))
-       #:phases (alist-replace
-                 'install
-                 (lambda* (#:key inputs outputs #:allow-other-keys)
-                   (let* ((out (assoc-ref outputs "out"))
-                          (doc (string-append out "/share/doc/scrot")))
-                     (mkdir-p doc)
-                     (zero?
-                      (system* "make" "install"
-                               (string-append "docsdir=" doc)))))
-                 %standard-phases)))
+       #:phases
+       (modify-phases %standard-phases
+         (replace 'install
+           (lambda* (#:key inputs outputs #:allow-other-keys)
+             (let* ((out (assoc-ref outputs "out"))
+                    (doc (string-append out "/share/doc/scrot")))
+               (mkdir-p doc)
+               (zero?
+                (system* "make" "install"
+                         (string-append "docsdir=" doc)))))))))
     (inputs
      `(("libx11" ,libx11)
        ("giblib" ,giblib)))
@@ -375,6 +421,80 @@ of the screen selected by mouse.")
     ;; X11 license.
     (license (license:x11-style "file://COPYING"
                                 "See 'COPYING' in the distribution."))))
+
+(define-public slop
+  (package
+    (name "slop")
+    (version "4.3.21")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "https://github.com/naelstrof/slop/archive/v"
+                    version ".tar.gz"))
+              (file-name (string-append name "-" version ".tar.gz"))
+              (sha256
+               (base32
+                "0z0p4a3p5mc6fjh5f8js9ppb0maxyvfxpiw2n6nqc5nim1kv6bim"))))
+    (build-system cmake-build-system)
+    (arguments '(#:tests? #f))  ; no "check" target
+    (inputs
+     `(("libx11" ,libx11)
+       ("libxrandr" ,libxrandr)
+       ("libxext" ,libxext)
+       ("imlib2" ,imlib2)
+       ("glew" ,glew)
+       ("mesa" ,mesa)))
+    (home-page "https://github.com/naelstrof/slop")
+    (synopsis "Select a region and print its bounds to stdout")
+    (description
+     "slop (Select Operation) is a tool that queries for a selection from a
+user and prints the region to stdout.  It grabs the mouse and turns it into a
+crosshair, lets the user click and drag to make a selection (or click on a
+window) while drawing a pretty box around it, then finally prints the
+selection's dimensions to stdout.")
+    (license license:gpl3+)))
+
+(define-public maim
+  (package
+    (name "maim")
+    (version "3.4.47")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "https://github.com/naelstrof/maim/archive/v"
+                    version ".tar.gz"))
+              (file-name (string-append name "-" version ".tar.gz"))
+              (sha256
+               (base32
+                "0kfp7k55bxc5h6h0wv8bwmsc5ny66h9ra2z4dzs4yzszq16544pv"))))
+    (build-system cmake-build-system)
+    (arguments
+     '(#:tests? #f              ; no "check" target
+       #:phases
+       (modify-phases %standard-phases
+         (add-after 'unpack 'patch-source
+           (lambda* (#:key inputs #:allow-other-keys)
+             (let ((slop (string-append (assoc-ref inputs "slop")
+                                        "/bin/slop")))
+               ;; "slop" command is hardcoded in the source; replace it
+               ;; with the full file name.
+               (substitute* "src/main.cpp"
+                 (("^( +slopcommand.*)\"slop\"" all front)
+                  (string-append front "\"" slop "\"")))))))))
+    (inputs
+     `(("libx11" ,libx11)
+       ("libxrandr" ,libxrandr)
+       ("libxfixes" ,libxfixes)
+       ("imlib2" ,imlib2)
+       ("slop" ,slop)))
+    (home-page "https://github.com/naelstrof/maim")
+    (synopsis "Screenshot utility for X Window System")
+    (description
+     "maim (Make Image) is a tool that takes screenshots of your desktop and
+saves it in any format.  Along with a full screen, it allows you to capture a
+predefined region or a particular window.  Also, it makes it possible to
+include cursor in the resulting image.")
+    (license license:gpl3+)))
 
 (define-public unclutter
   (package
@@ -424,7 +544,7 @@ things less distracting.")
 (define-public xlockmore
   (package
     (name "xlockmore")
-    (version "5.46")
+    (version "5.47")
     (source (origin
              (method url-fetch)
              (uri (list (string-append
@@ -433,10 +553,10 @@ things less distracting.")
                         (string-append
                           "http://www.tux.org/~bagleyd/xlock/xlockmore-old"
                           "/xlockmore-" version
-                          "/xlockmore-" version ".tar.bz2")))
+                          "/xlockmore-" version ".tar.xz")))
              (sha256
               (base32
-               "1ps0dmnh912x8mwns94y2607xk90rjxrjn5s1pkmmpjg5h9bxcrj"))))
+               "138d79b8zc2hambbr9fnxp3fhihlcljgqns04zf0kv2f53pavqwl"))))
     (build-system gnu-build-system)
     (arguments
      '(#:configure-flags (list (string-append "--enable-appdefaultdir="
@@ -454,8 +574,7 @@ things less distracting.")
      "XLockMore is a classic screen locker and screen saver for the
 X Window System.")
     (license (license:non-copyleft #f "See xlock.c.")
-             ;; + GPLv2 in modes/glx/biof.c.
-             )))
+             ))) ; + GPLv2 in modes/glx/biof.c.
 
 (define-public xosd
   (package
@@ -714,6 +833,7 @@ the X.Org X Server version 1.7 and later (X11R7.5 or later).")
        ("libx11" ,libx11)
        ("libxcb" ,libxcb)
        ("libxxf86vm" ,libxxf86vm)
+       ("libjpeg" ,libjpeg)
        ("glib" ,glib)))                           ;for Geoclue2 support
     (home-page "https://github.com/jonls/redshift")
     (synopsis "Adjust the color temperature of your screen")
@@ -724,3 +844,110 @@ twilight and early morning, the color temperature transitions smoothly from
 night to daytime temperature to allow your eyes to slowly adapt.  At night the
 color temperature should be set to match the lamps in your room.")
     (license license:gpl3+)))
+
+(define-public xscreensaver
+  (package
+    (name "xscreensaver")
+    (version "5.34")
+    (source
+     (origin
+       (method url-fetch)
+       (uri
+        (string-append "https://www.jwz.org/xscreensaver/xscreensaver-"
+                       version ".tar.gz"))
+       (sha256
+        (base32
+         "09sy5v8bn62hiq4ib3jyvp8lipqcvn3rdsj74q25qgklpv27xzvg"))))
+    (build-system gnu-build-system)
+    (arguments
+     `(#:tests? #f  ; no check target
+       #:phases
+       (modify-phases %standard-phases
+         (add-before 'configure 'adjust-gtk-resource-paths
+           (lambda _
+             (substitute* '("driver/Makefile.in" "po/Makefile.in.in")
+               (("@GTK_DATADIR@") "@datadir@")
+               (("@PO_DATADIR@") "@datadir@")))))
+       #:configure-flags '("--with-pam" "--with-proc-interrupts"
+                           "--without-readdisplay")
+       #:make-flags (list (string-append "AD_DIR="
+                                         (assoc-ref %outputs "out")
+                                         "/usr/lib/X11/app-defaults"))))
+    (native-inputs
+     `(("pkg-config" ,pkg-config)
+       ("intltool" ,intltool)))
+    (inputs
+     `(("libx11" ,libx11)
+       ("libxext" ,libxext)
+       ("libxi" ,libxi)
+       ("libxt" ,libxt)
+       ("libxft" ,libxft)
+       ("libxmu" ,libxmu)
+       ("libxpm" ,libxpm)
+       ("libglade" ,libglade)
+       ("libxml2" ,libxml2)
+       ("libsm" ,libsm)
+       ("libjpeg" ,libjpeg)
+       ("linux-pam" ,linux-pam)
+       ("pango" ,pango)
+       ("gtk+" ,gtk+)
+       ("perl" ,perl)
+       ("cairo" ,cairo)
+       ("bc" ,bc)
+       ("libxrandr" ,libxrandr)
+       ("glu" ,glu)
+       ("glib" ,glib)))
+    (home-page "https://www.jwz.org/xscreensaver/")
+    (synopsis "Classic screen saver suite supporting screen locking")
+    (description
+     "xscreensaver is a popular screen saver collection with many entertaining
+demos.  It also acts as a nice screen locker.")
+    ;; xscreensaver doesn't have a single copyright file and instead relies on
+    ;; source comment headers, though most files have the same lax
+    ;; permissions.  To reduce complexity, we're pointing at Debian's
+    ;; breakdown of the copyright information.
+    (license (license:non-copyleft
+              (string-append
+               "http://metadata.ftp-master.debian.org/changelogs/"
+               "/main/x/xscreensaver/xscreensaver_5.34-2_copyright")))))
+
+(define-public rofi
+  (package
+    (name "rofi")
+    (version "1.0.1")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "https://github.com/DaveDavenport/rofi/"
+                                  "releases/download/"
+                                  version "/rofi-" version ".tar.xz"))
+              (sha256
+               (base32
+                "01jxml9vk4cw7pngpan7dipmb98s6ibh6f0023lw3hbgxy650637"))))
+    (build-system gnu-build-system)
+    (inputs
+     `(("libx11" ,libx11)
+       ("pango" ,pango)
+       ("cairo" ,cairo)
+       ("glib" ,glib)
+       ("startup-notification" ,startup-notification)
+       ("libxkbcommon" ,libxkbcommon)
+       ("libxcb" ,libxcb)
+       ("xcb-util" ,xcb-util)
+       ("xcb-util-wm" ,xcb-util-wm)))
+    (native-inputs
+     `(("pkg-config" ,pkg-config)))
+    (arguments
+     `(#:phases
+       (modify-phases %standard-phases
+         (add-before 'configure 'adjust-tests
+           (lambda _
+             (substitute* '("test/helper-expand.c")
+               (("~root") "/root")
+               (("~") "")
+               (("g_get_home_dir \\(\\)") "\"/\"")))))))
+    (home-page "https://davedavenport.github.io/rofi/")
+    (synopsis "Application Launcher")
+    (description "Rofi is a minimalist Application Launcher.  It memorizes which
+applications you regularily use and also allows you to search for an application
+by name.")
+    (license license:expat)))

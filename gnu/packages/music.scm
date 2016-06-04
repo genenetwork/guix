@@ -5,7 +5,7 @@
 ;;; Copyright © 2016 Al McElrath <hello@yrns.org>
 ;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;; Copyright © 2016 Leo Famulari <leo@famulari.name>
-;;; Copyright © 2016 Kei Yamashita <kei@openmailbox.org>
+;;; Copyright © 2016 Kei Kebreau <kei@openmailbox.org>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -45,8 +45,10 @@
   #:use-module (gnu packages check)
   #:use-module (gnu packages compression)
   #:use-module (gnu packages curl)
+  #:use-module (gnu packages cyrus-sasl)
   #:use-module (gnu packages docbook)
-  #:use-module (gnu packages doxygen)
+  #:use-module (gnu packages documentation)
+  #:use-module (gnu packages file)
   #:use-module (gnu packages flex)
   #:use-module (gnu packages fltk)
   #:use-module (gnu packages fonts)
@@ -59,6 +61,7 @@
   #:use-module (gnu packages gl)
   #:use-module (gnu packages glib)
   #:use-module (gnu packages gnome)
+  #:use-module (gnu packages graphics)
   #:use-module (gnu packages gtk)
   #:use-module (gnu packages guile)
   #:use-module (gnu packages image)
@@ -82,14 +85,82 @@
   #:use-module (gnu packages sdl)
   #:use-module (gnu packages tcl)
   #:use-module (gnu packages texinfo)
-  #:use-module (gnu packages texlive)
+  #:use-module (gnu packages tex)
+  #:use-module (gnu packages tls)
   #:use-module (gnu packages video)
   #:use-module (gnu packages web)
+  #:use-module (gnu packages wxwidgets)
   #:use-module (gnu packages xml)
   #:use-module (gnu packages xorg)
   #:use-module (gnu packages xiph)
   #:use-module (gnu packages zip)
   #:use-module ((srfi srfi-1) #:select (last)))
+
+(define-public aria-maestosa
+  (package
+    (name "aria-maestosa")
+    (version "1.4.11")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "mirror://sourceforge/ariamaestosa/ariamaestosa/"
+                                  version "/AriaSrc-" version ".tar.bz2"))
+              (sha256
+               (base32
+                "0gf9z96z83jiabxhpl856j15vl9flfgs6x1r0r6hc7g2xvwag0vy"))))
+    (build-system gnu-build-system)
+    (arguments
+     `(#:tests? #f  ;no tests
+       #:phases
+       ;; TODO: Add scons-build-system and use it here.
+       (modify-phases %standard-phases
+         (delete 'configure)
+         (add-after 'unpack 'scons-propagate-environment
+           (lambda _
+             ;; By design, SCons does not, by default, propagate
+             ;; environment variables to subprocesses.  See:
+             ;; <http://comments.gmane.org/gmane.linux.distributions.nixos/4969>
+             ;; Here, we modify the SConstruct file to arrange for
+             ;; environment variables to be propagated.
+             (substitute* "SConstruct"
+               (("env = Environment\\(\\)")
+                "env = Environment(ENV=os.environ)")
+               ;; Scons errors out when copying subdirectories from Resources,
+               ;; so we move them instead.
+               (("Copy") "Move")
+               ;; We move the "score" and "Documentation" directories at once,
+               ;; so we have to ignore files contained therein.
+               (("if \".svn\" in file" line)
+                (string-append line
+                               " or \"score/\" in file"
+                               " or \"Documentation/\" in file")))
+             #t))
+         (replace 'build (lambda _ (zero? (system* "scons"))))
+         (replace 'install
+           (lambda* (#:key outputs #:allow-other-keys)
+             (let ((out (assoc-ref outputs "out")))
+               (and
+                (zero? (system* "scons"
+                                (string-append "prefix=" out)
+                                "install"))
+                ;; Fix directory permissions
+                (begin
+                  (chmod (string-append out "/share/Aria/Documentation") #o555)
+                  (chmod (string-append out "/share/Aria/score") #o555)
+                  #t))))))))
+    (inputs
+     `(("wxwidgets" ,wxwidgets)
+       ("glib" ,glib)
+       ("alsa-lib" ,alsa-lib)))
+    (native-inputs
+     `(("scons" ,scons)
+       ("pkg-config" ,pkg-config)))
+    (home-page "http://ariamaestosa.sourceforge.net/")
+    (synopsis "MIDI sequencer and editor")
+    (description
+     "Aria Maestosa is a MIDI sequencer and editor.  It lets you compose, edit
+and play MIDI files with a few clicks in a user-friendly interface offering
+score, keyboard, guitar, drum and controller views.")
+    (license license:gpl3+)))
 
 (define-public cmus
   (package
@@ -480,15 +551,11 @@ for path in [path for path in sys.path if 'site-packages' in path]: site.addsite
            (alist-cons-after
             'install 'wrap-program
             (lambda* (#:key inputs outputs #:allow-other-keys)
-              ;; Make sure 'solfege' runs with the correct PYTHONPATH.  We
-              ;; also need to modify GDK_PIXBUF_MODULE_FILE for SVG support.
+              ;; Make sure 'solfege' runs with the correct PYTHONPATH.
               (let* ((out (assoc-ref outputs "out"))
-                     (path (getenv "PYTHONPATH"))
-                     (rsvg (assoc-ref inputs "librsvg"))
-                     (pixbuf (find-files rsvg "^loaders\\.cache$")))
+                     (path (getenv "PYTHONPATH")))
                 (wrap-program (string-append out "/bin/solfege")
-                  `("PYTHONPATH" ":" prefix (,path))
-                  `("GDK_PIXBUF_MODULE_FILE" ":" prefix ,pixbuf))))
+                  `("PYTHONPATH" ":" prefix (,path)))))
             %standard-phases)))))))
     (inputs
      `(("python" ,python-2)
@@ -496,8 +563,6 @@ for path in [path for path in sys.path if 'site-packages' in path]: site.addsite
        ("gettext" ,gnu-gettext)
        ("gtk" ,gtk+)
        ("lilypond" ,lilypond)
-       ("librsvg" ,librsvg) ; needed at runtime for icons
-       ("libpng" ,libpng) ; needed at runtime for icons
        ;; players needed at runtime
        ("aplay" ,alsa-utils)
        ("csound" ,csound) ; optional, needed for some exercises
@@ -621,19 +686,47 @@ your own lessons.")
 Editor.  It is compatible with Power Tab Editor 1.7 and Guitar Pro.")
     (license license:gpl3+)))
 
-(define-public setbfree
+(define-public synthv1
   (package
-    (name "setbfree")
-    (version "0.8.0")
+    (name "synthv1")
+    (version "0.7.4")
     (source (origin
               (method url-fetch)
               (uri
-               (string-append
-                "https://github.com/pantherb/setBfree/releases/download/v"
-                version "/setbfree-" version ".tar.gz"))
+               (string-append "mirror://sourceforge/synthv1/synthv1-"
+                              version ".tar.gz"))
               (sha256
                (base32
-                "045bgp7qsigpbrhk7qvgvliwiy26sajifwn7f2jvk90ckfqnlw4b"))))
+                "16n0v4jk0ilirq84rrildvdwqxgxav78rk58ilhl622v5n893c7w"))))
+    (build-system gnu-build-system)
+    ;; There are no tests.
+    (arguments `(#:tests? #f))
+    (inputs
+     `(("jack" ,jack-1)
+       ("lv2" ,lv2)
+       ("alsa-lib" ,alsa-lib)
+       ("liblo" ,liblo)
+       ("qt" ,qt)))
+    (home-page "http://synthv1.sourceforge.net")
+    (synopsis "Polyphonic subtractive synthesizer")
+    (description
+     "Synthv1 is an old-school subtractive polyphonic synthesizer with four
+oscillators and stereo effects.")
+    (license license:gpl2+)))
+
+(define-public setbfree
+  (package
+    (name "setbfree")
+    (version "0.8.1")
+    (source (origin
+              (method url-fetch)
+              (uri
+               (string-append "https://github.com/pantherb/setBfree/archive/v"
+                              version ".tar.gz"))
+              (file-name (string-append name "-" version ".tar.gz"))
+              (sha256
+               (base32
+                "0hj0rqk5yd4fzs7bwy6a6nhqgrmcggkjcr4il76rxy92r7nwabf3"))))
     (build-system gnu-build-system)
     (arguments
      `(#:tests? #f ; no "check" target
@@ -673,6 +766,46 @@ modification devices that brought world-wide fame to the names and products of
 Laurens Hammond and Don Leslie.")
     (license license:gpl2+)))
 
+(define-public beast
+  (package
+    (name "beast")
+    (version "0.10.0")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "https://testbit.eu/pub/dists/beast/beast-"
+                                  version ".tar.xz"))
+              (sha256
+               (base32
+                "1jzzmfwssklzw8fvvil04n8csc0zm99fnd9p2xa7c0xchg37lvhn"))))
+    (build-system gnu-build-system)
+    (inputs
+     `(("rapicorn" ,rapicorn)
+       ("guile" ,guile-1.8)
+       ("python" ,python-2)
+       ("cython" ,python2-cython)
+       ("libgnomecanvas" ,libgnomecanvas)
+       ("libogg" ,libogg)
+       ("libmad" ,libmad)
+       ("flac" ,flac)
+       ("alsa-lib" ,alsa-lib)
+       ("libvorbis" ,libvorbis)
+       ("gettext" ,gnu-gettext)))
+    (native-inputs
+     `(("pkg-config" ,pkg-config)
+       ("glib:bin" ,glib "bin")
+       ("perl" ,perl)
+       ("perl-xml-parser" ,perl-xml-parser)))
+    (home-page "https://testbit.eu/wiki/Beast_Home")
+    (synopsis "Music composition and modular synthesis environment")
+    (description
+     "Beast is a music composition and modular synthesis application.  It
+supports a wide range of standards in the field, such as MIDI, various audio
+file formats and LADSPA modules.  It allows for multitrack editing, real-time
+synthesis, 32bit audio rendering, precise timing down to sample granularity,
+on-demand and partial loading of wave files, on the fly decoding, stereo
+mixing, FFT scopes, MIDI automation and full scriptability in Scheme.")
+    (license license:gpl3+)))
+
 (define-public bristol
   (package
     (name "bristol")
@@ -695,6 +828,13 @@ Laurens Hammond and Don Leslie.")
                             (string-prefix? "i686" system)))
                (substitute* "bristol/Makefile.in"
                  (("-msse -mfpmath=sse") "")))
+             #t))
+         ;; We know that Bristol has been linked with JACK and we don't have
+         ;; ldd, so we can just skip this check.
+         (add-after 'unpack 'do-not-grep-for-jack
+           (lambda _
+             (substitute* "bin/startBristol.in"
+               (("ldd `which bristol` | grep jack") "echo guix"))
              #t)))))
     (inputs
      `(("alsa-lib" ,alsa-lib)
@@ -734,7 +874,7 @@ is subjective.")
                           (string-append "PREFIX="
                                          (assoc-ref %outputs "out"))
                           (string-append "SWT_PATH="
-                                         (assoc-ref %build-inputs "swt")
+                                         (assoc-ref %build-inputs "java-swt")
                                          "/share/java/swt.jar"))
        #:tests? #f ;no "check" target
        #:parallel-build? #f ;not supported
@@ -749,11 +889,11 @@ is subjective.")
                (string-append "GCJFLAGS=-fsource=1.4 -fPIC " rest))
               (("PROPERTIES\\?=")
                (string-append "PROPERTIES?= -Dswt.library.path="
-                              (assoc-ref inputs "swt") "/lib"))
+                              (assoc-ref inputs "java-swt") "/lib"))
               (("\\$\\(GCJ\\) -o") "$(GCJ) $(LDFLAGS) -o"))
             #t)))))
     (inputs
-     `(("swt" ,swt)))
+     `(("java-swt" ,java-swt)))
     (native-inputs
      `(("gcj" ,gcj)
        ("pkg-config" ,pkg-config)))
@@ -822,10 +962,74 @@ programming methods as well as for realizing complex systems for large-scale
 projects.")
     (license license:bsd-3)))
 
+(define-public portmidi
+  (package
+    (name "portmidi")
+    (version "217")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "mirror://sourceforge/portmedia/portmidi/"
+                                  version "/portmidi-src-" version ".zip"))
+              (sha256
+               (base32
+                "03rfsk7z6rdahq2ihy5k13qjzgx757f75yqka88v3gc0pn9ais88"))
+              (patches (list (search-patch "portmidi-modular-build.patch")))))
+    (build-system cmake-build-system)
+    (arguments
+     `(#:tests? #f ; tests cannot be linked
+       #:configure-flags
+       (list "-DPORTMIDI_ENABLE_JAVA=Off"
+             "-DCMAKE_BUILD_TYPE=Release"    ; needed to have PMALSA set
+             "-DPORTMIDI_ENABLE_TEST=Off"))) ; tests fail linking
+    (inputs
+     `(("alsa-lib" ,alsa-lib)))
+    (native-inputs
+     `(("unzip" ,unzip)))
+    (home-page "http://portmedia.sourceforge.net/portmidi/")
+    (synopsis "Library for MIDI I/O")
+    (description
+     "PortMidi is a library supporting real-time input and output of MIDI data
+using a system-independent interface.")
+    (license license:expat)))
+
+(define-public python-pyportmidi
+  (package
+    (name "python-pyportmidi")
+    (version (package-version portmidi))
+    (source (package-source portmidi))
+    (build-system python-build-system)
+    (arguments
+     `(#:tests? #f ; no tests included
+       #:phases
+       (modify-phases %standard-phases
+         (add-after 'unpack 'enter-dir
+           (lambda _ (chdir "pm_python") #t))
+         (add-after 'enter-dir 'fix-setup.py
+           (lambda _
+             (substitute* "setup.py"
+               ;; Use Python 3 syntax
+               (("print (\".*\")" _ text)
+                (string-append "print(" text ")\n"))
+               ;; TODO.txt and CHANGES.txt don't exist
+               (("CHANGES =.*") "CHANGES = \"\"\n")
+               (("TODO =.*") "TODO = \"\"\n"))
+             #t)))))
+    (inputs
+     `(("portmidi" ,portmidi)
+       ("alsa-lib" ,alsa-lib)
+       ("python-cython" ,python-cython)))
+    (native-inputs
+     `(("unzip" ,unzip)))
+    (home-page "http://portmedia.sourceforge.net/portmidi/")
+    (synopsis "Python bindings to PortMidi")
+    (description
+     "This package provides Python bindings to the PortMidi library.")
+    (license license:expat)))
+
 (define-public frescobaldi
   (package
     (name "frescobaldi")
-    (version "2.18.2")
+    (version "2.19.0")
     (source (origin
               (method url-fetch)
               (uri (string-append
@@ -833,12 +1037,14 @@ projects.")
                     version "/frescobaldi-" version ".tar.gz"))
               (sha256
                (base32
-                "1yns7nq2a2hz5rv4xjp21bgcdi1xj6fq48lqjrld7ypqqi5nfjp5"))))
+                "1rnk8i8dlshzx16n2qxcsqcs7kywgyazzyzw2vy4vp2gsm9vs9ml"))))
     (build-system python-build-system)
     (inputs
      `(("lilypond" ,lilypond)
+       ("portmidi" ,portmidi)
        ("python-pyqt-4" ,python-pyqt-4)
        ("python-ly" ,python-ly)
+       ("python-pyportmidi" ,python-pyportmidi)
        ("poppler" ,poppler)
        ("python-poppler-qt4" ,python-poppler-qt4)
        ("python-sip" ,python-sip)))
@@ -945,7 +1151,7 @@ instrument or MIDI file player.")
 (define-public zynaddsubfx
   (package
     (name "zynaddsubfx")
-    (version "2.5.3")
+    (version "2.5.4")
     (source (origin
               (method url-fetch)
               (uri (string-append
@@ -953,7 +1159,7 @@ instrument or MIDI file player.")
                     version "/zynaddsubfx-" version ".tar.bz2"))
               (sha256
                (base32
-                "04da54p19p7f5wm6vm7abbjbsil1qf7n5f4adj01jm6b0wqigvgb"))))
+                "16llaa2wg2gbgjhwp3632b2vx9jvanj4csv7d41k233ms6d1sjq1"))))
     (build-system cmake-build-system)
     (arguments
      `(#:phases
@@ -1055,7 +1261,7 @@ improves on support for JACK features, such as JACK MIDI.")
                           version ".tar.gz"))
       (sha256
        (base32 "1dhphsya41rv8z6yqcv9l6fwbslsds4zh1y56zizi39nd996d40v"))
-      (patches (list (search-patch "cursynth-wave-rand.patch")))))
+      (patches (search-patches "cursynth-wave-rand.patch"))))
     (build-system gnu-build-system)
     (native-inputs `(("pkg-config" ,pkg-config)))
     ;; TODO: See https://github.com/iyoko/cursynth/issues/4 which currently
@@ -1073,14 +1279,14 @@ computer's keyboard.")
 (define-public qtractor
   (package
     (name "qtractor")
-    (version "0.7.5")
+    (version "0.7.7")
     (source (origin
               (method url-fetch)
               (uri (string-append "http://downloads.sourceforge.net/qtractor/"
                                   "qtractor-" version ".tar.gz"))
               (sha256
                (base32
-                "0drqzp1rbqmqiwdzc9n3307y8rm882fha3awy5qlvir5ma2mwl80"))))
+                "0q8kvy1ynlg64v1w7jxix1rpq0lp2ixgb2y8cbbwxd2b28r3r2vl"))))
     (build-system gnu-build-system)
     (arguments `(#:tests? #f)) ; no "check" target
     (inputs
@@ -1338,3 +1544,44 @@ for improved Amiga ProTracker 2/3 compatibility.")
     (home-page "http://milkytracker.org/")
     ;; 'src/milkyplay' is under Modified BSD, the rest is under GPL3 or later.
     (license (list license:bsd-3 license:gpl3+))))
+
+(define-public moc
+  (package
+    (name "moc")
+    (version "2.5.1")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "http://ftp.daper.net/pub/soft/"
+                                  name "/stable/"
+                                  name "-" version ".tar.bz2"))
+              (sha256
+               (base32
+                "1wn4za08z64bhsgfhr9c0crfyvy8c3b6a337wx7gz19am5srqh8v"))))
+    (build-system gnu-build-system)
+    (inputs
+     `(("alsa-lib" ,alsa-lib)
+       ("curl" ,curl)
+       ("faad2" ,faad2)
+       ("ffmpeg" ,ffmpeg)
+       ("file" ,file)
+       ("jack" ,jack-1)
+       ("libid3tag" ,libid3tag)
+       ("libltdl" ,libltdl)
+       ("libmodplug" ,libmodplug)
+       ("libmpcdec" ,libmpcdec)
+       ("libmad" ,libmad)
+       ("ncurses" ,ncurses)
+       ("openssl" ,openssl)
+       ("sasl" ,cyrus-sasl)
+       ("speex" ,speex)
+       ("taglib" ,taglib)
+       ("wavpack" ,wavpack)
+       ("zlib" ,zlib)))
+    (native-inputs
+     `(("pkg-config" ,pkg-config)))
+    (synopsis "Console audio player designed to be powerful and easy to use")
+    (description
+     "Music on Console is a console audio player that supports many file
+formats, including most audio formats recognized by FFMpeg.")
+    (home-page "http://moc.daper.net")
+    (license license:gpl2+)))

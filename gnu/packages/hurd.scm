@@ -1,5 +1,5 @@
 ;;; GNU Guix --- Functional package management for GNU
-;;; Copyright © 2014, 2015 Manolis Fragkiskos Ragkousis <manolis837@gmail.com>
+;;; Copyright © 2014, 2015, 2016 Manolis Fragkiskos Ragkousis <manolis837@gmail.com>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -22,6 +22,7 @@
   #:use-module (guix packages)
   #:use-module (gnu packages)
   #:use-module (guix build-system gnu)
+  #:use-module (guix build-system trivial)
   #:use-module (gnu packages flex)
   #:use-module (gnu packages bison)
   #:use-module (gnu packages perl)
@@ -32,7 +33,7 @@
 (define-public gnumach-headers
   (package
     (name "gnumach-headers")
-    (version "1.6")
+    (version "1.7")
     (source
      (origin
       (method url-fetch)
@@ -40,7 +41,7 @@
                           version ".tar.gz"))
       (sha256
        (base32
-        "1m7xwsrv6x6gk9xi5phs104rdn9q3lr63p348vyv0dzd6r3zyncb"))))
+        "1vd0bykshf6ilr55792b5lf6yd5ywlkp1wqz00dcsx7fq3rfadz2"))))
     (build-system gnu-build-system)
     (arguments
     `(#:phases (alist-replace
@@ -66,7 +67,7 @@
 (define-public mig
   (package
     (name "mig")
-    (version "1.6")
+    (version "1.7")
     (source
      (origin
       (method url-fetch)
@@ -74,7 +75,7 @@
                           version ".tar.gz"))
       (sha256
        (base32
-        "1i9qd6j5g8wsv9k9n6vpdqflyw0284wyayb2s2h7pp4yyi2jsksk"))))
+        "1hxqd8p14pgamgavmbmziswvd1zvwqx7lgc9qga805q9jrs93q2b"))))
     (build-system gnu-build-system)
     ;; Flex is needed both at build and run time.
     (inputs `(("gnumach-headers" ,gnumach-headers)
@@ -97,14 +98,14 @@ communication.")
 (define-public hurd-headers
   (package
     (name "hurd-headers")
-    (version "0.7")
+    (version "0.8")
     (source (origin
               (method url-fetch)
               (uri (string-append "mirror://gnu/hurd/hurd-"
                                   version ".tar.gz"))
               (sha256
                (base32
-                "1q2pyc16vb5plqi8hlwnnc9jk8zlifm91cavz6x7vhbwy0nh2yvh"))))
+                "1pbc4aqgzxvkgivw80ghp3w755cl0fwxmg357vq7chimj64jk78d"))))
     (build-system gnu-build-system)
     (native-inputs
      `(;; Autoconf shouldn't be necessary but there seems to be a bug in the
@@ -185,3 +186,28 @@ Library and other user programs.")
      "This package provides libihash, needed to build the GNU C
 Library for GNU/Hurd.")
     (license gpl2+)))
+
+(define-public hurd-core-headers
+  (package
+    (name "hurd-core-headers")
+    (version (package-version hurd-headers))
+    (source #f)
+    (build-system trivial-build-system)
+    (arguments
+     '(#:modules ((guix build union))
+       #:builder (begin
+                   (use-modules (ice-9 match)
+                                (guix build union))
+                   (match %build-inputs
+                     (((names . directories) ...)
+                      (union-build (assoc-ref %outputs "out")
+                                   directories))))))
+    (inputs `(("gnumach-headers" ,gnumach-headers)
+              ("hurd-headers" ,hurd-headers)
+              ("hurd-minimal" ,hurd-minimal)))
+    (synopsis "Union of the Hurd headers and libraries")
+    (description
+     "This package contains the union of the Mach and Hurd headers and the
+Hurd-minimal package which are needed for both glibc and GCC.")
+    (home-page (package-home-page hurd-headers))
+    (license (package-license hurd-headers))))

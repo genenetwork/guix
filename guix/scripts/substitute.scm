@@ -21,6 +21,7 @@
   #:use-module (guix ui)
   #:use-module ((guix store) #:hide (close-connection))
   #:use-module (guix utils)
+  #:use-module (guix combinators)
   #:use-module (guix config)
   #:use-module (guix records)
   #:use-module (guix serialization)
@@ -31,7 +32,8 @@
   #:use-module (guix pki)
   #:use-module ((guix build utils) #:select (mkdir-p dump-port))
   #:use-module ((guix build download)
-                #:select (progress-proc uri-abbreviation
+                #:select (current-terminal-columns
+                          progress-proc uri-abbreviation nar-uri-abbreviation
                           open-connection-for-uri
                           close-connection
                           store-path-abbreviation byte-count->string))
@@ -399,8 +401,10 @@ or is signed by an unauthorized key."
             (when verbose?
               ;; Visually separate substitutions with a newline.
               (format (current-error-port)
-                      "~%Found valid signature for ~a~%From ~a~%"
-                      (narinfo-path narinfo)
+                      (_ "~%Found valid signature for ~a~%")
+                      (narinfo-path narinfo))
+              (format (current-error-port)
+                      (_ "From ~a~%")
                       (uri->string (narinfo-uri narinfo)))))
           narinfo))))
 
@@ -436,9 +440,15 @@ the cache STR originates form."
 (define (narinfo-cache-file cache-url path)
   "Return the name of the local file that contains an entry for PATH.  The
 entry is stored in a sub-directory specific to CACHE-URL."
-  (string-append %narinfo-cache-directory "/"
-                 (bytevector->base32-string (sha256 (string->utf8 cache-url)))
-                 "/" (store-path-hash-part path)))
+  ;; The daemon does not sanitize its input, so PATH could be something like
+  ;; "/gnu/store/foo".  Gracefully handle that.
+  (match (store-path-hash-part path)
+    (#f
+     (leave (_ "'~a' does not name a store item~%") path))
+    ((? string? hash-part)
+     (string-append %narinfo-cache-directory "/"
+                    (bytevector->base32-string (sha256 (string->utf8 cache-url)))
+                    "/" hash-part))))
 
 (define (cached-narinfo cache-url path)
   "Check locally if we have valid info about PATH coming from CACHE-URL.
@@ -879,7 +889,11 @@ DESTINATION as a nar file.  Verify the substitute against ACL."
     ;; Tell the daemon what the expected hash of the Nar itself is.
     (format #t "~a~%" (narinfo-hash narinfo))
 
-    (format (current-error-port) "Downloading ~a~:[~*~; (~a installed)~]...~%"
+    (format (current-error-port)
+            ;; TRANSLATORS: The second part of this message looks like
+            ;; "(4.1MiB installed)"; it shows the size of the package once
+            ;; installed.
+            (_ "Downloading ~a~:[~*~; (~a installed)~]...~%")
             (store-path-abbreviation store-item)
             ;; Use the Nar size as an estimate of the installed size.
             (narinfo-size narinfo)
@@ -895,11 +909,11 @@ DESTINATION as a nar file.  Verify the substitute against ACL."
                           (dl-size  (or download-size
                                         (and (equal? comp "none")
                                              (narinfo-size narinfo))))
-                          (progress (progress-proc (uri-abbreviation uri)
+                          (progress (progress-proc (uri->string uri)
                                                    dl-size
                                                    (current-error-port)
                                                    #:abbreviation
-                                                   store-path-abbreviation)))
+                                                   nar-uri-abbreviation)))
                      (progress-report-port progress raw)))
                   ((input pids)
                    (decompressed-port (and=> (narinfo-compression narinfo)
@@ -973,6 +987,16 @@ found."
      ;; daemon.
      '("http://hydra.gnu.org"))))
 
+(define (client-terminal-columns)
+  "Return the number of columns in the client's terminal, if it is known, or a
+default value."
+  (or (and=> (or (find-daemon-option "untrusted-terminal-columns")
+                 (find-daemon-option "terminal-columns"))
+             (lambda (str)
+               (let ((number (string->number str)))
+                 (and number (max 20 (- number 1))))))
+      80))
+
 (define (guix-substitute . args)
   "Implement the build daemon's substituter protocol."
   (mkdir-p %narinfo-cache-directory)
@@ -989,6 +1013,13 @@ found."
   (newline)
   (force-output (current-output-port))
 
+  ;; Attempt to install the client's locale, mostly so that messages are
+  ;; suitably translated.
+  (match (or (find-daemon-option "untrusted-locale")
+             (find-daemon-option "locale"))
+    (#f     #f)
+    (locale (false-if-exception (setlocale LC_ALL locale))))
+
   (with-networking
    (with-error-handling                           ; for signature errors
      (match args
@@ -1003,9 +1034,12 @@ found."
                   (loop (read-line)))))))
        (("--substitute" store-path destination)
         ;; Download STORE-PATH and add store it as a Nar in file DESTINATION.
-        (process-substitution store-path destination
-                              #:cache-urls %cache-urls
-                              #:acl (current-acl)))
+        ;; Specify the number of columns of the terminal so the progress
+        ;; report displays nicely.
+        (parameterize ((current-terminal-columns (client-terminal-columns)))
+          (process-substitution store-path destination
+                                #:cache-urls %cache-urls
+                                #:acl (current-acl))))
        (("--version")
         (show-version-and-exit "guix substitute"))
        (("--help")

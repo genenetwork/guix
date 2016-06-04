@@ -3,6 +3,7 @@
 ;;; Copyright © 2015, 2016 Alex Kost <alezost@gmail.com>
 ;;; Copyright © 2015 Mark H Weaver <mhw@netris.org>
 ;;; Copyright © 2015 Sou Bunnbu <iyzsong@gmail.com>
+;;; Copyright © 2016 Leo Famulari <leo@famulari.name>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -27,6 +28,7 @@
   #:use-module (gnu system pam)
   #:use-module (gnu system shadow)                ; 'user-account', etc.
   #:use-module (gnu system file-systems)          ; 'file-system', etc.
+  #:use-module (gnu system mapped-devices)
   #:use-module (gnu packages admin)
   #:use-module ((gnu packages linux)
                 #:select (eudev kbd e2fsprogs lvm2 fuse alsa-utils crda gpm))
@@ -47,7 +49,6 @@
             root-file-system-service
             file-system-service
             user-unmount-service
-            device-mapping-service
             swap-service
             user-processes-service
             session-environment-service
@@ -92,6 +93,8 @@
             guix-publish-service-type
             gpm-service-type
             gpm-service
+
+            urandom-seed-service
 
             %base-services))
 
@@ -422,6 +425,65 @@ stopped before 'kill' is called."
 
 
 ;;;
+;;; Preserve entropy to seed /dev/urandom on boot.
+;;;
+
+(define %random-seed-file
+  "/var/lib/random-seed")
+
+(define %urandom-seed-activation
+  ;; Activation gexp for the urandom seed
+  #~(begin
+      (use-modules (guix build utils))
+
+      (mkdir-p (dirname #$%random-seed-file))
+      (close-port (open-file #$%random-seed-file "a0b"))
+      (chmod #$%random-seed-file #o600)))
+
+(define (urandom-seed-shepherd-service _)
+  "Return a shepherd service for the /dev/urandom seed."
+  (list (shepherd-service
+         (documentation "Preserve entropy across reboots for /dev/urandom.")
+         (provision '(urandom-seed))
+         (requirement '(user-processes))
+         (start #~(lambda _
+                    ;; On boot, write random seed into /dev/urandom.
+                    (when (file-exists? #$%random-seed-file)
+                      (call-with-input-file #$%random-seed-file
+                        (lambda (seed)
+                          (call-with-output-file "/dev/urandom"
+                            (lambda (urandom)
+                              (dump-port seed urandom))))))
+                    #t))
+         (stop #~(lambda _
+                   ;; During shutdown, write from /dev/urandom into random seed.
+                   (let ((buf (make-bytevector 512)))
+                     (call-with-input-file "/dev/urandom"
+                       (lambda (urandom)
+                         (let ((previous-umask (umask #o077)))
+                           (get-bytevector-n! urandom buf 0 512)
+                           (call-with-output-file #$%random-seed-file
+                             (lambda (seed)
+                               (put-bytevector seed buf)))
+                           (umask previous-umask))
+                         #t)))))
+         (modules `((rnrs bytevectors)
+                    (rnrs io ports)
+                    ,@%default-modules)))))
+
+(define urandom-seed-service-type
+  (service-type (name 'urandom-seed)
+                (extensions
+                 (list (service-extension shepherd-root-service-type
+                                          urandom-seed-shepherd-service)
+                       (service-extension activation-service-type
+                                          (const %urandom-seed-activation))))))
+
+(define (urandom-seed-service)
+  (service urandom-seed-service-type #f))
+
+
+;;;
 ;;; System-wide environment variables.
 ;;;
 
@@ -494,18 +556,18 @@ strings or string-valued gexps."
 (define console-keymap-service-type
   (shepherd-service-type
    'console-keymap
-   (lambda (file)
+   (lambda (files)
      (shepherd-service
       (documentation (string-append "Load console keymap (loadkeys)."))
       (provision '(console-keymap))
       (start #~(lambda _
                  (zero? (system* (string-append #$kbd "/bin/loadkeys")
-                                 #$file))))
+                                 #$@files))))
       (respawn? #f)))))
 
-(define (console-keymap-service file)
-  "Return a service to load console keymap from @var{file}."
-  (service console-keymap-service-type file))
+(define (console-keymap-service . files)
+  "Return a service to load console keymaps from @var{files}."
+  (service console-keymap-service-type files))
 
 (define console-font-service-type
   (shepherd-service-type
@@ -1174,26 +1236,6 @@ extra rules from the packages listed in @var{rules}."
   (service udev-service-type
            (udev-configuration (udev udev) (rules rules))))
 
-(define device-mapping-service-type
-  (shepherd-service-type
-   'device-mapping
-   (match-lambda
-     ((target open close)
-      (shepherd-service
-       (provision (list (symbol-append 'device-mapping- (string->symbol target))))
-       (requirement '(udev))
-       (documentation "Map a device node using Linux's device mapper.")
-       (start #~(lambda () #$open))
-       (stop #~(lambda _ (not #$close)))
-       (respawn? #f))))))
-
-(define (device-mapping-service target open close)
-  "Return a service that maps device @var{target}, a string such as
-@code{\"home\"} (meaning @code{/dev/mapper/home}).  Evaluate @var{open}, a
-gexp, to open it, and evaluate @var{close} to close it."
-  (service device-mapping-service-type
-           (list target open close)))
-
 (define swap-service-type
   (shepherd-service-type
    'swap
@@ -1219,7 +1261,6 @@ gexp, to open it, and evaluate @var{close} to close it."
 (define (swap-service device)
   "Return a service that uses @var{device} as a swap device."
   (service swap-service-type device))
-
 
 (define-record-type* <gpm-configuration>
   gpm-configuration make-gpm-configuration gpm-configuration?
@@ -1301,6 +1342,7 @@ This is the GNU operating system, welcome!\n\n")))
           (static-networking-service "lo" "127.0.0.1"
                                      #:provision '(loopback))
           (syslog-service)
+          (urandom-seed-service)
           (guix-service)
           (nscd-service)
 

@@ -1,9 +1,10 @@
 ;;; GNU Guix --- Functional package management for GNU
-;;; Copyright © 2013, 2014, 2015 Ludovic Courtès <ludo@gnu.org>
+;;; Copyright © 2013, 2014, 2015, 2016 Ludovic Courtès <ludo@gnu.org>
 ;;; Copyright © 2015 Taylan Ulrich Bayırlı/Kammer <taylanbayirli@gmail.com>
 ;;; Copyright © 2015 Federico Beffa <beffa@fbengineering.ch>
 ;;; Copyright © 2016 Ricardo Wurmus <rekado@elephly.net>
 ;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
+;;; Copyright © 2016 Jan Nieuwenhuizen <janneke@gnu.org>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -25,15 +26,18 @@
   #:use-module (guix licenses)
   #:use-module (guix packages)
   #:use-module (guix download)
+  #:use-module (guix git-download)
   #:use-module (guix utils)
   #:use-module (guix build-system gnu)
+  #:use-module (guix build-system trivial)
   #:use-module (gnu packages m4)
   #:use-module (gnu packages multiprecision)
   #:use-module (gnu packages databases)
   #:use-module (gnu packages emacs)
   #:use-module (gnu packages texinfo)
-  #:use-module (gnu packages texlive)
+  #:use-module (gnu packages tex)
   #:use-module (gnu packages base)
+  #:use-module (gnu packages compression)
   #:use-module (gnu packages pkg-config)
   #:use-module (gnu packages avahi)
   #:use-module (gnu packages libphidget)
@@ -174,7 +178,8 @@
      "GNU/MIT Scheme is an implementation of the Scheme programming
 language.  It provides an interpreter, a compiler and a debugger.  It also
 features an integrated Emacs-like editor and a large runtime library.")
-    (license gpl2+)))
+    (license gpl2+)
+    (properties '((ftp-directory . "/gnu/mit-scheme/stable.pkg")))))
 
 (define-public bigloo
   (package
@@ -187,7 +192,7 @@ features an integrated Emacs-like editor and a large runtime library.")
              (sha256
               (base32
                "170q7nh08n4v20xl81fxb0xcdxphqqacfa643hsa8i2ar6pki04c"))
-             (patches (list (search-patch "bigloo-gc-shebangs.patch")))))
+             (patches (search-patches "bigloo-gc-shebangs.patch"))))
     (build-system gnu-build-system)
     (arguments
      `(#:test-target "test"
@@ -277,8 +282,8 @@ Scheme and C programs and between Scheme and Java programs.")
              (sha256
               (base32
                "1v2r4ga58kk1sx0frn8qa8ccmjpic9csqzpk499wc95y9c4b1wy3"))
-             (patches (list (search-patch "hop-bigloo-4.0b.patch")
-                            (search-patch "hop-linker-flags.patch")))))
+             (patches (search-patches "hop-bigloo-4.0b.patch"
+                                      "hop-linker-flags.patch"))))
     (build-system gnu-build-system)
     (arguments
      `(#:phases
@@ -374,7 +379,7 @@ language standard, and includes many enhancements and extensions.")
              (sha256
               (base32
                "1x4xfm3lyz2piqcw1h01vbs1iq89zq7wrsfjgh3fxnlm1slj2jcw"))
-             (patches (list (search-patch "scheme48-tests.patch")))))
+             (patches (search-patches "scheme48-tests.patch"))))
     (build-system gnu-build-system)
     (home-page "http://s48.org/")
     (synopsis "Scheme implementation using a bytecode interpreter")
@@ -571,7 +576,7 @@ threads.")
       (build-system gnu-build-system)
       (inputs
        `(("mit-scheme" ,mit-scheme)
-         ("emacs" ,emacs-no-x)))
+         ("emacs" ,emacs-minimal)))
       (arguments
        `(#:tests? #f ;; no tests-suite
          #:modules ((guix build gnu-build-system)
@@ -713,3 +718,54 @@ procedures, embedded in the programming language Scheme, and intended to
 support teaching and research in mathematical physics and electrical
 engineering.")
       (license gpl2+))))
+
+(define-public sicp
+  (let ((commit "5b52db566968d28a89fbbaf338d207f01cc81cac"))
+    (package
+      (name "sicp")
+      (version (string-append "20160220-1." (string-take commit 7)))
+      (source (origin
+                (method git-fetch)
+                (uri (git-reference
+                      (url "https://github.com/sarabander/sicp")
+                      (commit commit)))
+                (sha256
+                 (base32
+                  "10h6h7szwlfbshwh18bnl2hvyddj5i7106l79s145l0sjjv15cxb"))
+                (file-name (string-append name "-" version "-checkout"))))
+      (build-system trivial-build-system)
+      (native-inputs `(("gzip" ,gzip)
+                       ("source" ,source)
+                       ("texinfo" ,texinfo)))
+      (arguments
+       `(#:modules ((guix build utils)
+                    (srfi srfi-1)
+                    (srfi srfi-26))
+         #:builder
+         (begin
+           (use-modules (guix build utils)
+                        (srfi srfi-1)
+                        (srfi srfi-26))
+           (let ((gzip (assoc-ref %build-inputs "gzip"))
+                 (source (assoc-ref %build-inputs "source"))
+                 (texinfo (assoc-ref %build-inputs "texinfo"))
+                 (info-dir (string-append %output "/share/info")))
+             (setenv "PATH" (string-append gzip "/bin"
+                                           ":" texinfo "/bin"))
+             (mkdir-p info-dir)
+             (and (zero?
+                   (system* "makeinfo" "--output"
+                            (string-append info-dir "/sicp.info")
+                            (string-append source "/sicp-pocket.texi")))
+                  (every zero?
+                         (map (cut system* "gzip" "-9n" <>)
+                              (find-files info-dir))))))))
+      (home-page "http://sarabander.github.io/sicp")
+      (synopsis "Structure and Interpretation of Computer Programs")
+      (description "Structure and Interpretation of Computer Programs (SICP) is
+a textbook aiming to teach the principles of computer programming.
+
+Using Scheme, a dialect of the Lisp programming language, the book explains
+core computer science concepts such as abstraction in programming,
+metalinguistic abstraction, recursion, interpreters, and modular programming.")
+      (license cc-by-sa4.0))))

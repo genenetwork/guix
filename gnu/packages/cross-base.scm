@@ -1,6 +1,7 @@
 ;;; GNU Guix --- Functional package management for GNU
 ;;; Copyright © 2013, 2014, 2015, 2016 Ludovic Courtès <ludo@gnu.org>
 ;;; Copyright © 2014, 2015 Mark H Weaver <mhw@netris.org>
+;;; Copyright © 2016 Jan Nieuwenhuizen <janneke@gnu.org>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -166,34 +167,38 @@ may be either a libc package or #f.)"
               `(alist-cons-before
                 'configure 'set-cross-path
                 (lambda* (#:key inputs #:allow-other-keys)
-                  ;; Add the cross Linux headers to CROSS_CPATH, and remove them
-                  ;; from CPATH.
+                  ;; Add the cross Linux headers to CROSS_C_*_INCLUDE_PATH,
+                  ;; and remove them from C_*INCLUDE_PATH.
                   (let ((libc  (assoc-ref inputs "libc"))
                         (linux (assoc-ref inputs "xlinux-headers")))
                     (define (cross? x)
                       ;; Return #t if X is a cross-libc or cross Linux.
                       (or (string-prefix? libc x)
                           (string-prefix? linux x)))
-
-                    (setenv "CROSS_CPATH"
-                            (string-append libc "/include:"
-                                           linux "/include"))
+                    (let ((cpath (string-append
+                                  libc "/include"
+                                  ":" linux "/include")))
+                      (for-each (cut setenv <> cpath)
+                                '("CROSS_C_INCLUDE_PATH"
+                                  "CROSS_CPLUS_INCLUDE_PATH"
+                                  "CROSS_OBJC_INCLUDE_PATH"
+                                  "CROSS_OBJCPLUS_INCLUDE_PATH")))
                     (setenv "CROSS_LIBRARY_PATH"
                             (string-append libc "/lib"))
-
-                    (let ((cpath   (search-path-as-string->list
-                                    (getenv "C_INCLUDE_PATH")))
-                          (libpath (search-path-as-string->list
-                                    (getenv "LIBRARY_PATH"))))
-                      (setenv "CPATH"
-                              (list->search-path-as-string
-                               (remove cross? cpath) ":"))
-                      (for-each unsetenv
-                                '("C_INCLUDE_PATH" "CPLUS_INCLUDE_PATH"))
-                      (setenv "LIBRARY_PATH"
-                              (list->search-path-as-string
-                               (remove cross? libpath) ":"))
-                      #t)))
+                    (for-each
+                     (lambda (var)
+                       (and=> (getenv var)
+                              (lambda (value)
+                                (let* ((path (search-path-as-string->list value))
+                                       (native-path (list->search-path-as-string
+                                                     (remove cross? path) ":")))
+                                  (setenv var native-path)))))
+                              '("C_INCLUDE_PATH"
+                                "CPLUS_INCLUDE_PATH"
+                                "OBJC_INCLUDE_PATH"
+                                "OBJCPLUS_INCLUDE_PATH"
+                                "LIBRARY_PATH"))
+                    #t))
                 ,phases)
               phases)))))))
 
@@ -201,7 +206,7 @@ may be either a libc package or #f.)"
   "Return GCC patches needed for TARGET."
   (cond ((string-prefix? "xtensa-" target)
          ;; Patch by Qualcomm needed to build the ath9k-htc firmware.
-         (list (search-patch "ath9k-htc-firmware-gcc.patch")))
+         (search-patches "ath9k-htc-firmware-gcc.patch"))
         (else '())))
 
 (define* (cross-gcc target
@@ -259,9 +264,19 @@ GCC that does not target a libc; otherwise, target that libc."
     (inputs '())
 
     ;; Only search target inputs, not host inputs.
+    ;; Note: See <http://bugs.gnu.org/22186> for why not 'CPATH'.
     (search-paths
      (list (search-path-specification
-            (variable "CROSS_CPATH")
+            (variable "CROSS_C_INCLUDE_PATH")
+            (files '("include")))
+           (search-path-specification
+            (variable "CROSS_CPLUS_INCLUDE_PATH")
+            (files '("include")))
+           (search-path-specification
+            (variable "CROSS_OBJC_INCLUDE_PATH")
+            (files '("include")))
+           (search-path-specification
+            (variable "CROSS_OBJCPLUS_INCLUDE_PATH")
             (files '("include")))
            (search-path-specification
             (variable "CROSS_LIBRARY_PATH")
@@ -308,6 +323,11 @@ XBINUTILS and the cross tool chain."
            ;; itself.
            #:implicit-cross-inputs? #f
 
+           ;; We need SRFI 26.
+           #:modules ((guix build gnu-build-system)
+                      (guix build utils)
+                      (srfi srfi-26))
+
            ,@(package-arguments glibc))
        ((#:configure-flags flags)
         `(cons ,(string-append "--host=" target)
@@ -316,9 +336,13 @@ XBINUTILS and the cross tool chain."
         `(alist-cons-before
           'configure 'set-cross-linux-headers-path
           (lambda* (#:key inputs #:allow-other-keys)
-            (let ((linux (assoc-ref inputs "linux-headers")))
-              (setenv "CROSS_CPATH"
-                      (string-append linux "/include"))
+            (let* ((linux (assoc-ref inputs "linux-headers"))
+                   (cpath (string-append linux "/include")))
+              (for-each (cut setenv <> cpath)
+                        '("CROSS_C_INCLUDE_PATH"
+                          "CROSS_CPLUS_INCLUDE_PATH"
+                          "CROSS_OBJC_INCLUDE_PATH"
+                          "CROSS_OBJCPLUS_INCLUDE_PATH"))
               #t))
           ,phases))))
 
@@ -351,12 +375,6 @@ XBINUTILS and the cross tool chain."
       (supported-systems (fold delete
                                (package-supported-systems xgcc)
                                '("mips64el-linux" "i686-linux"))))))
-
-(define-public xgcc-avr
-  ;; AVR cross-compiler, used to build AVR-Libc.
-  (let ((triplet "avr"))
-    (cross-gcc triplet
-               (cross-binutils triplet))))
 
 (define-public xgcc-xtensa
   ;; Bare-bones Xtensa cross-compiler, used to build the Atheros firmware.

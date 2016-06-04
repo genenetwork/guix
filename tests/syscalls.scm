@@ -29,6 +29,10 @@
 ;; Test the (guix build syscalls) module, although there's not much that can
 ;; actually be tested without being root.
 
+(define temp-file
+  (string-append "t-utils-" (number->string (getpid))))
+
+
 (test-begin "syscalls")
 
 (test-equal "mount, ENOENT"
@@ -77,6 +81,21 @@
          (begin
            (rmdir dir)
            #t))))
+
+(test-equal "statfs, ENOENT"
+  ENOENT
+  (catch 'system-error
+    (lambda ()
+      (statfs "/does-not-exist"))
+    (compose system-error-errno list)))
+
+(test-assert "statfs"
+  (let ((fs (statfs "/")))
+    (and (file-system? fs)
+         (> (file-system-block-size fs) 0)
+         (>= (file-system-blocks-available fs) 0)
+         (>= (file-system-blocks-free fs)
+             (file-system-blocks-available fs)))))
 
 (define (user-namespace pid)
   (string-append "/proc/" (number->string pid) "/ns/user"))
@@ -156,6 +175,88 @@
                         ((_ . status)
                          (status:exit-val status))))
                (eq? #t result))))))))
+
+(false-if-exception (delete-file temp-file))
+(test-equal "fcntl-flock wait"
+  42                                              ; the child's exit status
+  (let ((file (open-file temp-file "w0b")))
+    ;; Acquire an exclusive lock.
+    (fcntl-flock file 'write-lock)
+    (match (primitive-fork)
+      (0
+       (dynamic-wind
+         (const #t)
+         (lambda ()
+           ;; Reopen FILE read-only so we can have a read lock.
+           (let ((file (open-file temp-file "r0b")))
+             ;; Wait until we can acquire the lock.
+             (fcntl-flock file 'read-lock)
+             (primitive-exit (read file)))
+           (primitive-exit 1))
+         (lambda ()
+           (primitive-exit 2))))
+      (pid
+       ;; Write garbage and wait.
+       (display "hello, world!"  file)
+       (force-output file)
+       (sleep 1)
+
+       ;; Write the real answer.
+       (seek file 0 SEEK_SET)
+       (truncate-file file 0)
+       (write 42 file)
+       (force-output file)
+
+       ;; Unlock, which should let the child continue.
+       (fcntl-flock file 'unlock)
+
+       (match (waitpid pid)
+         ((_  . status)
+          (let ((result (status:exit-val status)))
+            (close-port file)
+            result)))))))
+
+(test-equal "fcntl-flock non-blocking"
+  EAGAIN                                          ; the child's exit status
+  (match (pipe)
+    ((input . output)
+     (match (primitive-fork)
+       (0
+        (dynamic-wind
+          (const #t)
+          (lambda ()
+            (close-port output)
+
+            ;; Wait for the green light.
+            (read-char input)
+
+            ;; Open FILE read-only so we can have a read lock.
+            (let ((file (open-file temp-file "w0")))
+              (catch 'flock-error
+                (lambda ()
+                  ;; This attempt should throw EAGAIN.
+                  (fcntl-flock file 'write-lock #:wait? #f))
+                (lambda (key errno)
+                  (primitive-exit (pk 'errno errno)))))
+            (primitive-exit -1))
+          (lambda ()
+            (primitive-exit -2))))
+       (pid
+        (close-port input)
+        (let ((file (open-file temp-file "w0")))
+          ;; Acquire an exclusive lock.
+          (fcntl-flock file 'write-lock)
+
+          ;; Tell the child to continue.
+          (write 'green-light output)
+          (force-output output)
+
+          (match (waitpid pid)
+            ((_  . status)
+             (let ((result (status:exit-val status)))
+               (fcntl-flock file 'unlock)
+               (close-port file)
+               result)))))))))
 
 (test-assert "all-network-interface-names"
   (match (all-network-interface-names)
@@ -244,4 +345,49 @@
              (#f #f)
              (lo (interface-address lo)))))))
 
+(test-equal "tcgetattr ENOTTY"
+  ENOTTY
+  (catch 'system-error
+    (lambda ()
+      (call-with-input-file "/dev/null"
+        (lambda (port)
+          (tcgetattr (fileno port)))))
+    (compose system-error-errno list)))
+
+(test-skip (if (and (file-exists? "/proc/self/fd/0")
+                    (string-prefix? "/dev/pts/" (readlink "/proc/self/fd/0")))
+               0
+               2))
+
+(test-assert "tcgetattr"
+  (let ((termios (tcgetattr 0)))
+    (and (termios? termios)
+         (> (termios-input-speed termios) 0)
+         (> (termios-output-speed termios) 0))))
+
+(test-assert "tcsetattr"
+  (let ((first (tcgetattr 0)))
+    (tcsetattr 0 (tcsetattr-action TCSANOW) first)
+    (equal? first (tcgetattr 0))))
+
+(test-assert "terminal-window-size ENOTTY"
+  (call-with-input-file "/dev/null"
+    (lambda (port)
+      (catch 'system-error
+        (lambda ()
+          (terminal-window-size port))
+        (lambda args
+          ;; Accept EINVAL, which some old Linux versions might return.
+          (memv (system-error-errno args)
+                (list ENOTTY EINVAL)))))))
+
+(test-assert "terminal-columns"
+  (> (terminal-columns) 0))
+
+(test-assert "terminal-columns non-file port"
+  (> (terminal-columns (open-input-string "Join us now, share the software!"))
+     0))
+
 (test-end)
+
+(false-if-exception (delete-file temp-file))

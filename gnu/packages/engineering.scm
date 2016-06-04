@@ -2,6 +2,7 @@
 ;;; Copyright © 2015 Ricardo Wurmus <rekado@elephly.net>
 ;;; Copyright © 2015 Federico Beffa <beffa@fbengineering.ch>
 ;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
+;;; Copyright © 2016 David Thompson <davet@gnu.org>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -45,18 +46,19 @@
   #:use-module (gnu packages gtk)
   #:use-module (gnu packages guile)
   #:use-module (gnu packages linux)               ;FIXME: for pcb
+  #:use-module (gnu packages m4)
   #:use-module (gnu packages maths)
   #:use-module (gnu packages perl)
   #:use-module (gnu packages pkg-config)
   #:use-module (gnu packages qt)
   #:use-module (gnu packages tcl)
-  #:use-module (gnu packages texlive)
+  #:use-module (gnu packages tex)
   #:use-module (srfi srfi-1))
 
 (define-public librecad
   (package
     (name "librecad")
-    (version "2.0.9")
+    (version "2.0.11")
     (source (origin
               (method url-fetch)
               (uri (string-append
@@ -65,7 +67,7 @@
               (file-name (string-append name "-" version ".tar.gz"))
               (sha256
                (base32
-                "0xyn4ps9ia94h0vg53rsww8xfd1bgp4200phl8ihyhv7w5v4d8d0"))))
+                "0jda23qspziph6fwgq1q3nmnllbgn9kwfpjylv1f0wa7c5l85gh5"))))
     (build-system gnu-build-system)
     (arguments
      '(#:phases
@@ -124,13 +126,22 @@ plans and designs.")
         'check 'set-home
         (lambda _
           (setenv "HOME" (getenv "TMPDIR")))
-        %standard-phases)))
+        %standard-phases
+        )
+       #:configure-flags
+       (let ((pcb (assoc-ref %build-inputs "pcb")))
+         (list (string-append "--with-pcb-datadir=" pcb "/share")
+               (string-append "--with-pcb-lib-path="
+                              pcb "/share/pcb/pcblib-newlib:"
+                              pcb "/share/pcb/newlib")))))
     (inputs
      `(("glib" ,glib)
        ("gtk" ,gtk+-2)
        ("guile" ,guile-2.0)
        ("desktop-file-utils" ,desktop-file-utils)
-       ("shared-mime-info" ,shared-mime-info)))
+       ("shared-mime-info" ,shared-mime-info)
+       ("m4" ,m4)
+       ("pcb" ,pcb)))
     (native-inputs
      `(("pkg-config" ,pkg-config)
        ("perl" ,perl))) ; for tests
@@ -221,8 +232,8 @@ optimizer; and it can produce photorealistic and design review images.")
               (modules '((guix build utils)
                          (guix build download)
                          (guix ftp-client)))
-              (patches (list (search-patch "fastcap-mulSetup.patch")
-                             (search-patch "fastcap-mulGlobal.patch")))))
+              (patches (search-patches "fastcap-mulSetup.patch"
+                                       "fastcap-mulGlobal.patch"))))
     (build-system gnu-build-system)
     (native-inputs
      `(("texlive" ,texlive)
@@ -318,11 +329,11 @@ multipole-accelerated algorithm.")
                     "-" version ".tar.z"))
               (sha256
                (base32 "1a06xyyd40zhknrkz17xppl2zd5ig4w9g1grc8qrs0zqqcl5hpzi"))
-              (patches (list (search-patch "fasthenry-spAllocate.patch")
-                             (search-patch "fasthenry-spBuild.patch")
-                             (search-patch "fasthenry-spUtils.patch")
-                             (search-patch "fasthenry-spSolve.patch")
-                             (search-patch "fasthenry-spFactor.patch")))))
+              (patches (search-patches "fasthenry-spAllocate.patch"
+                                       "fasthenry-spBuild.patch"
+                                       "fasthenry-spUtils.patch"
+                                       "fasthenry-spSolve.patch"
+                                       "fasthenry-spFactor.patch"))))
     (build-system gnu-build-system)
     (arguments
      `(#:make-flags '("CC=gcc" "RM=rm" "SHELL=sh" "all")

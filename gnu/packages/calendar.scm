@@ -1,6 +1,8 @@
 ;;; GNU Guix --- Functional package management for GNU
 ;;; Copyright © 2015 David Thompson <davet@gnu.org>
 ;;; Copyright © 2015, 2016 Leo Famulari <leo@famulari.name>
+;;; Copyright © 2016 Kei Kebreau <kei@openmailbox.org>
+;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -36,7 +38,7 @@
 (define-public libical
   (package
     (name "libical")
-    (version "1.0.1")
+    (version "2.0.0")
     (source (origin
               (method url-fetch)
               (uri (string-append
@@ -44,14 +46,30 @@
                     version "/libical-" version ".tar.gz"))
               (sha256
                (base32
-                "14lmjj63zyx88rf1z71l0v9ms4c2vpdhmixksjjxgywp5p2f7708"))))
+                "1njn2kr0rrjqv5g3hdhpdzrhankyj4fl1bgn76z3g4n1b7vi2k35"))))
     (build-system cmake-build-system)
     (arguments
-     '(#:tests? #f)) ; test suite appears broken
+     '(#:tests? #f ; test suite appears broken
+       #:configure-flags
+       (list (string-append "-DCMAKE_INSTALL_RPATH="
+                            (assoc-ref %outputs "out") "/lib:"
+                            (assoc-ref %outputs "out") "/lib64"))
+       #:phases
+       (modify-phases %standard-phases
+         (add-before 'configure 'patch-paths
+           (lambda _
+             (let ((tzdata (assoc-ref %build-inputs "tzdata")))
+               (substitute* "src/libical/icaltz-util.c"
+                 (("char \\*search_paths \\[\\] =.*$")
+                  (string-append
+                   "char *search_paths [] = "
+                   "{\"" tzdata "/share/zoneinfo\"};\n"))))
+             #t)))))
     (native-inputs
      `(("perl" ,perl)))
     (inputs
-     `(("icu4c" ,icu4c)))
+     `(("icu4c" ,icu4c)
+       ("tzdata" ,tzdata)))
     (home-page "https://libical.github.io/libical/")
     (synopsis "iCalendar protocols and data formats implementation")
     (description

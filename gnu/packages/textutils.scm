@@ -4,6 +4,8 @@
 ;;; Copyright © 2015, 2016 Ben Woodcroft <donttrustben@gmail.com>
 ;;; Copyright © 2015 Roel Janssen <roel@gnu.org>
 ;;; Copyright © 2016 Jelle Licht <jlicht@fsfe.org>
+;;; Copyright © 2016 Alex Griffin <a@ajgrf.com>
+;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -27,8 +29,11 @@
   #:use-module (guix git-download)
   #:use-module (guix build-system gnu)
   #:use-module (guix build-system cmake)
+  #:use-module (guix build-system trivial)
+  #:use-module (gnu packages)
   #:use-module (gnu packages autotools)
-  #:use-module (gnu packages python))
+  #:use-module (gnu packages python)
+  #:use-module (gnu packages zip))
 
 (define-public recode
   (package
@@ -292,3 +297,79 @@ as existing hashing techniques, with provably negligible risk of collisions.")
 characteristic of this library is that different character encoding for every
 regular expression object can be specified.")
     (license license:bsd-2)))
+
+(define-public antiword
+  (package
+    (name "antiword")
+    (version "0.37")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "http://www.winfield.demon.nl/linux"
+                                  "/antiword-" version ".tar.gz"))
+              (sha256
+               (base32
+                "1b7mi1l20jhj09kyh0bq14qzz8vdhhyf35gzwsq43mn6rc7h0b4f"))
+              (patches (search-patches "antiword-CVE-2014-8123.patch"))))
+    (build-system gnu-build-system)
+    (arguments
+     `(#:tests? #f ; There are no tests
+       #:make-flags
+       (list "-f" "Makefile.Linux"
+             (string-append "GLOBAL_INSTALL_DIR="
+                            (assoc-ref %outputs "out") "/bin")
+             (string-append "GLOBAL_RESOURCES_DIR="
+                            (assoc-ref %outputs "out") "/share/antiword"))
+       #:phases
+       (modify-phases %standard-phases
+         (delete 'configure)
+         (replace 'install
+           (lambda* (#:key make-flags #:allow-other-keys)
+             (zero? (apply system* "make" `("global_install" ,@make-flags))))))))
+    (home-page "http://www.winfield.demon.nl/")
+    (synopsis "Microsoft Word document reader")
+    (description "Antiword is an application for displaying Microsoft Word
+documents.  It can also convert the document to PostScript or XML.  Only
+documents made by MS Word version 2 and version 6 or later are supported.  The
+name comes from: \"The antidote against people who send Microsoft Word files
+to everybody, because they believe that everybody runs Windows and therefore
+runs Word\".")
+    (license license:gpl2+)))
+
+(define-public utfcpp
+  (package
+    (name "utfcpp")
+    (version "2.3.4")
+    (source (origin
+              (method url-fetch)
+              (uri
+               (string-append
+                "mirror://sourceforge/project/utfcpp/utf8cpp_2x/Release%20"
+                version "/utf8_v"
+                (string-map (lambda (x) (if (eq? x #\.) #\_ x)) version)
+                ".zip"))
+              (file-name (string-append name "-" version ".zip"))
+              (sha256
+               (base32
+                "1vqhs0aipcvvdrwcs7h3jsryg6mgbmc4s34n5cm6d36q4nxwwwrk"))))
+    (build-system trivial-build-system)
+    (arguments
+     `(#:modules ((guix build utils))
+       #:builder
+       (begin
+         (use-modules (guix build utils))
+         (let ((source (assoc-ref %build-inputs "source"))
+               (out    (assoc-ref %outputs "out"))
+               (unzip  (string-append (assoc-ref %build-inputs "unzip")
+                                      "/bin/unzip")))
+           (mkdir-p out)
+           (with-directory-excursion out
+             (system* unzip source)
+             (mkdir-p "share/doc")
+             (rename-file "doc" "share/doc/utfcpp")
+             (rename-file "source" "include"))))))
+    (native-inputs `(("unzip" ,unzip)))
+    (home-page "https://github.com/nemtrif/utfcpp")
+    (synopsis "Portable C++ library for handling UTF-8")
+    (description "UTF8-CPP is a C++ library for handling UTF-8 encoded text
+in a portable way.")
+    (license license:boost1.0)))

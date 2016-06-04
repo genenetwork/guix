@@ -62,6 +62,7 @@
   #:use-module (gnu packages ocr)
   #:use-module (gnu packages perl)
   #:use-module (gnu packages pkg-config)
+  #:use-module (gnu packages popt)
   #:use-module (gnu packages pulseaudio)
   #:use-module (gnu packages python)
   #:use-module (gnu packages qt)
@@ -132,10 +133,10 @@ old-fashioned output methods with powerful ascii-art renderer.")
               (sha256
                (base32
                 "0czccp4fcpf2ykp16xcrzdfmnircz1ynhls334q374xknd5747d2"))
-              (patches (map search-patch '("liba52-enable-pic.patch"
-                                           "liba52-set-soname.patch"
-                                           "liba52-use-mtune-not-mcpu.patch"
-                                           "liba52-link-with-libm.patch")))))
+              (patches (search-patches "liba52-enable-pic.patch"
+                                       "liba52-set-soname.patch"
+                                       "liba52-use-mtune-not-mcpu.patch"
+                                       "liba52-link-with-libm.patch"))))
     (build-system gnu-build-system)
     ;; XXX We need to run ./bootstrap because of the build system fixes above.
     (native-inputs
@@ -372,14 +373,14 @@ standards (MPEG-2, MPEG-4 ASP/H.263, MPEG-4 AVC/H.264, and VC-1/VMW3).")
 (define-public ffmpeg
   (package
     (name "ffmpeg")
-    (version "3.0")
+    (version "3.0.2")
     (source (origin
              (method url-fetch)
              (uri (string-append "https://ffmpeg.org/releases/ffmpeg-"
                                  version ".tar.xz"))
              (sha256
               (base32
-               "0w74b165l4ry4y72f4xmgd357pvbc7yr61y313v3ai6787p2rwqj"))))
+               "08sjp4dxgcinmv9ly7nm24swmn2cnbbhvph44ihlplf4n33kr542"))))
     (build-system gnu-build-system)
     (inputs
      `(("fontconfig" ,fontconfig)
@@ -528,12 +529,32 @@ standards (MPEG-2, MPEG-4 ASP/H.263, MPEG-4 AVC/H.264, and VC-1/VMW3).")
               (format #t "setting LD_LIBRARY_PATH to ~s~%" path)
               (setenv "LD_LIBRARY_PATH" path)
               #t))))))
-    (home-page "http://www.ffmpeg.org/")
+    (home-page "https://www.ffmpeg.org/")
     (synopsis "Audio and video framework")
     (description "FFmpeg is a complete, cross-platform solution to record,
 convert and stream audio and video.  It includes the libavcodec
 audio/video codec library.")
     (license license:gpl2+)))
+
+(define-public ffmpeg-2.8
+  (package
+    (inherit ffmpeg)
+    (version "2.8.6")
+    (source (origin
+             (method url-fetch)
+             (uri (string-append "https://ffmpeg.org/releases/ffmpeg-"
+                                 version ".tar.xz"))
+             (sha256
+              (base32
+               "1yh7dvm7zwdlsspdaq524s5qaggma5md9h95qc4kvb5dmyyyvg15"))))
+    (arguments
+     (substitute-keyword-arguments (package-arguments ffmpeg)
+       ((#:configure-flags flags)
+        `(map (lambda (flag)
+                (if (string=? flag "--disable-mipsdsp")
+                    "--disable-mipsdspr1"
+                    flag))
+              ,flags))))))
 
 (define-public vlc
   (package
@@ -546,7 +567,14 @@ audio/video codec library.")
                    version "/vlc-" version ".tar.xz"))
              (sha256
               (base32
-               "1jqzrzrpw6932lbkf863xk8cfmn4z2ngbxz7w8ggmh4f6xz9sgal"))))
+               "1jqzrzrpw6932lbkf863xk8cfmn4z2ngbxz7w8ggmh4f6xz9sgal"))
+             (modules '((guix build utils)))
+             (snippet
+              ;; There are two occurrences where __DATE__ and __TIME__ are
+              ;; used to capture the build time and show it to the user.
+              '(substitute* (find-files "." "help\\.c(pp)?$")
+                 (("__DATE__") "\"2016\"")
+                 (("__TIME__") "\"00:00\"")))))
     (build-system gnu-build-system)
     (native-inputs
      `(("git" ,git) ; needed for a test
@@ -557,7 +585,7 @@ audio/video codec library.")
        ("avahi" ,avahi)
        ("dbus" ,dbus)
        ("flac" ,flac)
-       ("ffmpeg" ,ffmpeg)
+       ("ffmpeg" ,ffmpeg-2.8)               ;fails to build against ffmpeg 3.0
        ("fontconfig" ,fontconfig)
        ("freetype" ,freetype)
        ("gnutls" ,gnutls)
@@ -591,7 +619,30 @@ audio/video codec library.")
        `("--disable-a52" ; FIXME: reenable once available
          ,(string-append "LDFLAGS=-Wl,-rpath -Wl,"
                          (assoc-ref %build-inputs "ffmpeg")
-                         "/lib")))) ; needed for the tests
+                         "/lib"))                 ;needed for the tests
+
+       #:phases
+       (modify-phases %standard-phases
+         (add-after 'install 'regenerate-plugin-cache
+           (lambda* (#:key outputs #:allow-other-keys)
+             ;; The 'install-exec-hook' rule in the top-level Makefile.am
+             ;; generates 'lib/vlc/plugins/plugins.dat', a plugin cache, using
+             ;; 'vlc-cache-gen'.  This file includes the mtime of the plugins
+             ;; it references.  Thus, we first reset the timestamps of all
+             ;; these files, and then regenerate the cache such that the
+             ;; mtimes it includes are always zero instead of being dependent
+             ;; on the build time.
+             (let* ((out       (assoc-ref outputs "out"))
+                    (pkglibdir (string-append out "/lib/vlc"))
+                    (plugindir (string-append pkglibdir "/plugins"))
+                    (cachegen  (string-append pkglibdir "/vlc-cache-gen")))
+               ;; TODO: Factorize 'reset-timestamps'.
+               (for-each (lambda (file)
+                           (let ((s (lstat file)))
+                             (unless (eq? (stat:type s) 'symlink)
+                               (utime file 0 0 0 0))))
+                         (find-files plugindir))
+               (zero? (system* cachegen plugindir))))))))
     (home-page "https://www.videolan.org/")
     (synopsis "Audio and video framework")
     (description "VLC is a cross-platform multimedia player and framework
@@ -696,7 +747,7 @@ SVCD, DVD, 3ivx, DivX 3/4/5, WMV and H.264 movies.")
 (define-public mpv
   (package
     (name "mpv")
-    (version "0.16.0")
+    (version "0.17.0")
     (source (origin
               (method url-fetch)
               (uri (string-append
@@ -704,7 +755,7 @@ SVCD, DVD, 3ivx, DivX 3/4/5, WMV and H.264 movies.")
                     ".tar.gz"))
               (sha256
                (base32
-                "1fiqxx85s418qynq2fp0v7cpzrz8j285hwmc4fqgn5ny1vg1jdpw"))
+                "0vms3viwqcwl1mrgmf2yy4c69fvv7xpbkyrl693l6zpwynqd4b30"))
               (file-name (string-append name "-" version ".tar.gz"))))
     (build-system waf-build-system)
     (native-inputs
@@ -809,7 +860,7 @@ projects while introducing many more.")
 (define-public youtube-dl
   (package
     (name "youtube-dl")
-    (version "2016.03.01")
+    (version "2016.05.01")
     (source (origin
               (method url-fetch)
               (uri (string-append "http://youtube-dl.org/downloads/"
@@ -817,9 +868,8 @@ projects while introducing many more.")
                                   version ".tar.gz"))
               (sha256
                (base32
-                "0w2dy54rnsi8fbzpnf07lpn3zzv5lhdfscanld4ai0rrrzmrl3zw"))))
+                "1w04afmwq5pjvp3nl2k59q0cigqrj9n8fwkydcfldwpq83l15j5d"))))
     (build-system python-build-system)
-    (native-inputs `(("python-setuptools" ,python-setuptools)))
     (home-page "http://youtube-dl.org")
     (arguments
      ;; The problem here is that the directory for the man page and completion
@@ -1008,7 +1058,7 @@ for use with HTML5 video.")
              (sha256
               (base32
                "1vas43bwb15q2wv3dpp7fgp8dc6szinmwl7i0ziq2vv5l2128v0p"))
-             (patches (map search-patch '("avidemux-install-to-lib.patch")))))
+             (patches (search-patches "avidemux-install-to-lib.patch"))))
     (build-system cmake-build-system)
     (native-inputs
      `(("pkg-config" ,pkg-config)))
@@ -1117,7 +1167,7 @@ capabilities.")
 (define-public vapoursynth
   (package
     (name "vapoursynth")
-    (version "28")
+    (version "32")
     (source (origin
               (method url-fetch)
               (uri (string-append
@@ -1126,7 +1176,7 @@ capabilities.")
               (file-name (string-append name "-" version))
               (sha256
                (base32
-                "0pnrawcg1j65i46yim0z447lglq1af5zgx0lkqf1x5xl1bfwc0v7"))))
+                "1j08whj946v2kkpgxsfhpca8xf0ax9iqzn73wvwjx319p9j0ymp9"))))
     (build-system gnu-build-system)
     (native-inputs
      `(("autoconf" ,autoconf)
@@ -1139,7 +1189,8 @@ capabilities.")
     (inputs
      `(("ffmpeg" ,ffmpeg)
        ("libass" ,libass)
-       ("tesseract-ocr" ,tesseract-ocr)))
+       ("tesseract-ocr" ,tesseract-ocr)
+       ("zimg" ,zimg)))
     (arguments
      '(#:phases
        (modify-phases %standard-phases
@@ -1205,11 +1256,8 @@ and custom quantization matrices.")
     (build-system python-build-system)
     (arguments
      '(#:tests? #f)) ; tests rely on external web servers
-    (native-inputs
-     `(("python-setuptools" ,python-setuptools)))
     (propagated-inputs
-     `(("python-requests" ,python-requests)
-       ("python-singledispatch" ,python-singledispatch)))
+     `(("python-requests" ,python-requests)))
     (synopsis "Internet video stream viewer")
     (description "Livestreamer is a command-line utility that extracts streams
 from various services and pipes them into a video playing application.")
@@ -1219,14 +1267,15 @@ from various services and pipes them into a video playing application.")
 (define-public mlt
   (package
     (name "mlt")
-    (version "0.9.8")
+    (version "6.2.0")
     (source (origin
               (method url-fetch)
-              (uri (string-append "mirror://sourceforge/mlt/mlt/mlt-"
-                                  version ".tar.gz"))
+              (uri (string-append "https://github.com/mltframework/mlt/"
+                                  "archive/v" version ".tar.gz"))
+              (file-name (string-append name "-" version ".tar.gz"))
               (sha256
                (base32
-                "0rmrkj7z9g3nr4099f3ff0r14l3ixcfnlx2cdbkqa6pxin0pv9bz"))))
+                "1zwzfgxrcbwkxnkiwv0a1rzxdnnaly90yyarl9wdw84nx11ffbnx"))))
     (build-system gnu-build-system)
     (arguments
      `(#:tests? #f ; no tests
@@ -1252,11 +1301,12 @@ from various services and pipes them into a video playing application.")
        ("jack" ,jack-1)
        ("ladspa" ,ladspa)
        ("libsamplerate" ,libsamplerate)
+       ("pulseaudio" ,pulseaudio)
        ("sdl" ,sdl)
        ("sox" ,sox)))
     (native-inputs
      `(("pkg-config" ,pkg-config)))
-    (home-page "http://www.mltframework.org/")
+    (home-page "https://www.mltframework.org/")
     (synopsis "Author, manage, and run multitrack audio/video compositions")
     (description
      "MLT is a multimedia framework, designed and developed for television
@@ -1269,14 +1319,14 @@ tools, XML authoring components, and an extensible plug-in based API.")
 (define-public v4l-utils
   (package
     (name "v4l-utils")
-    (version "1.8.1")
+    (version "1.10.0")
     (source (origin
               (method url-fetch)
-              (uri (string-append "http://linuxtv.org/downloads/v4l-utils"
+              (uri (string-append "https://linuxtv.org/downloads/v4l-utils"
                                   "/v4l-utils-" version ".tar.bz2"))
               (sha256
                (base32
-                "0cqv8drw0z0kfmz4f50a8kzbrz6vbj6j6q78030hgshr7yq1jqig"))))
+                "0srkwh3r6f0bkb4kp0d7i0mlmp8babs3qc22cdy1sw4awmzd5skq"))))
     (build-system gnu-build-system)
     (arguments
      '(#:configure-flags
@@ -1302,7 +1352,7 @@ be used for realtime video capture via Linux-specific APIs.")
 (define-public obs
   (package
     (name "obs")
-    (version "0.13.2")
+    (version "0.14.2")
     (source (origin
               (method url-fetch)
               (uri (string-append "https://github.com/jp9000/obs-studio"
@@ -1310,7 +1360,7 @@ be used for realtime video capture via Linux-specific APIs.")
               (file-name (string-append name "-" version ".tar.gz"))
               (sha256
                (base32
-                "1awaqlhlzlqqnwqixw54z40hqcnr3fwlclq4vlsy2kvsfyqjfr2b"))))
+                "1cb8naa67kfnnngkzv1wpd4y241j29ggnk1w7jgnymp9j8dny1xl"))))
     (build-system cmake-build-system)
     (arguments '(#:tests? #f)) ; no tests
     (native-inputs
@@ -1386,3 +1436,33 @@ present in modern GPUs.")
     (description "Vdpauinfo is a tool to query the capabilities of a VDPAU
 implementation.")
     (license (license:x11-style "file://COPYING"))))
+
+(define-public recordmydesktop
+  (package
+    (name "recordmydesktop")
+    (version "0.3.8.1")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "mirror://sourceforge/" name "/" name "/"
+                                  version "/recordmydesktop-" version ".tar.gz"))
+              (sha256
+               (base32
+                "133kkl5j0r877d41bzj7kj0vf3xm8x80yyx2n8nqxrva304f58ik"))))
+    (build-system gnu-build-system)
+    (inputs `(("popt" ,popt)
+              ("zlib" ,zlib)
+              ("libx11" ,libx11)
+              ("libice" ,libice)
+              ("libsm" ,libsm)
+              ("libxfixes" ,libxfixes)
+              ("libxdamage" ,libxdamage)
+              ("libxext" ,libxext)
+              ("libvorbis" ,libvorbis)
+              ("libtheora" ,libtheora)))
+    (home-page "http://recordmydesktop.sourceforge.net/")
+    (synopsis "Desktop session video recorder")
+    (description
+     "recordMyDesktop is a command-line tool that captures the activity in
+your graphical desktop and encodes it as a video.  This is a useful tool for
+making @dfn{screencasts}.")
+    (license license:gpl2+)))

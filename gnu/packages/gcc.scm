@@ -1,5 +1,5 @@
 ;;; GNU Guix --- Functional package management for GNU
-;;; Copyright © 2012, 2013, 2014, 2015 Ludovic Courtès <ludo@gnu.org>
+;;; Copyright © 2012, 2013, 2014, 2015, 2016 Ludovic Courtès <ludo@gnu.org>
 ;;; Copyright © 2014, 2015 Mark H Weaver <mhw@netris.org>
 ;;; Copyright © 2014, 2015, 2016 Ricardo Wurmus <rekado@elephly.net>
 ;;; Copyright © 2015 Andreas Enge <andreas@enge.fr>
@@ -29,7 +29,7 @@
   #:use-module (gnu packages multiprecision)
   #:use-module (gnu packages texinfo)
   #:use-module (gnu packages dejagnu)
-  #:use-module (gnu packages doxygen)
+  #:use-module (gnu packages documentation)
   #:use-module (gnu packages xml)
   #:use-module (gnu packages docbook)
   #:use-module (gnu packages graphviz)
@@ -328,7 +328,7 @@ Go.  It also includes runtime support libraries for these languages.")
               (sha256
                (base32
                 "08yggr18v373a1ihj0rg2vd6psnic42b518xcgp3r9k81xz1xyr2"))
-              (patches (list (search-patch "gcc-arm-link-spec-fix.patch")))))))
+              (patches (search-patches "gcc-arm-link-spec-fix.patch"))))))
 
 (define-public gcc-4.9
   (package (inherit gcc-4.8)
@@ -340,7 +340,7 @@ Go.  It also includes runtime support libraries for these languages.")
               (sha256
                (base32
                 "0zmnm00d2a1hsd41g34bhvxzvxisa2l584q3p447bd91lfjv4ci3"))
-              (patches (list (search-patch "gcc-libvtv-runpath.patch")))))))
+              (patches (search-patches "gcc-libvtv-runpath.patch"))))))
 
 (define-public gcc-5
   (package (inherit gcc-4.9)
@@ -352,7 +352,20 @@ Go.  It also includes runtime support libraries for these languages.")
               (sha256
                (base32
                 "1ny4smkp5bzs3cp8ss7pl6lk8yss0d9m4av1mvdp72r1x695akxq"))
-              (patches (list (search-patch "gcc-5.0-libvtv-runpath.patch")))))))
+              (patches (search-patches "gcc-5.0-libvtv-runpath.patch"))))))
+
+(define-public gcc-6
+  (package
+    (inherit gcc-5)
+    (version "6.1.0")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "mirror://gnu/gcc/gcc-"
+                                  version "/gcc-" version ".tar.bz2"))
+              (sha256
+               (base32
+                "0ld3y4rgimyqgx1nwvzqyl5gr4wzc0ch4akkvsqp3fgbmdfcii09"))
+              (patches (search-patches "gcc-5.0-libvtv-runpath.patch"))))))
 
 ;; Note: When changing the default gcc version, update
 ;;       the gcc-toolchain-* definitions accordingly.
@@ -602,6 +615,17 @@ as the 'native-search-paths' field."
                      (variable "LIBRARY_PATH")
                      (files '("lib" "lib64"))))))
 
+(define-public gcc-objc-4.9
+  (custom-gcc gcc-4.9 "gcc-objc" '("objc")
+              (list (search-path-specification
+                     (variable "OBJC_INCLUDE_PATH")
+                     (files '("include")))
+                    (search-path-specification
+                     (variable "LIBRARY_PATH")
+                     (files '("lib" "lib64"))))))
+
+(define-public gcc-objc gcc-objc-4.9)
+
 (define-public gcc-objc++-4.8
   (custom-gcc gcc-4.8 "gcc-objc++" '("obj-c++")
               (list (search-path-specification
@@ -610,6 +634,17 @@ as the 'native-search-paths' field."
                     (search-path-specification
                      (variable "LIBRARY_PATH")
                      (files '("lib" "lib64"))))))
+
+(define-public gcc-objc++-4.9
+  (custom-gcc gcc-4.9 "gcc-objc++" '("obj-c++")
+              (list (search-path-specification
+                     (variable "OBJCPLUS_INCLUDE_PATH")
+                     (files '("include")))
+                    (search-path-specification
+                     (variable "LIBRARY_PATH")
+                     (files '("lib" "lib64"))))))
+
+(define-public gcc-objc++ gcc-objc++-4.9)
 
 (define (make-libstdc++-doc gcc)
   "Return a package with the libstdc++ documentation for GCC."

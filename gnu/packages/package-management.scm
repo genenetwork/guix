@@ -152,7 +152,7 @@
 
                        #t))))))
     (native-inputs `(("pkg-config" ,pkg-config)
-                     ("emacs" ,emacs-no-x)))      ;for guix.el
+                     ("emacs" ,emacs-minimal)))   ;for guix.el
     (inputs
      (let ((boot-guile (lambda (arch hash)
                          (origin
@@ -195,24 +195,27 @@ also a distribution thereof.  It includes a virtual machine image.  Besides
 the usual package management features, it also supports transactional
 upgrades and roll-backs, per-user profiles, and much more.  It is based on
 the Nix package manager.")
-    (license gpl3+)))
+    (license gpl3+)
+    (properties '((ftp-server . "alpha.gnu.org")))))
 
 (define guix-devel
   ;; Development version of Guix.
   ;;
   ;; Note: use a very short commit id; with a longer one, the limit on
   ;; hash-bang lines would be exceeded while running the tests.
-  (let ((commit "761139354798303c605964b896c250a01486b00a"))
+  (let ((commit "e9017c98d61f305b624bacaa30e8891ec0100980"))
     (package (inherit guix-0.10.0)
       (version (string-append "0.10.0-0." (string-take commit 4)))
       (source (origin
                 (method git-fetch)
                 (uri (git-reference
-                      (url "git://git.sv.gnu.org/guix.git")
+                      ;; "git://git.sv.gnu.org/guix.git" temporarily
+                      ;; unavailable (XXX).
+                      (url "http://git.savannah.gnu.org/r/guix.git")
                       (commit commit)))
                 (sha256
                  (base32
-                  "1wvy9kms3v6k7cybw6489mqk161lv8d03qgmmxbmdgiwjmjxbzbn"))
+                  "13mfk10cw6fk4diclzld56xwabshanxjcczdrjlj0wisaz32h3nl"))
                 (file-name (string-append "guix-" version "-checkout"))))
       (arguments
        (substitute-keyword-arguments (package-arguments guix-0.10.0)
@@ -324,14 +327,15 @@ symlinks to the files in a common directory such as /usr/local.")
 (define-public rpm
   (package
     (name "rpm")
-    (version "4.12.0")
+    (version "4.12.0.1")
     (source (origin
               (method url-fetch)
               (uri (string-append "http://rpm.org/releases/rpm-4.12.x/rpm-"
                                   version ".tar.bz2"))
               (sha256
                (base32
-                "18hk47hc755nslvb7xkq4jb095z7va0nlcyxdpxayc4lmb8mq3bp"))))
+                "0a82ym8phx7g0f3k6smvxnvzh7yv857l42xafk49689kzhld5pbp"))
+              (patches (search-patches "rpm-CVE-2014-8118.patch"))))
     (build-system gnu-build-system)
     (arguments
      '(#:configure-flags '("--with-external-db"   ;use the system's bdb

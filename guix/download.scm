@@ -98,14 +98,28 @@
        "http://savannah.c3sl.ufpr.br/"
        "http://www.centervenus.com/mirrors/nongnu/"
        "http://download.savannah.gnu.org/releases-noredirect/")
-      (sourceforge
+      (sourceforge ; https://sourceforge.net/p/forge/documentation/Mirrors/
        "http://prdownloads.sourceforge.net/"
        "http://heanet.dl.sourceforge.net/sourceforge/"
-       "http://surfnet.dl.sourceforge.net/sourceforge/"
        "http://dfn.dl.sourceforge.net/sourceforge/"
-       "http://mesh.dl.sourceforge.net/sourceforge/"
-       "http://ovh.dl.sourceforge.net/sourceforge/"
-       "http://osdn.dl.sourceforge.net/sourceforge/")
+       "http://freefr.dl.sourceforge.net/sourceforge/"
+       "http://internode.dl.sourceforge.net/sourceforge/"
+       "http://iweb.dl.sourceforge.net/sourceforge/"
+       "http://jaist.dl.sourceforge.net/sourceforge/"
+       "http://kaz.dl.sourceforge.net/sourceforge/"
+       "http://kent.dl.sourceforge.net/sourceforge/"
+       "http://liquidtelecom.dl.sourceforge.net/sourceforge/"
+       "http://nbtelecom.dl.sourceforge.net/sourceforge/"
+       "http://nchc.dl.sourceforge.net/sourceforge/"
+       "http://ncu.dl.sourceforge.net/sourceforge/"
+       "http://netcologne.dl.sourceforge.net/sourceforge/"
+       "http://netix.dl.sourceforge.net/sourceforge/"
+       "http://pilotfiber.dl.sourceforge.net/sourceforge/"
+       "http://superb-sea2.dl.sourceforge.net/sourceforge/"
+       "http://tenet.dl.sourceforge.net/sourceforge/"
+       "http://ufpr.dl.sourceforge.net/sourceforge/"
+       "http://vorboss.dl.sourceforge.net/sourceforge/"
+       "http://netassist.dl.sourceforge.net/sourceforge/")
       (kernel.org
        "http://www.all.kernel.org/pub/"
        "http://ramses.wh2.tu-dresden.de/pub/mirrors/kernel.org/"
@@ -159,13 +173,22 @@
        "ftp://artfiles.org/cpan.org/"
        "http://www.cpan.org/"
        "ftp://cpan.rinet.ru/pub/mirror/CPAN/"
-       "http://cpan.cu.be/"
        "ftp://cpan.inode.at/"
        "ftp://cpan.iht.co.il/"
        "ftp://ftp.osuosl.org/pub/CPAN/"
        "ftp://ftp.nara.wide.ad.jp/pub/CPAN/"
        "http://mirrors.163.com/cpan/"
-       "ftp://cpan.mirror.ac.za/")
+       "ftp://cpan.mirror.ac.za/"
+       "http://cpan.mirrors.ionfish.org/"
+       "http://cpan.mirror.dkm.cz/pub/CPAN/"
+       "http://cpan.mirror.iphh.net/"
+       "http://mirrors.teentelecom.net/CPAN/"
+       "http://mirror.teklinks.com/CPAN/"
+       "http://cpan.weepeetelecom.be/"
+       "http://mirrors.xservers.ro/CPAN/"
+       "http://cpan.yimg.com/"
+       "http://mirror.yazd.ac.ir/cpan/"
+       "http://ftp.belnet.be/ftp.cpan.org/")
       (cran
        ;; Arbitrary mirrors from http://cran.r-project.org/mirrors.html
        ;; This one automatically redirects to servers worldwide
@@ -202,13 +225,30 @@
       (debian
        "http://ftp.de.debian.org/debian/"
        "http://ftp.fr.debian.org/debian/"
-       "http://ftp.debian.org/debian/"))))
+       "http://ftp.debian.org/debian/"
+       "http://archive.debian.org/debian/"))))
 
 (define %mirror-file
   ;; Copy of the list of mirrors to a file.  This allows us to keep a single
   ;; copy in the store, and computing it here avoids repeated calls to
   ;; 'object->string'.
   (plain-file "mirrors" (object->string %mirrors)))
+
+(define %content-addressed-mirrors
+  ;; List of content-addressed mirrors.  Each mirror is represented as a
+  ;; procedure that takes an algorithm (symbol) and a hash (bytevector), and
+  ;; returns a URL or #f.
+  ;; TODO: Add more.
+  '(list (lambda (algo hash)
+           ;; 'tarballs.nixos.org' supports several algorithms.
+           (string-append "http://tarballs.nixos.org/"
+                          (symbol->string algo) "/"
+                          (bytevector->nix-base32-string hash)))))
+
+(define %content-addressed-mirror-file
+  ;; Content-addressed mirrors stored in a file.
+  (plain-file "content-addressed-mirrors"
+              (object->string %content-addressed-mirrors)))
 
 (define (gnutls-package)
   "Return the default GnuTLS package."
@@ -258,12 +298,21 @@ in the store."
                               %load-path)))
               #~#t)
 
-        (use-modules (guix build download))
+        (use-modules (guix build download)
+                     (guix base32))
 
-        (url-fetch (call-with-input-string (getenv "guix download url")
-                     read)
-                   #$output
-                   #:mirrors (call-with-input-file #$%mirror-file read))))
+        (let ((value-from-environment (lambda (variable)
+                                        (call-with-input-string
+                                            (getenv variable)
+                                          read))))
+          (url-fetch (value-from-environment "guix download url")
+                     #$output
+                     #:mirrors (call-with-input-file #$%mirror-file read)
+
+                     ;; Content-addressed mirrors.
+                     #:hashes (value-from-environment "guix download hashes")
+                     #:content-addressed-mirrors
+                     (primitive-load #$%content-addressed-mirror-file)))))
 
   (let ((uri (and (string? url) (string->uri url))))
     (if (or (and (string? url) (not uri))
@@ -278,14 +327,17 @@ in the store."
                             #:hash hash
                             #:modules '((guix build download)
                                         (guix build utils)
-                                        (guix ftp-client))
+                                        (guix ftp-client)
+                                        (guix base32))
 
                             ;; Use environment variables and a fixed script
                             ;; name so there's only one script in store for
                             ;; all the downloads.
                             #:script-name "download"
                             #:env-vars
-                            `(("guix download url" . ,(object->string url)))
+                            `(("guix download url" . ,(object->string url))
+                              ("guix download hashes"
+                               . ,(object->string `((,hash-algo . ,hash)))))
 
                             ;; Honor the user's proxy settings.
                             #:leaked-env-vars '("http_proxy" "https_proxy")

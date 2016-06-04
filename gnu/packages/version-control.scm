@@ -3,9 +3,9 @@
 ;;; Copyright © 2013 Cyril Roelandt <tipecaml@gmail.com>
 ;;; Copyright © 2013, 2014, 2015, 2016 Ludovic Courtès <ludo@gnu.org>
 ;;; Copyright © 2013, 2014 Andreas Enge <andreas@enge.fr>
-;;; Copyright © 2015 Mathieu Lirzin <mthl@openmailbox.org>
-;;; Copyright © 2014, 2015 Mark H Weaver <mhw@netris.org>
-;;; Copyright © 2014 Eric Bavier <bavier@member.fsf.org>
+;;; Copyright © 2015, 2016 Mathieu Lirzin <mthl@gnu.org>
+;;; Copyright © 2014, 2015, 2016 Mark H Weaver <mhw@netris.org>
+;;; Copyright © 2014, 2016 Eric Bavier <bavier@member.fsf.org>
 ;;; Copyright © 2015, 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;; Copyright © 2015 Kyle Meyer <kyle@kyleam.com>
 ;;; Copyright © 2015 Ricardo Wurmus <rekado@elephly.net>
@@ -27,9 +27,9 @@
 
 (define-module (gnu packages version-control)
   #:use-module ((guix licenses)
-                #:select (asl2.0 bsd-2
+                #:select (asl2.0 bsd-2 bsd-3
                           gpl1+ gpl2 gpl2+ gpl3+ lgpl2.1
-                          x11-style))
+                          public-domain x11-style))
   #:use-module (guix utils)
   #:use-module (guix packages)
   #:use-module (guix download)
@@ -38,10 +38,9 @@
   #:use-module (guix build-system gnu)
   #:use-module (guix build-system python)
   #:use-module (guix build-system trivial)
-  #:use-module (guix build utils)
   #:use-module (gnu packages apr)
   #:use-module (gnu packages autotools)
-  #:use-module (gnu packages asciidoc)
+  #:use-module (gnu packages documentation)
   #:use-module (gnu packages base)
   #:use-module (gnu packages bison)
   #:use-module (gnu packages cook)
@@ -113,14 +112,14 @@ as well as the classic centralized workflow.")
   ;; Keep in sync with 'git-manpages'!
   (package
    (name "git")
-   (version "2.7.3")
+   (version "2.8.3")
    (source (origin
             (method url-fetch)
             (uri (string-append "mirror://kernel.org/software/scm/git/git-"
                                 version ".tar.xz"))
             (sha256
              (base32
-              "1di96q86fq3pdn5d5v4fw9vf58gha5i9b3r880mxlh275n8ngi49"))))
+              "14dafk7rz8cy2z5b92yf009qf4pc70s0viwq7hxsgd4898knr3kx"))))
    (build-system gnu-build-system)
    (native-inputs
     `(("native-perl" ,perl)
@@ -266,6 +265,7 @@ as well as the classic centralized workflow.")
     ;; FIXME: This variable designates a single file; it is not a search path.
     (list (search-path-specification
            (variable "GIT_SSL_CAINFO")
+           (file-type 'regular)
            (files '("etc/ssl/certs/ca-certificates.crt")))))
 
    (synopsis "Distributed version control system")
@@ -292,7 +292,7 @@ everything from small to very large projects with speed and efficiency.")
                     version ".tar.xz"))
               (sha256
                (base32
-                "0va9j0q9h44jqih38h4cmhvbmjppqq7zbiq70220m7hsqqkq824z"))))
+                "1ilbi4xdn77a5yrjyrcx0nap0j4raw3h1fr0k32zs9y35c6f29cx"))))
     (build-system trivial-build-system)
     (arguments
      '(#:modules ((guix build utils))
@@ -324,7 +324,7 @@ command.")))
 (define-public libgit2
   (package
     (name "libgit2")
-    (version "0.24.0")
+    (version "0.24.1")
     (source (origin
               (method url-fetch)
               (uri (string-append "https://github.com/libgit2/libgit2/"
@@ -332,7 +332,7 @@ command.")))
               (file-name (string-append name "-" version ".tar.gz"))
               (sha256
                (base32
-                "1c5jx0pcpz83x7s36jimfz5bj0vy7vwpchq9p4sgdqxy8gwr6rhw"))))
+                "1ppyfwxc276d2p2pwbzlmvs2bkgng425rl8k2rf9nsq66jxqq6b0"))))
     (build-system cmake-build-system)
     (arguments
      `(#:phases
@@ -606,14 +606,14 @@ control to Git repositories.")
 (define-public mercurial
   (package
     (name "mercurial")
-    (version "3.7.3")
+    (version "3.8.1")
     (source (origin
              (method url-fetch)
              (uri (string-append "https://www.mercurial-scm.org/"
                                  "release/mercurial-" version ".tar.gz"))
              (sha256
               (base32
-               "0c2vkad9piqkggyk8y310rf619qgdfcwswnk3nv21mg2fhnw96f0"))))
+               "156m6269xdqq7mpw01c6b065k29xnb8b9lyzn1b0nlz5il2izkps"))))
     (build-system python-build-system)
     (arguments
      `(;; Restrict to Python 2, as Python 3 would require
@@ -681,14 +681,14 @@ property manipulation.")
 (define-public subversion
   (package
     (name "subversion")
-    (version "1.8.15")
+    (version "1.8.16")
     (source (origin
              (method url-fetch)
              (uri (string-append "http://archive.apache.org/dist/subversion/"
                                  "subversion-" version ".tar.bz2"))
              (sha256
               (base32
-               "0b68rjy1sjd66nqcswrm1bhda3vk2ngkgs6drcanmzbcd3vs366g"))))
+               "0imkxn25n6sbcgfldrx4z29npjprb1lxjm5fb89q4297161nx3zi"))))
     (build-system gnu-build-system)
     (arguments
      '(#:phases (alist-cons-after
@@ -851,8 +851,8 @@ masters from remote CVS hosts.")
                "094pjwshvazlgagc254in2xvrp93vhcj0kb5ms17qs7sch99x9z2"))))
     (build-system gnu-build-system)
     (inputs `(("perl" ,perl)
-              ("inetutils" ,inetutils)     ; for `hostname', used in the tests
-              ("emacs" ,emacs-no-x)))      ; for `ctags'
+              ("inetutils" ,inetutils))) ; for `hostname', used in the tests
+    (native-inputs `(("emacs" ,emacs-minimal))) ; for `ctags'
     (home-page "http://www.gnu.org/software/vc-dwim/")
     (synopsis "Version-control-agnostic ChangeLog diff and commit tool")
     (description
@@ -896,8 +896,8 @@ large, complex patch files.")
               (sha256
                (base32
                 "0bkw6fjh20ppvn54smv05461lm1vcwvn02avx941c4acafmkl1cm"))
-              (patches (list (search-patch "cssc-gets-undeclared.patch")
-                             (search-patch "cssc-missing-include.patch")))))
+              (patches (search-patches "cssc-gets-undeclared.patch"
+                                       "cssc-missing-include.patch"))))
     (build-system gnu-build-system)
     (arguments
      `(#:phases (alist-cons-before
@@ -940,11 +940,11 @@ accessed and migrated on modern systems.")
               (sha256
                (base32
                 "18s86ssarfmc4l17gbpzybca29m5wa37cbaimdji8czlcry3mcjl"))
-            (patches (list (search-patch "aegis-perl-tempdir1.patch")
-                           (search-patch "aegis-perl-tempdir2.patch")
-                           (search-patch "aegis-test-fixup-1.patch")
-                           (search-patch "aegis-test-fixup-2.patch")
-                           (search-patch "aegis-constness-error.patch")))))
+            (patches (search-patches "aegis-perl-tempdir1.patch"
+                                     "aegis-perl-tempdir2.patch"
+                                     "aegis-test-fixup-1.patch"
+                                     "aegis-test-fixup-2.patch"
+                                     "aegis-constness-error.patch"))))
     (build-system gnu-build-system)
     (inputs
      `(("e2fsprogs" ,e2fsprogs)
@@ -1012,6 +1012,58 @@ changes back into the master source of the program, with as little disruption
 as possible.  Resolution of contention for source files, a major headache for
 any project with more than one developer, is one of Aegis's major functions.")
     (license gpl3+)))
+
+(define-public reposurgeon
+  (package
+    (name "reposurgeon")
+    (version "3.37")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "http://www.catb.org/~esr/" name "/"
+                                  name "-" version ".tar.xz"))
+              (sha256
+               (base32
+                "14asjg4xy3mhh5z0r3k7c1wv9y803j2zfq32g5q5m95sf7yzygan"))))
+    (build-system gnu-build-system)
+    (arguments
+     `(#:tests? #f                      ;no test suite distributed
+       #:make-flags
+       (list (string-append "target=" (assoc-ref %outputs "out")))
+       #:phases
+       (modify-phases %standard-phases
+         (delete 'configure)
+         (add-before 'build 'fix-docbook
+           (lambda* (#:key inputs #:allow-other-keys)
+             (substitute* (find-files "." "\\.xml$")
+               (("docbook/docbookx.dtd")
+                (string-append (assoc-ref inputs "docbook-xml")
+                               "/xml/dtd/docbook/docbookx.dtd")))
+             #t))
+         (add-after 'install 'install-emacs-data
+           (lambda* (#:key outputs #:allow-other-keys)
+             (install-file "reposurgeon-mode.el"
+                           (string-append (assoc-ref outputs "out")
+                                          "/share/emacs/site-lisp")))))))
+    (inputs
+     `(("python" ,python-wrapper)))
+    (native-inputs
+     `(("asciidoc" ,asciidoc)
+       ("docbook-xml" ,docbook-xml-4.1.2)
+       ("docbook-xsl" ,docbook-xsl)
+       ("libxml2" ,libxml2)
+       ("xmlto" ,xmlto)))
+    (home-page "http://www.catb.org/~esr/reposurgeon/")
+    (synopsis "Edit version-control repository history")
+    (description "Reposurgeon enables risky operations that version-control
+systems don't want to let you do, such as editing past comments and metadata
+and removing commits.  It works with any version control system that can
+export and import Git fast-import streams, including Git, Mercurial, Fossil,
+Bazaar, CVS, RCS, and Src.  It can also read Subversion dump files directly
+and can thus be used to script production of very high-quality conversions
+from Subversion to any supported Distributed Version Control System (DVCS).")
+    ;; Most files are distributed under bsd-2, except 'repocutter' which is
+    ;; under bsd-3.
+    (license (list bsd-2 bsd-3))))
 
 (define-public tig
   (package
@@ -1125,3 +1177,78 @@ Mercurial, Bazaar, Darcs, CVS, Fossil, and Veracity.")
      "This package allows you to use your hubic account as a \"special
 repository\" with git-annex.")
     (license gpl3+)))
+
+(define-public fossil
+  (package
+    (name "fossil")
+    (version "1.34")
+    (source
+     (origin
+       (method url-fetch)
+       ;; Upstream source affected by
+       ;; http://debbugs.gnu.org/cgi/bugreport.cgi?bug=20962
+       (uri (string-append
+             "https://web.archive.org/web/20160402202958/"
+             "https://www.fossil-scm.org/download/fossil-src-"
+             version ".tar.gz"))
+       (sha256
+        (base32
+         "17x4vgjcfihwmq195qg32irp50panvjqfpvhqydfvv4ghwzbi9jk"))
+       (modules '((guix build utils)))
+       (snippet
+        '(begin
+           ;; Commit 0a2ebe57 on 2015-08-03 18:35:53 changed output formatting
+           ;; for some commands, but affected tests were not updated.  Use
+           ;; substitute here, which is more concise than patching.
+           (substitute* "test/clean.test"
+             (("NEW ") "NEW    "))
+           (substitute* '("test/revert.test" "test/mv-rm.test")
+             (("REVERTED:") "REVERT  ")
+             (("DELETE:")   "DELETE  ")
+             (("UNMANAGE:") "UNMANAGE "))
+           ;; Fix use of __DATE__ and __TIME__
+           (substitute* "src/main.c"
+             (("Compiled on %s %s") "Compiled")
+             (("__DATE__, __TIME__, ") ""))
+           #t))
+       (patches (list (search-patch "fossil-test-fixes.patch")))))
+    (build-system gnu-build-system)
+    (native-inputs
+     `(("tcl" ,tcl)                     ;for configuration only
+       ("which" ,which)                 ;for tests only
+       ("ed" ,ed)))                     ;ditto
+    (inputs
+     `(("openssl" ,openssl)
+       ("zlib" ,zlib)
+       ("sqlite" ,sqlite)))
+    (arguments
+     `(#:configure-flags (list "--with-openssl=auto"
+                               "--disable-internal-sqlite")
+       #:test-target "test"
+       #:phases (modify-phases %standard-phases
+                  (replace 'configure
+                    (lambda* (#:key outputs (configure-flags '())
+                                    #:allow-other-keys)
+                      ;; The 'configure' script is not an autoconf script and
+                      ;; chokes on unrecognized options.
+                      (zero? (apply system*
+                                    "./configure"
+                                    (string-append "--prefix="
+                                                   (assoc-ref outputs "out"))
+                                    configure-flags))))
+                  (add-before 'check 'test-setup
+                    (lambda _
+                      (setenv "USER" "guix")
+                      (setenv "TZ" "UTC")
+                      ;; Fixing the th1 test would require many backports, so
+                      ;; just disable for now.
+                      (delete-file "test/th1.test")
+                      #t)))))
+    (home-page "https://fossil-scm.org")
+    (synopsis "Software configuration management system")
+    (description
+     "Fossil is a distributed source control management system which supports
+access and administration over HTTP CGI or via a built-in HTTP server.  It has
+a built-in wiki, built-in file browsing, built-in tickets system, etc.")
+    (license (list public-domain        ;src/miniz.c, src/shell.c
+                   bsd-2))))

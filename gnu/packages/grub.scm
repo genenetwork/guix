@@ -1,5 +1,5 @@
 ;;; GNU Guix --- Functional package management for GNU
-;;; Copyright © 2013, 2014, 2015 Ludovic Courtès <ludo@gnu.org>
+;;; Copyright © 2013, 2014, 2015, 2016 Ludovic Courtès <ludo@gnu.org>
 ;;; Copyright © 2015 Mark H Weaver <mhw@netris.org>
 ;;; Copyright © 2015 Leo Famulari <leo@famulari.name>
 ;;;
@@ -25,6 +25,7 @@
   #:use-module (guix build-system gnu)
   #:use-module (gnu packages)
   #:use-module (gnu packages flex)
+  #:use-module (gnu packages disk)
   #:use-module (gnu packages bison)
   #:use-module (gnu packages gettext)
   #:use-module (gnu packages fontutils)
@@ -83,9 +84,9 @@
              (sha256
               (base32
                "0n64hpmsccvicagvr0c6v0kgp2yw0kgnd3jvsyd26cnwgs7c6kkq"))
-             (patches (list (search-patch "grub-gets-undeclared.patch")
-                            (search-patch "grub-freetype.patch")
-                            (search-patch "grub-CVE-2015-8370.patch")))))
+             (patches (search-patches "grub-gets-undeclared.patch"
+                                      "grub-freetype.patch"
+                                      "grub-CVE-2015-8370.patch"))))
     (build-system gnu-build-system)
     (arguments
      '(#:configure-flags '("--disable-werror")
@@ -99,11 +100,6 @@
                      ;; Make the font visible.
                      (copy-file (assoc-ref inputs "unifont") "unifont.bdf.gz")
                      (system* "gunzip" "unifont.bdf.gz")
-
-                     ;; TODO: Re-enable this test when we have Parted.
-                     (substitute* "tests/partmap_test.in"
-                       (("set -e") "exit 77"))
-
                      #t)))))
     (inputs
      `(;; ("lvm2" ,lvm2)
@@ -121,6 +117,7 @@
 
        ;; Dependencies for the test suite.  The "real" QEMU is needed here,
        ;; because several targets are used.
+       ("parted" ,parted)
        ("qemu" ,qemu-for-tests)
        ("xorriso" ,xorriso)))
     (home-page "http://www.gnu.org/software/grub/")
@@ -132,4 +129,5 @@ then goes on to load the rest of the operating system.  As a multiboot
 bootloader, GRUB handles the presence of multiple operating systems installed
 on the same computer; upon booting the computer, the user is presented with a
 menu to select one of the installed operating systems.")
-    (license gpl3+)))
+    (license gpl3+)
+    (properties '((cpe-name . "grub2")))))

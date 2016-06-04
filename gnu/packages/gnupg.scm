@@ -1,5 +1,5 @@
 ;;; GNU Guix --- Functional package management for GNU
-;;; Copyright © 2012, 2013, 2014, 2015 Ludovic Courtès <ludo@gnu.org>
+;;; Copyright © 2012, 2013, 2014, 2015, 2016 Ludovic Courtès <ludo@gnu.org>
 ;;; Copyright © 2013, 2015 Andreas Enge <andreas@enge.fr>
 ;;; Copyright © 2014 Eric Bavier <bavier@member.fsf.org>
 ;;; Copyright © 2014, 2015, 2016 Mark H Weaver <mhw@netris.org>
@@ -31,6 +31,7 @@
   #:use-module (gnu packages perl)
   #:use-module (gnu packages pth)
   #:use-module (gnu packages python)
+  #:use-module (gnu packages qt)
   #:use-module (gnu packages readline)
   #:use-module (gnu packages compression)
   #:use-module (gnu packages databases)
@@ -65,7 +66,9 @@
 for all GnuPG components.  Among these are GPG, GPGSM, GPGME,
 GPG-Agent, libgcrypt, Libksba, DirMngr, Pinentry, SmartCard
 Daemon and possibly more in the future.")
-    (license license:lgpl2.0+)))
+    (license license:lgpl2.0+)
+    (properties '((ftp-server . "ftp.gnupg.org")
+                  (ftp-directory . "/gcrypt/libgpg-error")))))
 
 (define-public libgcrypt
   (package
@@ -99,7 +102,9 @@ Daemon and possibly more in the future.")
 standard cryptographic building blocks such as symmetric ciphers, hash
 algorithms, public key algorithms, large integer functions and random number
 generation.")
-    (license license:lgpl2.0+)))
+    (license license:lgpl2.0+)
+    (properties '((ftp-server . "ftp.gnupg.org")
+                  (ftp-directory . "/gcrypt/libgcrypt")))))
 
 (define-public libgcrypt-1.5
   (package (inherit libgcrypt)
@@ -136,12 +141,14 @@ generation.")
 protocol.  This protocol is used for IPC between most newer
 GnuPG components.  Both, server and client side functions are
 provided.")
-    (license license:lgpl2.0+)))
+    (license license:lgpl2.0+)
+    (properties '((ftp-server . "ftp.gnupg.org")
+                  (ftp-directory . "/gcrypt/libassuan")))))
 
 (define-public libksba
   (package
     (name "libksba")
-    (version "1.3.3")
+    (version "1.3.4")
     (source
      (origin
       (method url-fetch)
@@ -150,7 +157,7 @@ provided.")
             version ".tar.bz2"))
       (sha256
        (base32
-        "11kp3h9l3b8ikydkcdkwgx45r662zi30m26ra5llyhfh6kz5yzqc"))))
+        "0kxdb02z41cwm1xbwfwj9nbc0dzjhwyq8c475mlhhmpcxcy8ihpn"))))
     (build-system gnu-build-system)
     (propagated-inputs
      `(("libgpg-error" ,libgpg-error)))
@@ -169,7 +176,9 @@ provided.")
      "KSBA (pronounced Kasbah) is a library to make X.509 certificates
 as well as the CMS easily accessible by other applications.  Both
 specifications are building blocks of S/MIME and TLS.")
-    (license license:gpl3+)))
+    (license license:gpl3+)
+    (properties '((ftp-server . "ftp.gnupg.org")
+                  (ftp-directory . "/gcrypt/libksba")))))
 
 (define-public npth
   (package
@@ -199,17 +208,14 @@ compatible to GNU Pth.")
 (define-public gnupg
   (package
     (name "gnupg")
-    (version "2.1.11")
+    (version "2.1.12")
     (source (origin
               (method url-fetch)
               (uri (string-append "mirror://gnupg/gnupg/gnupg-" version
                                   ".tar.bz2"))
               (sha256
                (base32
-                "06mn2viiwsyq991arh5i5fhr9jyxq2bi0jkdj7ndfisxihngpc5p"))
-              (patches
-               (list (search-patch
-                      "gnupg-simple-query-ignore-status-messages.patch")))))
+                "01n5py45x0r97l4dzmd803jpbpbcxr1591k3k4s8m9804jfr4d5c"))))
     (build-system gnu-build-system)
     (native-inputs
      `(("pkg-config" ,pkg-config)))
@@ -244,7 +250,9 @@ features powerful key management and the ability to access public key
 servers.  It includes several libraries: libassuan (IPC between GnuPG
 components), libgpg-error (centralized GnuPG error values), and
 libskba (working with X.509 certificates and CMS data).")
-    (license license:gpl3+)))
+    (license license:gpl3+)
+    (properties '((ftp-server . "ftp.gnupg.org")
+                  (ftp-directory . "/gcrypt/gnupg")))))
 
 (define-public gnupg-2.0
   (package (inherit gnupg)
@@ -351,7 +359,7 @@ and every application benefits from this.")
        ;; Unfortunately, we have to disable some tests due to some gpg-agent
        ;; goofiness... see:
        ;;   https://bugs.launchpad.net/pygpgme/+bug/999949
-       (patches (list (search-patch "pygpgme-disable-problematic-tests.patch")))))
+       (patches (search-patches "pygpgme-disable-problematic-tests.patch"))))
     (arguments
      `(#:phases
        (modify-phases %standard-phases
@@ -559,32 +567,59 @@ including tools for signing keys, keyring analysis, and party preparation.
    (license license:gpl2)
    (home-page "http://pgp-tools.alioth.debian.org/")))
 
-(define-public pinentry
+(define-public pinentry-tty
   (package
-    (name "pinentry")
-    (version "0.9.6")
+    (name "pinentry-tty")
+    (version "0.9.7")
     (source (origin
               (method url-fetch)
               (uri (string-append "mirror://gnupg/pinentry/pinentry-"
                                   version ".tar.bz2"))
               (sha256
                (base32
-                "0rhyw1vk28kgasjp22myf7m2q8kycw82d65pr9kgh93z17lj849a"))))
+                "1cp7wjqr6nx31mdclr61s2h84ijqjl0ph99kgj4vyawpjj1j1633"))))
     (build-system gnu-build-system)
+    (arguments
+     `(#:configure-flags '("--enable-pinentry-tty")))
     (inputs
      `(("ncurses" ,ncurses)
        ("libassuan" ,libassuan)
-       ("libsecret" ,libsecret "out")
-       ("gtk+" ,gtk+-2)
-       ("glib" ,glib)))
+       ("libsecret" ,libsecret "out")))
     (native-inputs
      `(("pkg-config" ,pkg-config)))
-    (home-page "http://gnupg.org/aegypten2/")
+    (home-page "https://gnupg.org/aegypten2/")
     (synopsis "GnuPG's interface to passphrase input")
     (description
-     "Pinentry provides a console and a GTK+ GUI that allows users to
-enter a passphrase when `gpg' or `gpg2' is run and needs it.")
+     "Pinentry provides a console that allows users to enter a passphrase when
+@code{gpg} or @code{gpg2} is run and needs it.")
     (license license:gpl2+)))
+
+(define-public pinentry-gtk2
+  (package
+    (inherit pinentry-tty)
+    (name "pinentry-gtk2")
+    (inputs
+     `(("gtk+" ,gtk+-2)
+       ("glib" ,glib)
+       ,@(package-inputs pinentry-tty)))
+    (description
+     "Pinentry provides a console and a GTK+ GUI that allows users to enter a
+passphrase when @code{gpg} or @code{gpg2} is run and needs it.")))
+
+(define-public pinentry-qt
+  (package
+    (inherit pinentry-tty)
+    (name "pinentry-qt")
+    (inputs
+     `(("qt" ,qt)
+       ,@(package-inputs pinentry-tty)))
+  (description
+   "Pinentry provides a console and a Qt GUI that allows users to enter a
+passphrase when @code{gpg} or @code{gpg2} is run and needs it.")))
+
+(define-public pinentry
+  (package (inherit pinentry-gtk2)
+    (name "pinentry")))
 
 (define-public paperkey
   (package

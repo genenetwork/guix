@@ -2,13 +2,14 @@
 ;;; Copyright © 2012, 2013, 2014, 2015 Ludovic Courtès <ludo@gnu.org>
 ;;; Copyright © 2012, 2014, 2015 Andreas Enge <andreas@enge.fr>
 ;;; Copyright © 2013 Cyril Roelandt <tipecaml@gmail.com>
-;;; Copyright © 2014 David Thompson <davet@gnu.org>
+;;; Copyright © 2014, 2016 David Thompson <davet@gnu.org>
 ;;; Copyright © 2014, 2015, 2016 Mark H Weaver <mhw@netris.org>
 ;;; Copyright © 2015 Eric Bavier <bavier@member.fsf.org>
 ;;; Copyright © 2015 Sou Bunnbu <iyzsong@gmail.com>
 ;;; Copyright © 2015 Leo Famulari <leo@famulari.name>
 ;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;; Copyright © 2016 Nils Gillmann <niasterisk@grrlz.net>
+;;; Copyright © 2016 Roel Janssen <roel@gnu.org>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -27,8 +28,12 @@
 
 (define-module (gnu packages databases)
   #:use-module (gnu packages)
+  #:use-module (gnu packages autotools)
+  #:use-module (gnu packages avahi)
   #:use-module (gnu packages bash)
   #:use-module (gnu packages boost)
+  #:use-module (gnu packages gettext)
+  #:use-module (gnu packages glib)
   #:use-module (gnu packages perl)
   #:use-module (gnu packages language)
   #:use-module (gnu packages linux)
@@ -40,14 +45,17 @@
   #:use-module (gnu packages check)
   #:use-module (gnu packages algebra)
   #:use-module (gnu packages curl)
+  #:use-module (gnu packages cyrus-sasl)
   #:use-module (gnu packages gnupg)
   #:use-module (gnu packages python)
   #:use-module (gnu packages pcre)
+  #:use-module (gnu packages pkg-config)
+  #:use-module (gnu packages rdf)
   #:use-module (gnu packages xml)
   #:use-module (gnu packages bison)
   #:use-module (gnu packages jemalloc)
   #:use-module ((guix licenses)
-                #:select (gpl2 gpl3+ lgpl2.1+ lgpl3+ x11-style non-copyleft
+                #:select (gpl2 gpl3 gpl3+ lgpl2.1+ lgpl3+ x11-style non-copyleft
                           bsd-2 bsd-3 public-domain))
   #:use-module (guix packages)
   #:use-module (guix download)
@@ -57,6 +65,51 @@
   #:use-module (guix utils)
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 match))
+
+(define-public 4store
+  (package
+    (name "4store")
+    (version "1.1.6")
+    (source (origin
+      (method url-fetch)
+      (uri (string-append "https://github.com/garlik/4store/archive/v"
+                          version ".tar.gz"))
+      (file-name (string-append name "-" version ".tar.gz"))
+      (sha256
+       (base32 "004fmcf1w75zhc1x3zc6kc97j4jqn2v5nhk6yb3z3cpfrhzi9j50"))
+      (patches (list (search-patch "4store-fix-buildsystem.patch")))))
+    (build-system gnu-build-system)
+    (native-inputs
+     `(("perl" ,perl)
+       ("python" ,python-2)
+       ("autoconf" ,autoconf)
+       ("automake" ,automake)
+       ("gettext" ,gnu-gettext)
+       ("libtool" ,libtool)
+       ("pkg-config" ,pkg-config)))
+    (inputs
+     `(("glib" ,glib)
+       ("rasqal" ,rasqal)
+       ("libxml2" ,libxml2)
+       ("raptor2" ,raptor2)
+       ("readline" ,readline)
+       ("avahi" ,avahi)
+       ("pcre" ,pcre)
+       ("cyrus-sasl" ,cyrus-sasl)
+       ("openssl" ,openssl)
+       ("util-linux" ,util-linux)))
+    (arguments
+     `(#:phases
+       (modify-phases %standard-phases
+         (add-before 'configure 'generate-configure
+           (lambda _
+             (zero? (system* "./autogen.sh")))))))
+    ;; http://www.4store.org has been down for a while now.
+    (home-page "https://github.com/garlik/4store")
+    (synopsis "Clustered RDF storage and query engine")
+    (description "4store is a RDF/SPARQL store written in C, supporting
+either single machines or networked clusters.")
+      (license gpl3+)))
 
 (define-public gdbm
   (package
@@ -133,7 +186,7 @@ SQL, Key/Value, XML/XQuery or Java Object storage for their data model.")
 (define-public mysql
   (package
     (name "mysql")
-    (version "5.7.11")
+    (version "5.7.12")
     (source (origin
              (method url-fetch)
              (uri (list (string-append
@@ -145,7 +198,7 @@ SQL, Key/Value, XML/XQuery or Java Object storage for their data model.")
                           name "-" version ".tar.gz")))
              (sha256
               (base32
-               "03hzd2ikabxhh5ch2yvml2nks2wpv3qbkqmx3520in6khypwgy2l"))))
+               "11qwbid666fspq143ymi86yva2b01lybaqh26k92rciasav3r11j"))))
     (build-system cmake-build-system)
     (arguments
      '(#:configure-flags
@@ -274,14 +327,14 @@ as a drop-in replacement of MySQL.")
 (define-public postgresql
   (package
     (name "postgresql")
-    (version "9.5.2")
+    (version "9.5.3")
     (source (origin
               (method url-fetch)
               (uri (string-append "https://ftp.postgresql.org/pub/source/v"
                                   version "/postgresql-" version ".tar.bz2"))
               (sha256
                (base32
-                "0hbwwhh0pz0a6vf8j5bskiq7gmz9rwc9ywcqyhg5asshckj35lgq"))))
+                "1d500d2qsdzysnis6qi84xchnz5xh8kx8sjfmkbsijwaqlfw11bk"))))
     (build-system gnu-build-system)
     (arguments
      `(#:phases
@@ -328,7 +381,7 @@ pictures, sounds, or video.")
                                       (assoc-ref %build-inputs "bash:include")
                                       "/include/bash"))))
 
-    (native-inputs `(("emacs" ,emacs-no-x)
+    (native-inputs `(("emacs" ,emacs-minimal)
                      ("bc" ,bc)
                      ("bash:include" ,bash "include")
                      ("libuuid" ,util-linux)))
@@ -402,14 +455,14 @@ is in the public domain.")
 (define-public tdb
   (package
     (name "tdb")
-    (version "1.3.8")
+    (version "1.3.9")
     (source (origin
               (method url-fetch)
               (uri (string-append "https://www.samba.org/ftp/tdb/tdb-"
                                   version ".tar.gz"))
               (sha256
                (base32
-                "1cg6gmpgn36dd4bsp3j9k3hyrm87d8hdigqyyqxw5jga4w2aq186"))))
+                "1ll4q17scax1arg12faj8p25jq1f7q9irc3pwla0ziymwqkgf0bi"))))
     (build-system gnu-build-system)
     (arguments
      '(#:phases (alist-replace
@@ -764,14 +817,15 @@ valid SQL query.")
 (define-public unixodbc
   (package
    (name "unixodbc")
-   (version "2.3.2")
+   (version "2.3.4")
    (source (origin
             (method url-fetch)
             (uri
              (string-append
-              "ftp://ftp.unixodbc.org/pub/unixODBC/unixODBC-" version ".tar.gz"))
+              "ftp://ftp.unixodbc.org/pub/unixODBC/unixODBC-"
+              version ".tar.gz"))
             (sha256
-             (base32 "16jw5fq7wgfky6ak1h2j2pqx99jivsdl4q8aq6immpr55xs5jd4w"))))
+             (base32 "0f8y88rcc2akjvjv5y66yx7k0ms9h1s0vbcfy25j93didflhj59f"))))
    (build-system gnu-build-system)
    (synopsis "Data source abstraction library")
    (description "Unixodbc is a library providing an API with which to access
@@ -810,14 +864,14 @@ similar to BerkeleyDB, LevelDB, etc.")
 (define-public redis
   (package
     (name "redis")
-    (version "3.0.7")
+    (version "3.2.0")
     (source (origin
               (method url-fetch)
               (uri (string-append "http://download.redis.io/releases/redis-"
                                   version".tar.gz"))
               (sha256
                (base32
-                "08vzfdr67gp3lvk770qpax2c5g2sx8hn6p64jn3jddrvxb2939xj"))))
+                "0ql7zp061xr66a1dzpa6a0ijm8zm133dd364va7q5h8avkrim7wq"))))
     (build-system gnu-build-system)
     (arguments
      '(#:tests? #f ; tests related to master/slave and replication fail
@@ -860,3 +914,41 @@ sets, bitmaps and hyperloglogs.")
 and B+ Tree data storage models.  It is a fast key-value lightweight
 database and supports many programming languages.  It is a NoSQL database.")
     (license gpl3+)))
+
+(define-public wiredtiger
+  (package
+    (name "wiredtiger")
+    (version "2.8.0")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "http://source.wiredtiger.com/releases/wiredtiger-"
+                    version ".tar.bz2"))
+              (sha256
+               (base32
+                "1qh7y5paisdxq19jgg81ld7i32lz920n5k30hdpxnr8ll9c4hgjr"))))
+    (build-system gnu-build-system)
+    (arguments
+     '(#:configure-flags '("--enable-lz4" "--enable-zlib")
+       #:phases
+       (modify-phases %standard-phases
+         (add-before 'check 'disable-test/fops
+           (lambda _
+             ;; XXX: timed out after 3600 seconds of silence
+             (substitute* "Makefile"
+               (("test/fops") ""))
+             #t)))))
+    (inputs
+     `(("lz4" ,lz4)
+       ("zlib" ,zlib)))
+    (home-page "http://source.wiredtiger.com/")
+    (synopsis "NoSQL data engine")
+    (description
+     "WiredTiger is an extensible platform for data management.  It supports
+row-oriented storage (where all columns of a row are stored together),
+column-oriented storage (where columns are stored in groups, allowing for
+more efficient access and storage of column subsets) and log-structured merge
+trees (LSM), for sustained throughput under random insert workloads.")
+    (license gpl3) ; or GPL-2
+    ;; configure.ac: WiredTiger requires a 64-bit build.
+    (supported-systems '("x86_64-linux" "mips64el-linux"))))

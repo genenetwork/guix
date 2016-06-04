@@ -2,6 +2,7 @@
 ;;; Copyright © 2013 Andreas Enge <andreas@enge.fr>
 ;;; Copyright © 2014, 2015 Mark H Weaver <mhw@netris.org>
 ;;; Copyright © 2015 Ricardo Wurmus <rekado@elephly.net>
+;;; Copyright © 2016 Leo Famulari <leo@famulari.name>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -72,20 +73,21 @@ POSIX regular expression API.")
     (inherit pcre)
     (source (origin
               (inherit (package-source pcre))
-              (patches (list (search-patch "pcre-CVE-2016-3191.patch")))))))
+              (patches (search-patches "pcre-CVE-2016-3191.patch"))))))
 
 (define-public pcre2
   (package
     (name "pcre2")
-    (version "10.20")
+    (version "10.21")
     (source (origin
               (method url-fetch)
               (uri (string-append "mirror://sourceforge/pcre/pcre2/"
                                   version "/pcre2-" version ".tar.bz2"))
 
+              (patches (search-patches "pcre2-CVE-2016-3191.patch"))
               (sha256
                (base32
-                "0yj8mm9ll9zj3v47rvmmqmr1ybxk72rr2lym3rymdsf905qjhbik"))))
+                "1q6lrj9b08l1q39vxipb0fi88x6ybvkr6439h8bjb9r8jd81fsn6"))))
    (build-system gnu-build-system)
    (inputs `(("bzip2" ,bzip2)
              ("readline" ,readline)

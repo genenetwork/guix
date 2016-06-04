@@ -1,6 +1,6 @@
 ;;; GNU Guix --- Functional package management for GNU
 ;;; Copyright © 2013, 2014, 2015 Andreas Enge <andreas@enge.fr>
-;;; Copyright © 2014 Eric Bavier <bavier@member.fsf.org>
+;;; Copyright © 2014, 2016 Eric Bavier <bavier@member.fsf.org>
 ;;; Copyright © 2016 Mark H Weaver <mhw@netris.org>
 ;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;;
@@ -29,6 +29,8 @@
   #:use-module (gnu packages gettext)
   #:use-module (gnu packages python)
   #:use-module (gnu packages image)
+  #:use-module (gnu packages bison)
+  #:use-module (gnu packages flex)
   #:use-module (gnu packages glib)
   #:use-module (gnu packages xorg)
   #:use-module (gnu packages gtk)
@@ -37,29 +39,28 @@
   #:use-module (guix packages)
   #:use-module (guix download)
   #:use-module (guix svn-download)
+  #:use-module (guix git-download)
   #:use-module (guix build-system cmake)
   #:use-module (guix build-system gnu))
 
 (define-public freetype
   (package
    (name "freetype")
-   (version "2.6")
+   (version "2.6.3")
    (source (origin
             (method url-fetch)
             (uri (string-append "mirror://savannah/freetype/freetype-"
                                 version ".tar.bz2"))
             (sha256 (base32
-                     "0zilx15fwcpa8hmcxpc423jwb8ijw4qpq968kh18akvn4j0znsc4"))))
+                     "18k3b026762lmyrxfil5xv8qwnvj7hc12gz9bjqzbb12lmx707ip"))))
    (build-system gnu-build-system)
-   (arguments
-    `(#:phases
-       ;; This should not be necessary; reported upstream as
-       ;; https://savannah.nongnu.org/bugs/index.php?44261
-       (alist-cons-before
-        'configure 'set-paths
-        (lambda _
-          (setenv "CONFIG_SHELL" (which "bash")))
-        %standard-phases)))
+   (native-inputs
+    `(("pkg-config" ,pkg-config)))
+   (propagated-inputs
+    ;; These are all in the Requires.private field of freetype2.pc.
+    ;; XXX: add harfbuzz.
+    `(("libpng" ,libpng)
+      ("zlib" ,zlib)))
    (synopsis "Font rendering library")
    (description
     "Freetype is a library that can be used by applications to access the
@@ -69,6 +70,155 @@ Type1, CID, CFF, Windows FON/FNT, X11 PCF, and others.  It supports high-speed
 anti-aliased glyph bitmap generation with 256 gray levels.")
    (license license:freetype)           ; some files have other licenses
    (home-page "http://www.freetype.org/")))
+
+(define-public ttfautohint
+  (package
+    (name "ttfautohint")
+    (version "1.5")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "mirror://savannah/freetype/ttfautohint-"
+                           version ".tar.gz"))
+       (sha256
+        (base32
+         "1lgghck46p33z3hg8dnl76jryig4fh6d8rhzms837zp7x4hyfkv4"))
+       (patches (list (search-patch "ttfautohint-source-date-epoch.patch")))))
+    (build-system gnu-build-system)
+    (native-inputs
+     `(("flex" ,flex)
+       ("bison" ,bison)
+       ("pkg-config" ,pkg-config)))
+    (inputs
+     `(("freetype" ,freetype)
+       ("harfbuzz" ,harfbuzz)))
+    (arguments
+     `(#:configure-flags '("--with-qt=no"))) ;no gui
+    (synopsis "Automated font hinting")
+    (description
+     "ttfautohint provides a 99% automated hinting process and a platform for
+finely hand-hinting the last 1%.  It is ideal for web fonts and supports many
+scripts.")
+    (license (list license:gpl2+ license:freetype)) ;choose one or the other
+    (home-page "http://www.freetype.org/ttfautohint/")))
+
+(define-public woff-tools
+  (package
+    (name "woff-tools")
+    (version "2009.10.04")
+    (source
+     (origin
+       (method url-fetch)
+       ;; Upstream source is unversioned, so use Debian's versioned tarball
+       (uri (string-append "mirror://debian/pool/main/w/woff-tools/"
+                           "woff-tools_" version ".orig.tar.gz"))
+       (file-name (string-append name "-" version ".tar.gz"))
+       (sha256
+        (base32
+         "1i97gkqa6jfzlslsngqf556kx60knlgf7yc9pzsq2pizc6f0d4zl"))))
+    (build-system gnu-build-system)
+    (inputs
+     `(("zlib" ,zlib)))
+    (arguments
+     `(#:make-flags '("CC=gcc")
+       #:tests? #f                      ;no tests
+       #:phases
+       (modify-phases %standard-phases
+         (delete 'configure)            ;no configuration
+         (replace 'install
+           (lambda* (#:key outputs #:allow-other-keys)
+             (let* ((out (assoc-ref outputs "out"))
+                    (bin (string-append out "/bin")))
+               (install-file "sfnt2woff" bin)
+               (install-file "woff2sfnt" bin)))))))
+    (synopsis "Convert between OpenType and WOFF fonts")
+    (description
+     "This package provides two tools:
+@table @code
+@item sfnt2woff
+Converts OpenType fonts to WOFF fonts
+@item woff2sfnt
+Converts WOFF fonts to OpenType fonts
+@end table")
+    (license (list license:mpl1.1 license:gpl2+ license:lgpl2.1+))
+    (home-page "https://people.mozilla.com/~jkew/woff/")))
+
+(define-public ttf2eot
+  (package
+    (name "ttf2eot")
+    (version "0.0.2-2")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "https://storage.googleapis.com/"
+                           "google-code-archive-downloads/v2/"
+                           "code.google.com/ttf2eot/"
+                           "ttf2eot-" version ".tar.gz"))
+       (sha256
+        (base32
+         "1f4dzzmhn0208dvbm3ia5ar6ls9apwc6ampy5blmfxkigi6z0g02"))
+       (patches (list (search-patch "ttf2eot-cstddef.patch")))))
+    (build-system gnu-build-system)
+    (arguments
+     `(#:tests? #f                      ;no tests
+       #:phases
+       (modify-phases %standard-phases
+         (delete 'configure)            ;no configuration
+         (replace 'install
+           (lambda* (#:key outputs #:allow-other-keys)
+             (let* ((out (assoc-ref outputs "out"))
+                    (bin (string-append out "/bin")))
+               (install-file "ttf2eot" bin)))))))
+    (synopsis "Convert from TrueType to Embeddable Open Type")
+    (description
+     "This package contains a commandline wrapper around OpenTypeUtilities.cpp
+from Chromium, used to make EOT (Embeddable Open Type) files from
+TTF (TrueType/OpenType Font) files.")
+    ;; While the README states "License: Derived from WebKit, so BSD/LGPL
+    ;; 2/LGPL 2.1", the single derived source file includes only BSD in its
+    ;; license header, and the wrapper source contains no license header.
+    (license license:bsd-2)
+    (home-page "https://code.google.com/archive/p/ttf2eot/")))
+
+(define-public woff2
+  (let ((commit "4e698b8c6c5e070d53c340db9ddf160e21070ede")
+        (revision "1"))
+    (package
+      (name "woff2")
+      (version (string-append "20160306-" revision "."
+                              (string-take commit 7)))
+      (source (origin
+                (method git-fetch)
+                (uri (git-reference
+                      (url "https://github.com/google/woff2.git")
+                      (commit commit)))
+                (file-name (string-append name "-" version ".tar.xz"))
+                (sha256
+                 (base32
+                  "0wka0yhf0cjmd4rv2jckxpyv6lb5ckj4nj0k1ajq5hrjy7f30lcp"))
+                (patches (list (search-patch "woff2-libbrotli.patch")))))
+      (build-system gnu-build-system)
+      (native-inputs
+       `(("pkg-config" ,pkg-config)))
+      (inputs
+       `(("brotli" ,brotli)))
+      (arguments
+       `(#:tests? #f                    ;no tests
+         #:phases (modify-phases %standard-phases
+                    (delete 'configure)
+                    (replace 'install
+                      (lambda* (#:key outputs #:allow-other-keys)
+                        (let* ((out (assoc-ref outputs "out"))
+                               (bin (string-append out "/bin")))
+                          (install-file "woff2_compress" bin)
+                          (install-file "woff2_decompress" bin)
+                          #t))))))
+      (synopsis "Compress TrueType fonts to WOFF2")
+      (description
+       "This package provides utilities for compressing/decompressing TrueType
+fonts to/from the WOFF2 format.")
+      (license license:asl2.0)
+      (home-page "https://github.com/google/woff2"))))
 
 (define-public fontconfig
   (package
@@ -131,9 +281,16 @@ high quality, anti-aliased and subpixel rendered text on a display.")
    (version "5.1.2")
    (source (origin
             (method url-fetch)
-            (uri "ftp://sunsite.unc.edu/pub/Linux/libs/graphics/t1lib-5.1.2.tar.gz")
+            (uri (list (string-append "ftp://sunsite.unc.edu/pub/Linux/libs/"
+                                      "graphics/" name "-" version ".tar.gz")
+                       (string-append "https://fossies.org/linux/misc/old/"
+                                      name "-" version ".tar.gz")))
             (sha256 (base32
-                     "0nbvjpnmcznib1nlgg8xckrmsw3haa154byds2h90y2g0nsjh4w2"))))
+                     "0nbvjpnmcznib1nlgg8xckrmsw3haa154byds2h90y2g0nsjh4w2"))
+            (patches (search-patches
+                       "t1lib-CVE-2010-2642.patch"
+                       "t1lib-CVE-2011-0764.patch"
+                       "t1lib-CVE-2011-1552+CVE-2011-1553+CVE-2011-1554.patch"))))
    (build-system gnu-build-system)
    (arguments
     ;; Making the documentation requires latex, but t1lib is also an input
@@ -209,16 +366,15 @@ applications should be.")
 (define-public graphite2
   (package
    (name "graphite2")
-   (version "1.3.6")
+   (version "1.3.8")
    (source
      (origin
        (method url-fetch)
-       (uri (string-append "https://github.com/silnrsi/graphite/archive/"
-                           version ".tar.gz"))
-       (file-name (string-append name "-" version ".tar.gz"))
+       (uri (string-append "https://github.com/silnrsi/graphite/releases/"
+                           "download/" version "/" name "-" version ".tgz"))
        (sha256
         (base32
-         "1frd9mjaqzvh9gs74ngc43igi53vzjzlwr5chbrs6ii1hc4aa23s"))))
+         "1hlc9j7w7gihy6gvzfa7902pr6yxq1sr1xkp5rwf0p29m2rjagwz"))))
    (build-system cmake-build-system)
    (native-inputs
     `(("python" ,python-2) ; because of "import imap" in tests
@@ -237,7 +393,7 @@ and returns a sequence of positioned glyphids from the font.")
 (define-public potrace
   (package
     (name "potrace")
-    (version "1.11")
+    (version "1.13")
     (source
      (origin
       (method url-fetch)
@@ -245,7 +401,7 @@ and returns a sequence of positioned glyphids from the font.")
                           version ".tar.gz"))
       (sha256
        (base32
-        "1bbyl7jgigawmwc8r14znv8lb6lrcxh8zpvynrl6s800dr4yp9as"))))
+        "115p2vgyq7p2mf4nidk2x3aa341nvv2v8ml056vbji36df5l6lk2"))))
     (build-system gnu-build-system)
     (native-inputs `(("ghostscript" ,ghostscript))) ;for tests
     (inputs `(("zlib" ,zlib)))
@@ -341,30 +497,26 @@ definitions.")
 (define-public fontforge
   (package
    (name "fontforge")
-   (version "20150824")
+   (version "20160404")
    (source (origin
             (method url-fetch)
             (uri (string-append
                   "https://github.com/fontforge/fontforge/releases/download/"
-                  version "/fontforge-" version ".tar.gz"))
+                  version "/fontforge-dist-" version ".tar.gz"))
             (sha256 (base32
-                     "0gfcm8yn1d30giqhdwbchnfnspcqypqdzrxlhqhwy1i18wgl0v2v"))
+                     "1kavnhbkzc1hk6f39fynq9s0haama81ddrbld4b5x60d0dbaawvc"))
             (modules '((guix build utils)))
             (snippet
              '(begin
                ;; Make builds bit-reproducible by using fixed date strings.
                (substitute* "configure"
                  (("^FONTFORGE_MODTIME=.*$")
-                  "FONTFORGE_MODTIME=\"1458399002\"\n")
+                  "FONTFORGE_MODTIME=\"1459819518L\"\n")
                  (("^FONTFORGE_MODTIME_STR=.*$")
-                  "FONTFORGE_MODTIME_STR=\"15:50 CET 19-Mar-2016\"\n")
+                  "FONTFORGE_MODTIME_STR=\"20:25 CDT  4-Apr-2016\"\n")
                  (("^FONTFORGE_VERSIONDATE=.*$")
-                  "FONTFORGE_VERSIONDATE=\"20160319\"\n"))
-
-               ;; Make TTF builds bit-reproducible by clearing the timestamp
-               ;; that goes in TTF files.
-               (substitute* "fontforge/tottf.c"
-                 (("cvt_unix_to_1904\\(now") "cvt_unix_to_1904(0"))))))
+                  "FONTFORGE_VERSIONDATE=\"20160404\"\n"))))
+            (patches (list (search-patch "fontforge-svg-modtime.patch")))))
    (build-system gnu-build-system)
    (native-inputs
     `(("pkg-config" ,pkg-config)))
@@ -372,7 +524,6 @@ definitions.")
              ("fontconfig"      ,fontconfig) ;dlopen'd
              ("freetype"        ,freetype)
              ("gettext"         ,gnu-gettext)
-             ("giflib"          ,giflib) ;needs giflib 4.*
              ("glib"            ,glib) ;needed for pango detection
              ("libICE"          ,libice)
              ("libSM"           ,libsm)
@@ -383,6 +534,7 @@ definitions.")
              ("libpng"          ,libpng)
              ("libspiro"        ,libspiro)
              ("libtiff"         ,libtiff)
+             ("libungif"        ,libungif)
              ("libuninameslist" ,libuninameslist)
              ("libxft"          ,libxft)
              ("libxml2"         ,libxml2)
@@ -393,39 +545,30 @@ definitions.")
    (arguments
     '(#:tests? #f
       #:phases
-      (alist-cons-before
-       'configure 'patch-configure
-       (lambda* (#:key inputs #:allow-other-keys)
-         (let ((libxml2 (assoc-ref inputs "libxml2"))
-               (cairo   (assoc-ref inputs "cairo"))
-               (pango   (assoc-ref inputs "pango")))
-           (substitute* "configure"
-             ;; configure looks for a directory to be present to determine
-             ;; whether libxml2 is available, rather than checking for the
-             ;; library or headers.  Point it to the correct directory.
-             (("/usr/include/libxml2")
-              (string-append libxml2 "/include/libxml2"))
-             ;; Similary, the search directories for cairo and pango are
-             ;; hard-coded.
-             (("gww_prefix in.*") (string-append "gww_prefix in "
-                                                 cairo " " pango "\n")))))
-       (alist-cons-after
-        'install 'set-library-path
-        (lambda* (#:key inputs outputs #:allow-other-keys)
-          (let ((out (assoc-ref outputs "out"))
-                (potrace (string-append (assoc-ref inputs "potrace") "/bin")))
-            (wrap-program (string-append out "/bin/fontforge")
-                          ;; Fontforge dynamically opens libraries.
-                          `("LD_LIBRARY_PATH" ":" prefix
-                            ,(map (lambda (input)
-                                    (string-append (assoc-ref inputs input)
-                                                   "/lib"))
-                                  '("libtiff" "libjpeg" "libpng" "giflib"
-                                    "libxml2" "zlib" "libspiro" "freetype"
-                                    "pango" "cairo" "fontconfig")))
-                          ;; Checks for potrace program at runtime
-                          `("PATH" ":" prefix (,potrace)))))
-        %standard-phases))))
+      (modify-phases %standard-phases
+        (add-after 'build 'build-contrib
+          (lambda* (#:key outputs #:allow-other-keys)
+            (let* ((out (assoc-ref outputs "out"))
+                   (bin (string-append out "/bin")))
+              (and (zero? (system* "make" "-Ccontrib/fonttools"
+                                   "CC=gcc" "showttf"))
+                   (begin (install-file "contrib/fonttools/showttf" bin)
+                          #t)))))
+        (add-after 'install 'set-library-path
+          (lambda* (#:key inputs outputs #:allow-other-keys)
+            (let ((out (assoc-ref outputs "out"))
+                  (potrace (string-append (assoc-ref inputs "potrace") "/bin")))
+              (wrap-program (string-append out "/bin/fontforge")
+                ;; Fontforge dynamically opens libraries.
+                `("LD_LIBRARY_PATH" ":" prefix
+                  ,(map (lambda (input)
+                          (string-append (assoc-ref inputs input)
+                                         "/lib"))
+                        '("libtiff" "libjpeg" "libpng" "libungif"
+                          "libxml2" "zlib" "libspiro" "freetype"
+                          "pango" "cairo" "fontconfig")))
+                ;; Checks for potrace program at runtime
+                `("PATH" ":" prefix (,potrace)))))))))
    (synopsis "Outline font editor")
    (description
     "FontForge allows you to create and modify postscript, truetype and

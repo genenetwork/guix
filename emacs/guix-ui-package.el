@@ -1,6 +1,6 @@
 ;;; guix-ui-package.el --- Interface for displaying packages  -*- lexical-binding: t -*-
 
-;; Copyright © 2014, 2015 Alex Kost <alezost@gmail.com>
+;; Copyright © 2014, 2015, 2016 Alex Kost <alezost@gmail.com>
 
 ;; This file is part of GNU Guix.
 
@@ -38,6 +38,7 @@
 (require 'guix-hydra-build)
 (require 'guix-read)
 (require 'guix-license)
+(require 'guix-location)
 (require 'guix-profiles)
 
 (guix-ui-define-entry-type package)
@@ -109,6 +110,19 @@ is found and `guix-package-list-single' is nil."
     (let ((package-id (string-to-number package-id-str)))
       (list (if (= 0 package-id) package-id-str package-id)
             output))))
+
+(defun guix-package-build-log-file (id)
+  "Return build log file name of a package defined by ID."
+  (guix-eval-read
+   (guix-make-guile-expression 'package-build-log-file id)))
+
+(defun guix-package-find-build-log (id)
+  "Show build log of a package defined by ID."
+  (require 'guix-build-log)
+  (let ((file (guix-package-build-log-file id)))
+    (if file
+        (guix-build-log-find-file file)
+      (message "Couldn't find the package build log."))))
 
 
 ;;; Processing package actions
@@ -221,8 +235,9 @@ ENTRIES is a list of package entries to get info about packages."
             (description ignore (simple guix-package-info-description))
             ignore
             (outputs simple guix-package-info-insert-outputs)
+            guix-package-info-insert-misc
             (source simple guix-package-info-insert-source)
-            (location format (format guix-package-location))
+            (location simple guix-package-info-insert-location)
             (home-url format (format guix-url))
             (license format (format guix-package-license))
             (systems format guix-package-info-insert-systems)
@@ -308,9 +323,15 @@ ENTRIES is a list of package entries to get info about packages."
   "Face used if a package is obsolete."
   :group 'guix-package-info-faces)
 
+(defcustom guix-package-info-auto-find-package t
+  "If non-nil, open store directory after pressing \"Show\" package button.
+If nil, just display the store directory (or directories) without finding."
+  :type 'boolean
+  :group 'guix-package-info)
+
 (defcustom guix-package-info-auto-find-source nil
-  "If non-nil, find a source file after pressing a \"Show\" button.
-If nil, just display the source file path without finding."
+  "If non-nil, open source file after pressing \"Show\" source button.
+If nil, just display the source file name without finding."
   :type 'boolean
   :group 'guix-package-info)
 
@@ -322,6 +343,14 @@ variable is non-nil and the source file does not exist in the
 store, it will be automatically downloaded (with a possible
 prompt depending on `guix-operation-confirm' variable)."
   :type 'boolean
+  :group 'guix-package-info)
+
+(defcustom guix-package-info-button-functions
+  '(guix-package-info-insert-build-button
+    guix-package-info-insert-build-log-button)
+  "List of functions used to insert package buttons in Info buffer.
+Each function is called with 2 arguments: package ID and full name."
+  :type '(repeat function)
   :group 'guix-package-info)
 
 (defvar guix-package-info-download-buffer nil
@@ -345,9 +374,13 @@ formatted with this string, an action button is inserted.")
 (define-button-type 'guix-package-license
   :supertype 'guix
   'face 'guix-package-info-license
-  'help-echo "Browse license URL"
+  'help-echo "Display license info"
   'action (lambda (btn)
-            (guix-browse-license-url (button-label btn))))
+            (require 'guix-ui-license)
+            (guix-buffer-get-display-entries
+             'info 'license
+             (list 'name (button-label btn))
+             'add)))
 
 (define-button-type 'guix-package-name
   :supertype 'guix
@@ -381,6 +414,24 @@ formatted with this string, an action button is inserted.")
            (guix-entry-value entry 'version))
    'guix-package-heading
    'spec (guix-package-entry->name-specification entry)))
+
+(defun guix-package-info-insert-location (location &optional _)
+  "Insert package LOCATION at point."
+  (if (null location)
+      (guix-format-insert nil)
+    (let ((location-file (car (split-string location ":"))))
+      (guix-info-insert-value-indent location 'guix-package-location)
+      ;; Do not show "Packages" button if a package 'from file' is displayed.
+      (unless (eq (guix-ui-current-search-type) 'from-file)
+        (guix-info-insert-indent)
+        (guix-info-insert-action-button
+         "Packages"
+         (lambda (btn)
+           (guix-package-get-display (guix-ui-current-profile)
+                                     'location
+                                     (button-get btn 'location)))
+         (format "Display packages from location '%s'" location-file)
+         'location location-file)))))
 
 (defun guix-package-info-insert-systems (systems entry)
   "Insert supported package SYSTEMS at point."
@@ -497,6 +548,78 @@ ENTRY is an alist with package info."
      'id (or (guix-entry-value entry 'package-id)
              (guix-entry-id entry))
      'output output)))
+
+(defun guix-package-info-show-store-path (entry-id package-id)
+  "Show store directories of the package outputs in the current buffer.
+ENTRY-ID is an ID of the current entry (package or output).
+PACKAGE-ID is an ID of the package which store path to show."
+  (let* ((entries (guix-buffer-current-entries))
+         (entry   (guix-entry-by-id entry-id entries))
+         (dirs    (guix-package-store-path package-id)))
+    (or dirs
+        (error "Couldn't define store directory of the package"))
+    (let* ((new-entry (cons (cons 'store-path dirs)
+                            entry))
+           (new-entries (guix-replace-entry entry-id new-entry entries)))
+      (setf (guix-buffer-item-entries guix-buffer-item)
+            new-entries)
+      (guix-buffer-redisplay-goto-button)
+      (let ((dir (car dirs)))
+        (if (file-exists-p dir)
+            (if guix-package-info-auto-find-package
+                (find-file dir)
+              (message nil))
+          (message "'%s' does not exist.\nTry to build this package."
+                   dir))))))
+
+(defun guix-package-info-insert-misc (entry)
+  "Insert various buttons and other info for package ENTRY at point."
+  (if (guix-entry-value entry 'obsolete)
+      (guix-format-insert nil)
+    (let* ((entry-id   (guix-entry-id entry))
+           (package-id (or (guix-entry-value entry 'package-id)
+                           entry-id))
+           (full-name  (guix-package-entry->name-specification entry))
+           (store-path (guix-entry-value entry 'store-path)))
+      (guix-info-insert-title-simple "Package")
+      (if store-path
+          (guix-info-insert-value-indent store-path 'guix-file)
+        (guix-info-insert-action-button
+         "Show"
+         (lambda (btn)
+           (guix-package-info-show-store-path
+            (button-get btn 'entry-id)
+            (button-get btn 'package-id)))
+         "Show the store directory of the current package"
+         'entry-id entry-id
+         'package-id package-id))
+      (when guix-package-info-button-functions
+        (insert "\n")
+        (guix-mapinsert (lambda (fun)
+                          (funcall fun package-id full-name))
+                        guix-package-info-button-functions
+                        (guix-info-get-indent)
+                        :indent guix-info-indent
+                        :column (guix-info-fill-column))))))
+
+(defun guix-package-info-insert-build-button (id full-name)
+  "Insert button to build a package defined by ID."
+  (guix-info-insert-action-button
+   "Build"
+   (lambda (btn)
+     (guix-build-package (button-get btn 'id)
+                         (format "Build '%s' package?" full-name)))
+   (format "Build the current package")
+   'id id))
+
+(defun guix-package-info-insert-build-log-button (id _name)
+  "Insert button to show build log of a package defined by ID."
+  (guix-info-insert-action-button
+   "Build Log"
+   (lambda (btn)
+     (guix-package-find-build-log (button-get btn 'id)))
+   "View build log of the current package"
+   'id id))
 
 (defun guix-package-info-show-source (entry-id package-id)
   "Show file name of a package source in the current info buffer.
@@ -794,10 +917,11 @@ for all ARGS."
             (version format guix-output-info-insert-version)
             (output format guix-output-info-insert-output)
             (synopsis simple (indent guix-package-info-synopsis))
+            guix-package-info-insert-misc
             (source simple guix-package-info-insert-source)
             (path simple (indent guix-file))
             (dependencies simple (indent guix-file))
-            (location format (format guix-package-location))
+            (location simple guix-package-info-insert-location)
             (home-url format (format guix-url))
             (license format (format guix-package-license))
             (systems format guix-package-info-insert-systems)
@@ -968,6 +1092,29 @@ Interactively with prefix, prompt for PROFILE."
    (list (guix-read-license-name)
          (guix-ui-read-profile)))
   (guix-package-get-display profile 'license license))
+
+;;;###autoload
+(defun guix-packages-by-location (location &optional profile)
+  "Display Guix packages placed in LOCATION file.
+If PROFILE is nil, use `guix-current-profile'.
+Interactively with prefix, prompt for PROFILE."
+  (interactive
+   (list (guix-read-package-location)
+         (guix-ui-read-profile)))
+  (guix-package-get-display profile 'location location))
+
+;;;###autoload
+(defun guix-package-from-file (file &optional profile)
+  "Display Guix package that the code from FILE evaluates to.
+If PROFILE is nil, use `guix-current-profile'.
+Interactively with prefix, prompt for PROFILE."
+  (interactive
+   (list (read-file-name "File with package: ")
+         (guix-ui-read-profile)))
+  (guix-buffer-get-display-entries
+   'info 'package
+   (list (or profile guix-current-profile) 'from-file file)
+   'add))
 
 ;;;###autoload
 (defun guix-search-by-regexp (regexp &optional params profile)

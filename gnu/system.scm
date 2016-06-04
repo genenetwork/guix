@@ -43,7 +43,6 @@
   #:use-module (gnu packages texinfo)
   #:use-module (gnu packages compression)
   #:use-module (gnu packages firmware)
-  #:autoload   (gnu packages cryptsetup) (cryptsetup)
   #:use-module (gnu services)
   #:use-module (gnu services shepherd)
   #:use-module (gnu services base)
@@ -54,6 +53,7 @@
   #:use-module (gnu system pam)
   #:use-module (gnu system linux-initrd)
   #:use-module (gnu system file-systems)
+  #:use-module (gnu system mapped-devices)
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
@@ -82,6 +82,8 @@
             operating-system-file-systems
             operating-system-store-file-system
             operating-system-activation-script
+            operating-system-user-accounts
+            operating-system-shepherd-service-names
 
             operating-system-derivation
             operating-system-profile
@@ -101,9 +103,7 @@
             local-host-aliases
             %setuid-programs
             %base-packages
-            %base-firmware
-
-            luks-device-mapping))
+            %base-firmware))
 
 ;;; Commentary:
 ;;;
@@ -176,24 +176,6 @@
 ;;; Services.
 ;;;
 
-(define (open-luks-device source target)
-  "Return a gexp that maps SOURCE to TARGET as a LUKS device, using
-'cryptsetup'."
-  #~(zero? (system* (string-append #$cryptsetup "/sbin/cryptsetup")
-                    "open" "--type" "luks"
-                    #$source #$target)))
-
-(define (close-luks-device source target)
-  "Return a gexp that closes TARGET, a LUKS device."
-  #~(zero? (system* (string-append #$cryptsetup "/sbin/cryptsetup")
-                    "close" #$target)))
-
-(define luks-device-mapping
-  ;; The type of LUKS mapped devices.
-  (mapped-device-kind
-   (open open-luks-device)
-   (close close-luks-device)))
-
 (define (other-file-system-services os)
   "Return file system services for the file systems of OS that are not marked
 as 'needed-for-boot'."
@@ -253,15 +235,7 @@ from the initrd."
 
 (define (device-mapping-services os)
   "Return the list of device-mapping services for OS as a list."
-  (map (lambda (md)
-         (let* ((source (mapped-device-source md))
-                (target (mapped-device-target md))
-                (type   (mapped-device-type md))
-                (open   (mapped-device-kind-open type))
-                (close  (mapped-device-kind-close type)))
-           (device-mapping-service target
-                                   (open source target)
-                                   (close source target))))
+  (map device-mapping-service
        (operating-system-user-mapped-devices os)))
 
 (define (swap-services os)
@@ -605,6 +579,22 @@ hardware-related operations as necessary when booting a Linux container."
          (boot     (fold-services services #:target-type boot-service-type)))
     ;; BOOT is the script as a monadic value.
     (service-parameters boot)))
+
+(define (operating-system-user-accounts os)
+  "Return the list of user accounts of OS."
+  (let* ((services (operating-system-services os))
+         (account  (fold-services services
+                                  #:target-type account-service-type)))
+    (filter user-account?
+            (service-parameters account))))
+
+(define (operating-system-shepherd-service-names os)
+  "Return the list of Shepherd service names for OS."
+  (append-map shepherd-service-provision
+              (service-parameters
+               (fold-services (operating-system-services os)
+                              #:target-type
+                              shepherd-root-service-type))))
 
 (define* (operating-system-derivation os #:key container?)
   "Return a derivation that builds OS."

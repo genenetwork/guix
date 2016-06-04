@@ -1,7 +1,8 @@
 ;;; GNU Guix --- Functional package management for GNU
-;;; Copyright © 2013 Ludovic Courtès <ludo@gnu.org>
+;;; Copyright © 2013, 2016 Ludovic Courtès <ludo@gnu.org>
 ;;; Copyright © 2015 Mark H Weaver <mhw@netris.org>
 ;;; Copyright © 2015 Eric Bavier <bavier@member.fsf.org>
+;;; Copyright © 2016 Leo Famulari <leo@famulari.name>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -36,19 +37,19 @@
   (package
     (name "gd")
 
-    ;; Note: With libgd.org now pointing to bitbucket.org, genuine old
+    ;; Note: With libgd.org now pointing to github.com, genuine old
     ;; tarballs are no longer available.  Notably, versions 2.0.x are
     ;; missing.
-    (version "2.1.1")
+    (version "2.2.1")
 
     (source (origin
              (method url-fetch)
              (uri (string-append
-                   "https://bitbucket.org/libgd/gd-libgd/downloads/"
-                   "libgd-" version ".tar.xz"))
+                   "https://github.com/libgd/libgd/releases/download/gd-"
+                   version "/libgd-" version ".tar.xz"))
              (sha256
               (base32
-               "11djy9flzxczphigqgp7fbbblbq35gqwwhn9xfcckawlapa1xnls"))))
+               "0xmrqka1ggqgml84xbmkw1y0r0lg7qn657v5b1my8pry92p651vh"))))
     (build-system gnu-build-system)
     (native-inputs
      `(("pkg-config" ,pkg-config)))
@@ -69,7 +70,8 @@ formats.  GD is commonly used to generate charts, graphics, thumbnails, and
 most anything else, on the fly.  While not restricted to use on the web, the
 most common applications of GD involve website development.")
     (license (non-copyleft "file://COPYING"
-                        "See COPYING file in the distribution."))))
+                           "See COPYING file in the distribution."))
+    (properties '((cpe-name . "libgd")))))
 
 (define-public perl-gd
   (package
@@ -83,9 +85,8 @@ most common applications of GD involve website development.")
        (sha256
         (base32
          "1ya8f9hpiax8j29vwaiwlvvgah0vkyvpzva28r8231nyk0f3s40z"))
-       (patches
-        (list
-         (search-patch "perl-gd-options-passthrough-and-fontconfig.patch")))))
+       (patches (search-patches
+                 "perl-gd-options-passthrough-and-fontconfig.patch"))))
     (build-system perl-build-system)
     (native-inputs
      `(("perl-module-build" ,perl-module-build))) ;needs Module::Build >= 0.42

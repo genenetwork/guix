@@ -1,15 +1,18 @@
 ;;; GNU Guix --- Functional package management for GNU
 ;;; Copyright © 2013, 2014, 2015, 2016 Andreas Enge <andreas@enge.fr>
 ;;; Copyright © 2013 Nikita Karetnikov <nikita@karetnikov.org>
-;;; Copyright © 2014 John Darrington <jmd@gnu.org>
+;;; Copyright © 2014, 2016 John Darrington <jmd@gnu.org>
 ;;; Copyright © 2014, 2015, 2016 Eric Bavier <bavier@member.fsf.org>
 ;;; Copyright © 2014 Federico Beffa <beffa@fbengineering.ch>
 ;;; Copyright © 2014 Mathieu Lirzin <mathieu.lirzin@openmailbox.org>
-;;; Copyright © 2015 Ricardo Wurmus <rekado@elephly.net>
+;;; Copyright © 2015, 2016 Ricardo Wurmus <rekado@elephly.net>
 ;;; Copyright © 2015 Sou Bunnbu <iyzsong@gmail.com>
 ;;; Copyright © 2015 Mark H Weaver <mhw@netris.org>
 ;;; Copyright © 2015, 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;; Copyright © 2015 Fabian Harfert <fhmgufs@web.de>
+;;; Copyright © 2016 Roel Janssen <roel@gnu.org>
+;;; Copyright © 2016 Kei Kebreau <kei@openmailbox.org>
+;;; Copyright © 2016 Ludovic Courtès <ludo@gnu.org>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -37,6 +40,7 @@
   #:use-module (guix build utils)
   #:use-module (guix build-system cmake)
   #:use-module (guix build-system gnu)
+  #:use-module (guix build-system r)
   #:use-module (gnu packages algebra)
   #:use-module (gnu packages bison)
   #:use-module (gnu packages boost)
@@ -44,6 +48,8 @@
   #:use-module (gnu packages cmake)
   #:use-module (gnu packages compression)
   #:use-module (gnu packages curl)
+  #:use-module (gnu packages cyrus-sasl)
+  #:use-module (gnu packages documentation)
   #:use-module (gnu packages elf)
   #:use-module (gnu packages flex)
   #:use-module (gnu packages fltk)
@@ -52,16 +58,19 @@
   #:use-module (gnu packages gcc)
   #:use-module (gnu packages gd)
   #:use-module (gnu packages ghostscript)
+  #:use-module (gnu packages graphviz)
   #:use-module (gnu packages gtk)
   #:use-module (gnu packages image)
   #:use-module (gnu packages less)
   #:use-module (gnu packages lisp)
   #:use-module (gnu packages gnome)
+  #:use-module (gnu packages guile)
   #:use-module (gnu packages xorg)
   #:use-module (gnu packages gl)
   #:use-module (gnu packages m4)
   #:use-module (gnu packages mpi)
   #:use-module (gnu packages multiprecision)
+  #:use-module (gnu packages netpbm)
   #:use-module (gnu packages pcre)
   #:use-module (gnu packages popt)
   #:use-module (gnu packages perl)
@@ -72,11 +81,32 @@
   #:use-module (gnu packages tcsh)
   #:use-module (gnu packages tcl)
   #:use-module (gnu packages texinfo)
-  #:use-module (gnu packages texlive)
+  #:use-module (gnu packages tex)
+  #:use-module (gnu packages tls)
   #:use-module (gnu packages wxwidgets)
   #:use-module (gnu packages xml)
   #:use-module (gnu packages zip)
   #:use-module (srfi srfi-1))
+
+(define-public c-graph
+  (package
+   (name "c-graph")
+   (version "2.0")
+   (source (origin
+            (method url-fetch)
+            (uri (string-append "mirror://gnu/c-graph/c-graph-" version
+                                ".tar.gz"))
+            (sha256 (base32
+                     "1hlvpzrh7hzzf533diyfiabzskddi8zx92av9hwkjw3l46z7qv01"))))
+   (build-system gnu-build-system)
+   (inputs
+     `(("fortran" ,gfortran)))
+   (synopsis "Visualize and analyze convolution operations")
+   (description
+    "GNU C-Graph demonstrates the theory of convolution underlying
+engineering systems and signal analysis.")
+   (license license:gpl3+)
+   (home-page "http://www.gnu.org/software/c-graph/")))
 
 (define-public units
   (package
@@ -381,7 +411,7 @@ plotting engine by third-party applications like Octave.")
 (define-public hdf5
   (package
     (name "hdf5")
-    (version "1.8.12")
+    (version "1.8.17")
     (source
      (origin
       (method url-fetch)
@@ -389,18 +419,27 @@ plotting engine by third-party applications like Octave.")
                           version "/src/hdf5-"
                           version ".tar.bz2"))
       (sha256
-       (base32 "0f9n0v3p3lwc7564791a39c6cn1d3dbrn7d1j3ikqsi27a8hy23d"))))
+       (base32 "0sj8x0gfs5fb28gipnynb9wpkz113h8wq9sva9mxx66kv27xsdgw"))
+      (patches (list (search-patch "hdf5-config-date.patch")))))
     (build-system gnu-build-system)
     (inputs
      `(("zlib" ,zlib)))
     (arguments
      `(#:phases
-        (alist-cons-before
-         'configure 'patch-configure
-         (lambda _
-           (substitute* "configure"
-             (("/bin/mv") "mv")))
-         %standard-phases)))
+       (modify-phases %standard-phases
+         (add-before 'configure 'patch-configure
+           (lambda _
+             (substitute* "configure"
+               (("/bin/mv") "mv"))
+             #t))
+         (add-after 'install 'patch-references
+           (lambda* (#:key inputs outputs #:allow-other-keys)
+             (let ((bin (string-append (assoc-ref outputs "out") "/bin"))
+                   (zlib (assoc-ref inputs "zlib")))
+               (substitute* (find-files bin "h5p?cc")
+                 (("-lz" lib)
+                  (string-append "-L" zlib "/lib " lib)))
+               #t))))))
     (home-page "http://www.hdfgroup.org")
     (synopsis "Management suite for extremely large and complex data")
     (description "HDF5 is a suite that makes possible the management of
@@ -408,13 +447,243 @@ extremely large and complex data collections.")
     (license (license:x11-style
               "http://www.hdfgroup.org/ftp/HDF5/current/src/unpacked/COPYING"))))
 
+(define-public hdf5-parallel-openmpi
+  (package (inherit hdf5)
+    (name "hdf5-parallel-openmpi")
+    (inputs
+     `(("mpi" ,openmpi)
+       ,@(package-inputs hdf5)))
+    (arguments
+     (substitute-keyword-arguments `(#:configure-flags '("--enable-parallel")
+                                     ,@(package-arguments hdf5))
+       ((#:phases phases)
+        `(modify-phases ,phases
+           (add-before 'check 'patch-tests
+             (lambda _
+               ;; OpenMPI's mpirun will exit with non-zero status if it
+               ;; detects an "abnormal termination", i.e. any process not
+               ;; calling MPI_Finalize().  Since the test is explicitely
+               ;; avoiding MPI_Finalize so as not to have at_exit and thus
+               ;; H5C_flush_cache from being called, mpirun will always
+               ;; complain, so turn this test off.
+               (substitute* "testpar/Makefile"
+                 (("(^TEST_PROG_PARA.*)t_pflush1(.*)" front back)
+                  (string-append front back "\n")))
+               (substitute* "tools/h5diff/testph5diff.sh"
+                 (("/bin/sh") (which "sh")))
+               #t))))))
+    (synopsis "Management suite for data with parallel IO support")))
+
+(define-public h5check
+  (package
+    (name "h5check")
+    (version "2.0.1")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "http://www.hdfgroup.org/ftp/HDF5/tools/"
+                           "h5check/src/h5check-" version ".tar.gz"))
+       (sha256
+        (base32
+         "1gm76jbwhz9adbxgn14zx8cj33dmjdr2g5xcy0m9c2gakp8w59kj"))))
+    (build-system gnu-build-system)
+    (inputs `(("hdf5" ,hdf5)))                 ;h5cc for tests
+    (home-page "https://www.hdfgroup.org/products/hdf5_tools/h5check.html")
+    (synopsis "HDF5 format checker")
+    (description "@code{h5check} is a validation tool for verifying that an
+HDF5 file is encoded according to the HDF File Format Specification.")
+    (license (license:x11-style "file://COPYING"))))
+
+(define-public netcdf
+  (package
+    (name "netcdf")
+    (version "4.4.0")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "ftp://ftp.unidata.ucar.edu/pub/netcdf/"
+                           "netcdf-" version ".tar.gz"))
+       (sha256
+        (base32
+         "0y6gdcplarwqqnrav2xg1xd6ih732rzzbmdw78v3rl5b8mwcnh0d"))
+       (patches (list (search-patch "netcdf-config-date.patch")))))
+    (build-system gnu-build-system)
+    (native-inputs
+     `(("m4" ,m4)
+       ("doxygen" ,doxygen)
+       ("graphviz" ,graphviz)))
+    (inputs
+     `(("hdf5" ,hdf5)
+       ("zlib" ,zlib)))
+    (arguments
+     `(#:configure-flags '("--enable-doxygen" "--enable-dot")
+       #:parallel-tests? #f))           ;various race conditions
+    (home-page "http://www.unidata.ucar.edu/software/netcdf/")
+    (synopsis "Library for scientific data")
+    (description "NetCDF is an interface for scientific data access and a
+software library that provides an implementation of the interface.  The netCDF
+library defines a machine-independent format for representing scientific data.
+Together, the interface, library, and format support the creation, access, and
+sharing of scientific data.")
+    (license (license:x11-style "file://COPYRIGHT"))))
+
+(define-public netcdf-parallel-openmpi
+  (package (inherit netcdf)
+    (name "netcdf-parallel-openmpi")
+    (inputs
+     `(("mpi" ,openmpi)
+       ,@(alist-replace "hdf5" (list hdf5-parallel-openmpi)
+                        (package-inputs netcdf))))
+    ;; TODO: Replace pkg-config references in nc-config with absolute references
+    (arguments
+     (substitute-keyword-arguments (package-arguments netcdf)
+       ((#:configure-flags flags)
+        `(cons* "CC=mpicc" "CXX=mpicxx"
+                "--enable-parallel-tests"
+                ;; Shared libraries not supported with parallel IO.
+                "--disable-shared" "--with-pic"
+                ,flags))))))
+
+(define-public nlopt
+  (package
+    (name "nlopt")
+    (version "2.4.2")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "http://ab-initio.mit.edu/nlopt/nlopt-"
+                                  version ".tar.gz"))
+              (sha256
+               (base32 "12cfkkhcdf4zmb6h7y6qvvdvqjs2xf9sjpa3rl3bq76px4yn76c0"))))
+    (build-system gnu-build-system)
+    (arguments
+     `(;; Shared libraries are not built by default.  They are required to
+       ;; build the Guile, Octave, and Python bindings.
+       #:configure-flags '("--enable-shared")
+
+       #:phases
+       (modify-phases %standard-phases
+         (add-before 'configure 'set-libnlopt-file-name
+           (lambda* (#:key outputs #:allow-other-keys)
+             ;; Make sure the Scheme module refers to the library by its
+             ;; absolute file name (we cannot do that from a snippet
+             ;; because the expansion of @libdir@ contains
+             ;; ${exec_prefix}.)
+             (let ((out (assoc-ref outputs "out")))
+               (substitute* "swig/nlopt.scm.in"
+                 (("libnlopt")
+                  (string-append out "/lib/libnlopt")))
+               #t))))))
+    (inputs `(("guile" ,guile-2.0)))
+    (native-inputs `(("pkg-config" ,pkg-config)))
+    (home-page "http://ab-initio.mit.edu/wiki/")
+    (synopsis "Library for nonlinear optimization")
+    (description "NLopt is a library for nonlinear optimization, providing a
+common interface for a number of different free optimization routines available
+online as well as original implementations of various other algorithms.")
+    (license license:lgpl2.1+)))
+
+(define-public ipopt
+  (package
+    (name "ipopt")
+    (version "3.12.5")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "http://www.coin-or.org/download/source/Ipopt/Ipopt-"
+                    version".tgz"))
+              (sha256
+               (base32
+                "09bk2hqy2vgi4yi76xng9zxakddwqy3wij9nx7wf2vfbxxpazrsk"))
+              (modules '((guix build utils)))
+              (snippet
+               ;; Make sure we don't use the bundled software.
+               '(delete-file-recursively "ThirdParty"))))
+    (build-system gnu-build-system)
+    (arguments
+     '(#:phases (modify-phases %standard-phases
+                  (add-after 'install 'add--L-flags-in-ipopt.pc
+                    (lambda* (#:key inputs outputs #:allow-other-keys)
+                      ;; The '.pc' file lists '-llapack -lblas' in "Libs";
+                      ;; move it to "Libs.private" where it belongs, and add a
+                      ;; '-L' flag for LAPACK.
+                      (let ((out    (assoc-ref outputs "out"))
+                            (lapack (assoc-ref inputs "lapack")))
+                        (substitute* (string-append out "/lib/pkgconfig/"
+                                                    "ipopt.pc")
+                          (("Libs: (.*)-llapack -lblas(.*)$" _ before after)
+                           (string-append "Libs: " before " " after "\n"
+                                          "Libs.private: " before
+                                          "-L" lapack "/lib -llapack -lblas "
+                                          after "\n")))
+                        #t))))))
+    (native-inputs
+     `(("gfortran" ,gfortran)))
+    (inputs
+     ;; TODO: Maybe add dependency on COIN-MUMPS, ASL, and HSL.
+     `(("lapack" ,lapack)))                    ;for both libblas and liblapack
+    (home-page "http://www.coin-or.org")
+    (synopsis "Large-scale nonlinear optimizer")
+    (description
+     "The Interior Point Optimizer (IPOPT) is a software package for
+large-scale nonlinear optimization.  It provides C++, C, and Fortran
+interfaces.")
+    (license license:epl1.0)))
+
+(define-public ceres
+  (package
+    (name "ceres-solver")
+    (version "1.11.0")
+    (home-page "http://ceres-solver.org/")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append home-page "ceres-solver-"
+                                  version ".tar.gz"))
+              (sha256
+               (base32
+                "0i7qkbf8g6pd8arxzldppga26ckv93y8zldsfz6wbd4n6b1nqrjd"))))
+    (build-system cmake-build-system)
+    (arguments
+     ;; TODO: Build HTML user documentation and install separately.
+     ;; XXX: Use the embedded "miniglog" as a replacement for
+     ;; <https://github.com/google/glog>.  TODO: Use Glog when it's available.
+     '(#:configure-flags '("-DMINIGLOG=ON"
+                           "-DBUILD_EXAMPLES=OFF"
+                           "-DBUILD_SHARED_LIBS=ON")
+
+       #:phases (modify-phases %standard-phases
+                  (add-before 'configure 'set-library-directory
+                    (lambda _
+                      ;; Install libraries to lib/, not lib64/.
+                      (substitute* "internal/ceres/CMakeLists.txt"
+                        (("set\\(LIB_SUFFIX \"64\"\\)")
+                         "set(LIB_SUFFIX \"\")"))
+                      #t)))))
+    (native-inputs
+     `(("pkg-config" ,pkg-config)))
+    (inputs
+     `(("eigen" ,eigen)
+       ("blas" ,openblas)
+       ("lapack" ,lapack)
+       ("suitesparse" ,suitesparse)
+       ("gflags" ,gflags)))
+    (synopsis "C++ library for solving large optimization problems")
+    (description
+     "Ceres Solver is a C++ library for modeling and solving large,
+complicated optimization problems.  It is a feature rich, mature and
+performant library which has been used in production since 2010.  Ceres Solver
+can solve two kinds of problems:
+@enumerate
+@item non-linear least squares problems with bounds constraints;
+@item general unconstrained optimization problems.
+@end enumerate\n")
+    (license license:bsd-3)))
 
 ;; For a fully featured Octave, users  are strongly recommended also to install
 ;; the following packages: texinfo, less, ghostscript, gnuplot.
 (define-public octave
   (package
     (name "octave")
-    (version "4.0.0")
+    (version "4.0.2")
     (source
      (origin
       (method url-fetch)
@@ -422,7 +691,7 @@ extremely large and complex data collections.")
                           version ".tar.gz"))
       (sha256
        (base32
-        "101jr9yck798586jz4vkjcgk36zksmxf1pxrzvipgn2xgyay0zjc"))))
+        "1hdxap3j88rpqjimnfhinym6z73wdi5dfa6fv85c13r1dk9qzk9r"))))
     (build-system gnu-build-system)
     (inputs
      `(("lapack" ,lapack)
@@ -433,6 +702,7 @@ extremely large and complex data collections.")
        ("arpack" ,arpack-ng)
        ("curl" ,curl)
        ("pcre" ,pcre)
+       ("cyrus-sasl" ,cyrus-sasl)
        ("fltk" ,fltk)
        ("fontconfig" ,fontconfig)
        ("freetype" ,freetype)
@@ -440,6 +710,7 @@ extremely large and complex data collections.")
        ("libxft" ,libxft)
        ("mesa" ,mesa)
        ("glu" ,glu)
+       ("openssl" ,openssl)
        ("zlib" ,zlib)))
     (native-inputs
      `(("gfortran" ,gfortran)
@@ -457,9 +728,10 @@ extremely large and complex data collections.")
        ("ghostscript" ,ghostscript)
        ("gnuplot" ,gnuplot)))
     (arguments
-     `(#:configure-flags (list (string-append "--with-shell="
-			    (assoc-ref %build-inputs "bash")
-			    "/bin/sh"))))
+     `(#:configure-flags
+       (list (string-append "--with-shell="
+                            (assoc-ref %build-inputs "bash")
+                            "/bin/sh"))))
     (home-page "http://www.gnu.org/software/octave/")
     (synopsis "High-level language for numerical computation")
     (description "GNU Octave is a high-level interpreted language that is
@@ -495,6 +767,9 @@ script files.")
        ("glu" ,glu)
        ("libx11" ,libx11)
        ("libxext" ,libxext)))
+    (inputs
+     `(("fontconfig" ,fontconfig)
+       ("libxft" ,libxft)))
     (arguments
      `(#:configure-flags `("-DENABLE_METIS:BOOL=OFF"
                            "-DENABLE_BUILD_SHARED:BOOL=ON"
@@ -755,7 +1030,7 @@ arising after the discretization of partial differential equations.")
        (sha256
         (base32
          "1820jfp3mbl7n85765v5mp6p0gzqpgr4d2lrnhwj4gl7cwp5ndah"))
-       (patches (list (search-patch "mumps-build-parallelism.patch")))))
+       (patches (search-patches "mumps-build-parallelism.patch"))))
     (build-system gnu-build-system)
     (inputs
      `(("fortran" ,gfortran)
@@ -911,6 +1186,24 @@ sparse system of linear equations A x = b using Guassian elimination.")
     (inputs
      (alist-delete "pt-scotch" (package-inputs mumps-openmpi)))))
 
+(define-public r-pracma
+  (package
+    (name "r-pracma")
+    (version "1.8.8")
+    (source (origin
+      (method url-fetch)
+      (uri (cran-uri "pracma" version))
+      (sha256
+        (base32 "0ans9l5rrb7a38gyi4qx4258sd5r5668vyrk02yzjpg9k3h8l165"))))
+    (build-system r-build-system)
+    (home-page "http://cran.r-project.org/web/packages/pracma")
+    (synopsis "Practical numerical math functions")
+    (description "This package provides functions for numerical analysis and
+linear algebra, numerical optimization, differential equations, plus some
+special functions.  It uses Matlab function names where appropriate to simplify
+porting.")
+    (license license:gpl3+)))
+
 (define-public superlu
   (package
     (name "superlu")
@@ -1004,7 +1297,7 @@ also provides threshold-based ILU factorization preconditioners.")
                            "superlu_dist_" version ".tar.gz"))
        (sha256
         (base32 "1hnak09yxxp026blq8zhrl7685yip16svwngh1wysqxf8z48vzfj"))
-       (patches (list (search-patch "superlu-dist-scotchmetis.patch")))))
+       (patches (search-patches "superlu-dist-scotchmetis.patch"))))
     (build-system gnu-build-system)
     (native-inputs
      `(("tcsh" ,tcsh)))
@@ -1105,8 +1398,8 @@ implemented in ANSI C, and MPI for communications.")
                           "scotch_" version ".tar.gz"))
       (sha256
        (base32 "1ir088mvrqggyqdkx9qfynmiaffqbyih5qfl5mga2nrlm1qlsgzm"))
-      (patches (list (search-patch "scotch-test-threading.patch")
-                     (search-patch "pt-scotch-build-parallelism.patch")))))
+      (patches (search-patches "scotch-test-threading.patch"
+                               "pt-scotch-build-parallelism.patch"))))
     (build-system gnu-build-system)
     (inputs
      `(("zlib" ,zlib)
@@ -1331,7 +1624,7 @@ to BMP, JPEG or PNG image formats.")
        (sha256
         (base32
          "0x1rk659sn3cq0n5c90848ilzr1gb1wf0072fl6jhkdq00qgh2s0"))
-       (patches (list (search-patch "maxima-defsystem-mkdir.patch")))))
+       (patches (search-patches "maxima-defsystem-mkdir.patch"))))
     (build-system gnu-build-system)
     (inputs
      `(("gcl" ,gcl)
@@ -1401,7 +1694,7 @@ point numbers.")
 (define-public wxmaxima
   (package
     (name "wxmaxima")
-    (version "15.04.0")
+    (version "16.04.2")
     (source
      (origin
        (method url-fetch)
@@ -1409,11 +1702,15 @@ point numbers.")
                            version "/" name "-" version ".tar.gz"))
        (sha256
         (base32
-         "1fm47ah4aw5qdjqhkz67w5fwhy8yfffa5z896crp0d3hk2bh4180"))))
+         "1fpqzk1921isiqrpgpf433ldq41924qs9sy99fl1zn5661b2l73n"))))
     (build-system gnu-build-system)
     (inputs
      `(("wxwidgets" ,wxwidgets)
-       ("maxima" ,maxima)))
+       ("maxima" ,maxima)
+       ;; Runtime support.
+       ("adwaita-icon-theme" ,adwaita-icon-theme)
+       ("gtk+" ,gtk+)
+       ("shared-mime-info" ,shared-mime-info)))
     (arguments
      `(#:phases (modify-phases %standard-phases
                   (add-after
@@ -1423,7 +1720,18 @@ point numbers.")
                                                   "/bin/wxmaxima")
                        `("PATH" ":" prefix
                          (,(string-append (assoc-ref inputs "maxima")
-                                          "/bin"))))
+                                          "/bin")))
+                       ;; For GtkFileChooserDialog.
+                       `("GSETTINGS_SCHEMA_DIR" =
+                         (,(string-append (assoc-ref inputs "gtk+")
+                                          "/share/glib-2.0/schemas")))
+                       `("XDG_DATA_DIRS" ":" prefix
+                         (;; Needed by gdk-pixbuf to know supported icon formats.
+                          ,(string-append
+                            (assoc-ref inputs "shared-mime-info") "/share")
+                          ;; The default icon theme of GTK+.
+                          ,(string-append
+                            (assoc-ref inputs "adwaita-icon-theme") "/share"))))
                      #t)))))
     (home-page "https://andrejv.github.io/wxmaxima/")
     (synopsis "Graphical user interface for the Maxima computer algebra system")
@@ -1444,14 +1752,14 @@ full text searching.")
 (define-public armadillo
   (package
     (name "armadillo")
-    (version "6.400.3")
+    (version "6.700.7")
     (source (origin
               (method url-fetch)
               (uri (string-append "mirror://sourceforge/arma/armadillo-"
                                   version ".tar.gz"))
               (sha256
                (base32
-                "0bsgrmldlx77w5x26n3axj1hg6iw6csyw0dwl1flrbdwl51f9701"))))
+                "0xbidcxrvbq33xf7iysg2nic2ai9a043psl33kiv6ifkk7p8hcra"))))
     (build-system cmake-build-system)
     (arguments `(#:tests? #f)) ;no test target
     (inputs
@@ -1472,14 +1780,14 @@ associated functions (eg. contiguous and non-contiguous submatrix views).")
 
 (define-public armadillo-for-rcpparmadillo
   (package (inherit armadillo)
-    (version "6.200.2")
+    (version "6.700.6")
     (source (origin
               (method url-fetch)
               (uri (string-append "mirror://sourceforge/arma/armadillo-"
                                   version ".tar.gz"))
               (sha256
                (base32
-                "1f69rlqhnf2wv8khyn2a8vi6gx1i72qgfy8b9b760ssk85dcl763"))))))
+                "1cdpjxb0fz5f28y5qrqgpw53s7qi8s2v3al9lfdldqxngb21vpx8"))))))
 
 (define-public muparser
   (package
@@ -1920,7 +2228,7 @@ revised simplex and the branch-and-bound methods.")
        (sha256
         (base32
          "185jych0gdnpkjwxni7pd0dda149492zwq2457xdjg76bzj78mnp"))
-       (patches (list (search-patch "dealii-p4est-interface.patch")))
+       (patches (search-patches "dealii-p4est-interface.patch"))
        (modules '((guix build utils)))
        (snippet
         ;; Remove bundled sources: UMFPACK, TBB, muParser, and boost
@@ -2012,7 +2320,23 @@ in finite element programs.")
        ;; ("python2-numpy" ,python2-numpy) ; only required for the tests
        ("zlib" ,zlib)))
     (arguments
-     `(#:tests? #f)) ; The test data are downloaded from the Internet.
+     `(;; The 'share/flann/octave' contains a .mex file, which is an ELF file
+       ;; taken 46 MiB unstripped, and 6 MiB stripped.
+       #:strip-directories '("lib" "lib64" "libexec"
+                             "bin" "sbin" "share/flann/octave")
+
+       ;; Save 12 MiB by not installing .a files.  Passing
+       ;; '-DBUILD_STATIC_LIBS=OFF' has no effect.
+       #:phases (modify-phases %standard-phases
+                  (add-after 'install 'remove-static-libraries
+                    (lambda* (#:key outputs #:allow-other-keys)
+                      (let* ((out (assoc-ref outputs "out"))
+                             (lib (string-append out "/lib")))
+                        (for-each delete-file
+                                  (find-files lib "\\.a$"))
+                        #t))))
+
+       #:tests? #f)) ; The test data are downloaded from the Internet.
     (home-page "http://www.cs.ubc.ca/research/flann/")
     (synopsis "Library for approximate nearest neighbors computation")
     (description "FLANN is a library for performing fast approximate
@@ -2079,3 +2403,138 @@ are built.  It can generate many different fractal types such as the Mandelbrot
 set.")
     (home-page "http://www.gnu.org/software/xaos/")
     (license license:gpl2+)))
+
+(define-public hypre
+  (package
+    (name "hypre")
+    (version "2.11.0")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "https://github.com/LLNL/hypre/archive/"
+                                  "v" version ".tar.gz"))
+              (file-name (string-append name "-" version ".tar.gz"))
+              (sha256
+               (base32
+                "0q69ia0jivzcr8p049dn3mg8yjpn6nwq4sw9iqac8vr63vi54l6m"))
+              (modules '((guix build utils)))
+              (snippet
+               '(begin
+                  ;; Remove use of __DATE__ and __TIME__ for reproducibility;
+                  ;; substitute the tarball creation time.
+                  (substitute* "src/utilities/HYPRE_utilities.h"
+                    (("Date Compiled: .*$")
+                     "Date Compiled: Mar 28 2016 20:19:59 +0000\"\n"))
+                  #t))))
+    (build-system gnu-build-system)
+    (outputs '("out"                    ;6.1 MiB of headers and libraries
+               "doc"))                  ;4.8 MiB of documentation
+    (native-inputs
+     `(("doc++" ,doc++)
+       ("netpbm" ,netpbm)
+       ("texlive" ,texlive)             ;full package required for fonts
+       ("ghostscript" ,ghostscript)))
+    (inputs
+     `(("blas" ,openblas)
+       ("lapack" ,lapack)))
+    (arguments
+     `(#:modules ((srfi srfi-1)
+                  ,@%gnu-build-system-modules)
+       #:configure-flags '("--enable-shared"
+                           "--disable-fortran"
+                           "--without-MPI"
+                           "--with-openmp"
+                           "--with-fei"
+                           "--with-lapack"
+                           "--with-blas")
+       #:phases
+       (modify-phases %standard-phases
+         (add-before 'configure 'chdir-src
+           (lambda _ (chdir "src")))
+         (replace 'configure
+           (lambda* (#:key build target configure-flags
+                           #:allow-other-keys #:rest args)
+             (let* ((configure (assoc-ref %standard-phases 'configure)))
+               (apply configure
+                      (append args
+                              (list #:configure-flags
+                                    (cons (string-append
+                                           "--host=" (or target build))
+                                          configure-flags)))))))
+         (add-after 'build 'build-docs
+           (lambda _
+             (zero? (system* "make" "-Cdocs" "pdf" "html"))))
+         (replace 'check
+           (lambda _
+             (setenv "LD_LIBRARY_PATH" (string-append (getcwd) "/hypre/lib"))
+             (setenv "PATH" (string-append "." ":" (getenv "PATH")))
+             (and (system* "make" "check" "CHECKRUN=")
+                  (fold (lambda (filename result)
+                          (and result
+                               (let ((size (stat:size (stat filename))))
+                                 (when (not (zero? size))
+                                   (format #t "~a size ~d; error indication~%"
+                                           filename size))
+                                 (zero? size))))
+                        #t
+                        (find-files "test" ".*\\.err$")))))
+         (add-after 'install 'install-docs
+           (lambda* (#:key outputs #:allow-other-keys)
+             ;; Custom install because docs/Makefile doesn't honor ${docdir}.
+             (let* ((doc (assoc-ref outputs "doc"))
+                    (docdir (string-append doc "/share/doc/hypre-" ,version)))
+               (mkdir-p docdir)
+               (with-directory-excursion "docs"
+                 (for-each (lambda (base)
+                             (install-file (string-append base ".pdf") docdir)
+                             (copy-recursively base docdir)) ;html docs
+                           '("HYPRE_usr_manual"
+                             "HYPRE_ref_manual")))
+               #t))))))
+    (home-page "http://www.llnl.gov/casc/hypre/")
+    (synopsis "Library of solvers and preconditioners for linear equations")
+    (description
+     "HYPRE is a software library of high performance preconditioners and
+solvers for the solution of large, sparse linear systems of equations.  It
+features multigrid solvers for both structured and unstructured grid
+problems.")
+    (license license:lgpl2.1)))
+
+(define-public hypre-openmpi
+  (package (inherit hypre)
+    (name "hypre-openmpi")
+    (inputs
+     `(("mpi" ,openmpi)
+       ,@(package-inputs hypre)))
+    (arguments
+     (substitute-keyword-arguments (package-arguments hypre)
+       ((#:configure-flags flags)
+        ``("--with-MPI"
+           ,@(delete "--without-MPI" ,flags)))))
+    (synopsis "Parallel solvers and preconditioners for linear equations")
+    (description
+     "HYPRE is a software library of high performance preconditioners and
+solvers for the solution of large, sparse linear systems of equations on
+parallel computers.  It features parallel multigrid solvers for both
+structured and unstructured grid problems.")))
+
+(define-public matio
+  (package
+    (name "matio")
+    (version "1.5.6")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "mirror://sourceforge/matio/" version "/"
+                           "matio-" version ".tar.gz"))
+       (sha256
+        (base32
+         "0y2qymgxank8wdiwc68ap8bxdzrhvyw86i29yh3xgn4z1njfd9ir"))))
+    (build-system gnu-build-system)
+    (inputs
+     `(("zlib" ,zlib)
+       ("hdf5" ,hdf5)))
+    (home-page "http://matio.sourceforge.net/")
+    (synopsis "Library for reading and writing MAT files")
+    (description "Matio is a library for reading and writing MAT files.  It
+supports compressed MAT files, as well as newer (version 7.3) MAT files.")
+    (license license:bsd-2)))

@@ -1,6 +1,6 @@
 ;;; guix-utils.el --- General utility functions  -*- lexical-binding: t -*-
 
-;; Copyright © 2014, 2015 Alex Kost <alezost@gmail.com>
+;; Copyright © 2014, 2015, 2016 Alex Kost <alezost@gmail.com>
 
 ;; This file is part of GNU Guix.
 
@@ -84,16 +84,33 @@ If FORMAT is non-nil, format VAL with FORMAT."
                 (format format str)
               str))))
 
-(defun guix-mapinsert (function sequence separator)
+(cl-defun guix-mapinsert (function sequence separator &key indent column)
   "Like `mapconcat' but for inserting text.
 Apply FUNCTION to each element of SEQUENCE, and insert SEPARATOR
-at point between each FUNCTION call."
-  (when sequence
-    (funcall function (car sequence))
-    (mapc (lambda (obj)
-            (insert separator)
-            (funcall function obj))
-          (cdr sequence))))
+at point between each FUNCTION call.
+
+If INDENT is non-nil, it should be a number of spaces used to
+indent each line of the inserted text.
+
+If COLUMN is non-nil, it should be a column number which
+shouldn't be exceeded by the inserted text."
+  (pcase sequence
+    (`(,first . ,rest)
+     (let* ((indent (or indent 0))
+            (max-column (and column (- column indent))))
+       (guix-with-indent indent
+         (funcall function first)
+         (dolist (element rest)
+           (let ((before-sep-pos (and column (point))))
+             (insert separator)
+             (let ((after-sep-pos (and column (point))))
+               (funcall function element)
+               (when (and column
+                          (> (current-column) max-column))
+                 (save-excursion
+                   (delete-region before-sep-pos after-sep-pos)
+                   (goto-char before-sep-pos)
+                   (insert "\n")))))))))))
 
 (defun guix-insert-button (label &optional type &rest properties)
   "Make button of TYPE with LABEL and insert it at point.
@@ -222,6 +239,32 @@ If NO-MESSAGE? is non-nil, do not display a message about it."
   "Put 'guix ARGS ...' string into `kill-ring'.
 See also `guix-copy-as-kill'."
   (guix-copy-as-kill (guix-command-string args) no-message?))
+
+(defun guix-compose-buffer-name (base-name postfix)
+  "Return buffer name by appending BASE-NAME and POSTFIX.
+
+In a simple case the result is:
+
+  BASE-NAME: POSTFIX
+
+If BASE-NAME is wrapped by '*', then the result is:
+
+  *BASE-NAME: POSTFIX*"
+  (let ((re (rx string-start
+                (group (? "*"))
+                (group (*? any))
+                (group (? "*"))
+                string-end)))
+    (or (string-match re base-name)
+        (error "Unexpected error in defining buffer name"))
+    (let ((first*    (match-string 1 base-name))
+          (name-body (match-string 2 base-name))
+          (last*     (match-string 3 base-name)))
+      ;; Handle the case when buffer name is wrapped by '*'.
+      (if (and (string= "*" first*)
+               (string= "*" last*))
+          (concat "*" name-body ": " postfix "*")
+        (concat base-name ": " postfix)))))
 
 (defun guix-completing-read (prompt table &optional predicate
                              require-match initial-input

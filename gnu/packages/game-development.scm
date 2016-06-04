@@ -6,6 +6,7 @@
 ;;; Copyright © 2015 Alex Kost <alezost@gmail.com>
 ;;; Copyright © 2015, 2016 David Thompson <davet@gnu.org>
 ;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
+;;; Copyright © 2016 Kei Kebreau <kei@openmailbox.org>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -32,7 +33,7 @@
   #:use-module (gnu packages)
   #:use-module (gnu packages curl)
   #:use-module (gnu packages databases)
-  #:use-module (gnu packages doxygen)
+  #:use-module (gnu packages documentation)
   #:use-module (gnu packages glib)
   #:use-module (gnu packages gnunet)
   #:use-module (gnu packages guile)
@@ -128,7 +129,7 @@ provide connectivity for client applications written in any language.")
 (define-public tiled
   (package
     (name "tiled")
-    (version "0.15.1")
+    (version "0.16.1")
     (source (origin
               (method url-fetch)
               (uri (string-append "https://github.com/bjorn/tiled/archive/v"
@@ -136,7 +137,7 @@ provide connectivity for client applications written in any language.")
               (file-name (string-append name "-" version ".tar.gz"))
               (sha256
                (base32
-                "10bbjdv5r36229r1dqg32bxcj9yvpkx9jgs9v4s1qb71v856b15h"))))
+                "0s1i6yhm1z9ayzjh8cprcc9jvj5m87l9snyqg6w7zlj3q9zn4rn6"))))
     (build-system gnu-build-system)
     (inputs `(("qt" ,qt)
               ("zlib" ,zlib)))
@@ -271,14 +272,14 @@ archive on a per-file basis.")
 (define-public love
   (package
     (name "love")
-    (version "0.10.0")
+    (version "0.10.1")
     (source (origin
              (method url-fetch)
              (uri (string-append "https://bitbucket.org/rude/love/downloads/"
                                  "love-" version "-linux-src.tar.gz"))
              (sha256
               (base32
-               "1r2n1nrw3hcdvy14fjbwz3l9swcy65v3lqwpj2frnkkcwncdz94p"))))
+               "1ys18m7c4994k5s7avqlf17sc2icx5zgvfplz504q1ka16hwkc52"))))
     (build-system gnu-build-system)
     (native-inputs
      `(("pkg-config" ,pkg-config)))
@@ -373,15 +374,7 @@ etc.")
              "-DENABLE_UPDATER=0" ; no auto-updates
              (string-append "-DFREETYPE_INCLUDE_DIR="
                             (assoc-ref %build-inputs "freetype")
-                            "/include/freetype2"))
-       #:phases
-       (modify-phases %standard-phases
-         (add-after 'unpack 'patch-freetype-utils
-           (lambda _
-             ;; Fix C preprocessor include directive.
-             (substitute* '("src/app/util/freetype_utils.cpp")
-               (("freetype/") ""))
-             #t)))))
+                            "/include/freetype2"))))
     (native-inputs
      `(("pkg-config" ,pkg-config)))
     ;; TODO: Use a patched Allegro 4 that supports window resizing.  This
@@ -406,4 +399,36 @@ etc.")
 games.  In addition to basic pixel editing features, Aseprite can assist in
 the creation of animations, tiled graphics, texture atlases, and more.")
     (home-page "http://www.aseprite.org/")
+    (license license:gpl2+)))
+
+(define-public qqwing
+  (package
+    (name "qqwing")
+    (version "1.3.4")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "https://qqwing.com/"
+                    name "-" version ".tar.gz"))
+              (sha256
+               (base32
+                "0bw0papyqjg22z6irf36gs54y8236wa37b6gyn2h1spy65n76lqp"))))
+    (build-system gnu-build-system)
+    (native-inputs
+      `(("pkg-config" ,pkg-config)))
+    (home-page "https://qqwing.com/")
+    (synopsis "Sudoku puzzle solver and generator")
+    (description
+     "QQWing is a Sudoku puzzle generator and solver.
+It offers the following features:
+@enumerate
+@item Can solve 1000 puzzles in 1 second and generate 1000 puzzles in 25 seconds.
+@item Uses logic.  Uses as many solve techniques as possible when solving
+  puzzles rather than guessing.
+@item Rates puzzles.  Most generators don't give an indication of the difficulty
+  of a Sudoku puzzle.  QQwing does.
+@item Can print solve instructions for any puzzle.
+@item Customizable output style, including a CSV style that is easy to
+  import into a database.
+@end enumerate")
     (license license:gpl2+)))

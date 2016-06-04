@@ -39,8 +39,10 @@
             maybe-expand-mirrors
             url-fetch
             byte-count->string
+            current-terminal-columns
             progress-proc
             uri-abbreviation
+            nar-uri-abbreviation
             store-path-abbreviation))
 
 ;;; Commentary:
@@ -52,6 +54,10 @@
 (define %http-receive-buffer-size
   ;; Size of the HTTP receive buffer.
   65536)
+
+(define current-terminal-columns
+  ;; Number of columns of the terminal.
+  (make-parameter 80))
 
 (define (nearest-exact-integer x)
   "Given a real number X, return the nearest exact integer, with ties going to
@@ -166,9 +172,10 @@ used to shorten FILE for display."
                                          (byte-count->string throughput)
                                          (seconds->string elapsed)
                                          (progress-bar %) %)))
-                ;; TODO: Make this adapt to the actual terminal width.
-                (display (string-pad-middle left right 80) log-port)
-                (display #\cr log-port)
+                (display "\r\x1b[K" log-port)
+                (display (string-pad-middle left right
+                                            (current-terminal-columns))
+                         log-port)
                 (flush-output-port log-port)
                 (cont))))
           (lambda (transferred cont)
@@ -182,9 +189,10 @@ used to shorten FILE for display."
                                          (byte-count->string throughput)
                                          (seconds->string elapsed)
                                          (byte-count->string transferred))))
-                ;; TODO: Make this adapt to the actual terminal width.
-                (display (string-pad-middle left right 80) log-port)
-                (display #\cr log-port)
+                (display "\r\x1b[K" log-port)
+                (display (string-pad-middle left right
+                                            (current-terminal-columns))
+                         log-port)
                 (flush-output-port log-port)
                 (cont))))))))
 
@@ -195,13 +203,18 @@ abbreviation of URI showing the scheme, host, and basename of the file."
     (uri->string uri))
 
   (define (elide-path)
-    (let ((path (uri-path uri)))
-      (string-append (symbol->string (uri-scheme uri)) "://"
+    (let* ((path   (uri-path uri))
+           (base   (basename path))
+           (prefix (string-append (symbol->string (uri-scheme uri)) "://"
 
-                     ;; `file' URIs have no host part.
-                     (or (uri-host uri) "")
+                                  ;; `file' URIs have no host part.
+                                  (or (uri-host uri) "")
 
-                     (string-append "/.../" (basename path)))))
+                                  (string-append "/" (ellipsis) "/"))))
+      (if (> (+ (string-length prefix) (string-length base)) max-length)
+          (string-append prefix (ellipsis)
+                         (string-drop base (quotient (string-length base) 2)))
+          (string-append prefix base))))
 
   (if (> (string-length uri-as-string) max-length)
       (let ((short (elide-path)))
@@ -210,9 +223,21 @@ abbreviation of URI showing the scheme, host, and basename of the file."
             uri-as-string))
       uri-as-string))
 
-(define (ftp-fetch uri file)
-  "Fetch data from URI and write it to FILE.  Return FILE on success."
-  (let* ((conn (ftp-open (uri-host uri)))
+(define (nar-uri-abbreviation uri)
+  "Abbreviate URI, which is assumed to be the URI of a nar as served by Hydra
+and 'guix publish', something like
+\"http://example.org/nar/1ldrllwbna0aw5z8kpci4fsvbd2w8cw4-texlive-bin-2015\"."
+  (let* ((uri  (if (string? uri) (string->uri uri) uri))
+         (path (basename (uri-path uri))))
+    (if (and (> (string-length path) 33)
+             (char=? (string-ref path 32) #\-))
+        (string-drop path 33)
+        path)))
+
+(define* (ftp-fetch uri file #:key timeout)
+  "Fetch data from URI and write it to FILE.  Return FILE on success.  Bail
+out if the connection could not be established in less than TIMEOUT seconds."
+  (let* ((conn (ftp-open (uri-host uri) #:timeout timeout))
          (size (false-if-exception (ftp-size conn (uri-path uri))))
          (in   (ftp-retr conn (basename (uri-path uri))
                          (dirname (uri-path uri)))))
@@ -267,6 +292,13 @@ host name without trailing dot."
 
     (set-session-transport-fd! session (fileno port))
     (set-session-default-priority! session)
+
+    ;; The "%COMPAT" bit allows us to work around firewall issues (info
+    ;; "(gnutls) Priority Strings"); see <http://bugs.gnu.org/23311>.
+    ;; Explicitly disable SSLv3, which is insecure:
+    ;; <https://tools.ietf.org/html/rfc7568>.
+    (set-session-priorities! session "NORMAL:%COMPAT:-VERS-SSL3.0")
+
     (set-session-credentials! session (make-certificate-credentials))
 
     ;; Uncomment the following lines in case of debugging emergency.
@@ -395,6 +427,85 @@ port if PORT is a TLS session record port."
 (module-define! (resolve-module '(web client))
                 'shutdown (const #f))
 
+
+;; XXX: Work around <http://bugs.gnu.org/23421>, fixed in Guile commit
+;; 16050431f29d56f80c4a8253506fc851b8441840.  Guile's date validation
+;; procedure rejects dates in which the hour is not padded with a zero but
+;; with whitespace.
+(begin
+  (define-syntax string-match?
+    (lambda (x)
+      (syntax-case x ()
+        ((_ str pat) (string? (syntax->datum #'pat))
+         (let ((p (syntax->datum #'pat)))
+           #`(let ((s str))
+               (and
+                (= (string-length s) #,(string-length p))
+                #,@(let lp ((i 0) (tests '()))
+                     (if (< i (string-length p))
+                         (let ((c (string-ref p i)))
+                           (lp (1+ i)
+                               (case c
+                                 ((#\.)  ; Whatever.
+                                  tests)
+                                 ((#\d)  ; Digit.
+                                  (cons #`(char-numeric? (string-ref s #,i))
+                                        tests))
+                                 ((#\a)  ; Alphabetic.
+                                  (cons #`(char-alphabetic? (string-ref s #,i))
+                                        tests))
+                                 (else   ; Literal.
+                                  (cons #`(eqv? (string-ref s #,i) #,c)
+                                        tests)))))
+                         tests)))))))))
+
+  (define (parse-rfc-822-date str space zone-offset)
+    (let ((parse-non-negative-integer (@@ (web http) parse-non-negative-integer))
+          (parse-month (@@ (web http) parse-month))
+          (bad-header (@@ (web http) bad-header)))
+      ;; We could verify the day of the week but we don't.
+      (cond ((string-match? (substring str 0 space) "aaa, dd aaa dddd dd:dd:dd")
+             (let ((date (parse-non-negative-integer str 5 7))
+                   (month (parse-month str 8 11))
+                   (year (parse-non-negative-integer str 12 16))
+                   (hour (parse-non-negative-integer str 17 19))
+                   (minute (parse-non-negative-integer str 20 22))
+                   (second (parse-non-negative-integer str 23 25)))
+               (make-date 0 second minute hour date month year zone-offset)))
+            ((string-match? (substring str 0 space) "aaa, d aaa dddd dd:dd:dd")
+             (let ((date (parse-non-negative-integer str 5 6))
+                   (month (parse-month str 7 10))
+                   (year (parse-non-negative-integer str 11 15))
+                   (hour (parse-non-negative-integer str 16 18))
+                   (minute (parse-non-negative-integer str 19 21))
+                   (second (parse-non-negative-integer str 22 24)))
+               (make-date 0 second minute hour date month year zone-offset)))
+
+            ;; The next two clauses match dates that have a space instead of
+            ;; a leading zero for hours, like " 8:49:37".
+            ((string-match? (substring str 0 space) "aaa, dd aaa dddd  d:dd:dd")
+             (let ((date (parse-non-negative-integer str 5 7))
+                   (month (parse-month str 8 11))
+                   (year (parse-non-negative-integer str 12 16))
+                   (hour (parse-non-negative-integer str 18 19))
+                   (minute (parse-non-negative-integer str 20 22))
+                   (second (parse-non-negative-integer str 23 25)))
+               (make-date 0 second minute hour date month year zone-offset)))
+            ((string-match? (substring str 0 space) "aaa, d aaa dddd  d:dd:dd")
+             (let ((date (parse-non-negative-integer str 5 6))
+                   (month (parse-month str 7 10))
+                   (year (parse-non-negative-integer str 11 15))
+                   (hour (parse-non-negative-integer str 17 18))
+                   (minute (parse-non-negative-integer str 19 21))
+                   (second (parse-non-negative-integer str 22 24)))
+               (make-date 0 second minute hour date month year zone-offset)))
+
+            (else
+             (bad-header 'date str)        ; prevent tail call
+             #f))))
+  (module-set! (resolve-module '(web http))
+               'parse-rfc-822-date parse-rfc-822-date))
+
 ;; XXX: Work around <http://bugs.gnu.org/19840>, present in Guile
 ;; up to 2.0.11.
 (unless (or (> (string->number (major-version)) 2)
@@ -475,8 +586,10 @@ Return the resulting target URI."
                     #:query    (uri-query    ref)
                     #:fragment (uri-fragment ref)))))
 
-(define (http-fetch uri file)
-  "Fetch data from URI and write it to FILE.  Return FILE on success."
+(define* (http-fetch uri file #:key timeout)
+  "Fetch data from URI and write it to FILE; when TIMEOUT is true, bail out if
+the connection could not be established in less than TIMEOUT seconds.  Return
+FILE on success."
 
   (define post-2.0.7?
     (or (> (string->number (major-version)) 2)
@@ -495,7 +608,7 @@ Return the resulting target URI."
       (Accept . "*/*")))
 
   (let*-values (((connection)
-                 (open-connection-for-uri uri))
+                 (open-connection-for-uri uri #:timeout timeout))
                 ((resp bv-or-port)
                  ;; XXX: `http-get*' was introduced in 2.0.7, and replaced by
                  ;; #:streaming? in 2.0.8.  We know we're using it within the
@@ -530,12 +643,13 @@ Return the resulting target URI."
                  (put-bytevector p bv-or-port))))
          file))
       ((301                                       ; moved permanently
-        302)                                      ; found (redirection)
+        302                                       ; found (redirection)
+        307)                                      ; temporary redirection
        (let ((uri (resolve-uri-reference (response-location resp) uri)))
          (format #t "following redirection to `~a'...~%"
                  (uri->string uri))
          (close connection)
-         (http-fetch uri file)))
+         (http-fetch uri file #:timeout timeout)))
       (else
        (error "download failed" (uri->string uri)
               code (response-reason-phrase resp))))))
@@ -573,10 +687,23 @@ Return a list of URIs."
     (else
      (list uri))))
 
-(define* (url-fetch url file #:key (mirrors '()))
+(define* (url-fetch url file
+                    #:key
+                    (timeout 10)
+                    (mirrors '()) (content-addressed-mirrors '())
+                    (hashes '()))
   "Fetch FILE from URL; URL may be either a single string, or a list of
 string denoting alternate URLs for FILE.  Return #f on failure, and FILE
-on success."
+on success.
+
+When MIRRORS is defined, it must be an alist of mirrors; it is used to resolve
+'mirror://' URIs.
+
+HASHES must be a list of algorithm/hash pairs, where each algorithm is a
+symbol such as 'sha256 and each hash is a bytevector.
+CONTENT-ADDRESSED-MIRRORS must be a list of procedures that, given a hash
+algorithm and a hash, return a URL where the specified data can be retrieved
+or #f."
   (define uri
     (append-map (cut maybe-expand-mirrors <> mirrors)
                 (match url
@@ -588,13 +715,21 @@ on success."
             file (uri->string uri))
     (case (uri-scheme uri)
       ((http https)
-       (false-if-exception* (http-fetch uri file)))
+       (false-if-exception* (http-fetch uri file #:timeout timeout)))
       ((ftp)
-       (false-if-exception* (ftp-fetch uri file)))
+       (false-if-exception* (ftp-fetch uri file #:timeout timeout)))
       (else
        (format #t "skipping URI with unsupported scheme: ~s~%"
                uri)
        #f)))
+
+  (define content-addressed-uris
+    (append-map (lambda (make-url)
+                  (filter-map (match-lambda
+                                ((hash-algo . hash)
+                                 (string->uri (make-url hash-algo hash))))
+                              hashes))
+                content-addressed-mirrors))
 
   ;; Make this unbuffered so 'progress-proc' works as expected.  _IOLBF means
   ;; '\n', not '\r', so it's not appropriate here.
@@ -602,7 +737,7 @@ on success."
 
   (setvbuf (current-error-port) _IOLBF)
 
-  (let try ((uri uri))
+  (let try ((uri (append uri content-addressed-uris)))
     (match uri
       ((uri tail ...)
        (or (fetch uri file)

@@ -65,7 +65,21 @@
 for transmitting machine-neutral encodings of data objects in computer
 networking, allowing for formal validation of data according to some
 specifications.")
+    (replacement libtasn1/fixed)
     (license license:lgpl2.0+)))
+
+(define libtasn1/fixed                            ;for CVE-2016-4008
+  (package
+    (inherit libtasn1)
+    (source
+     (let ((version "4.8"))
+       (origin
+         (method url-fetch)
+         (uri (string-append "mirror://gnu/libtasn1/libtasn1-"
+                             version ".tar.gz"))
+         (sha256
+          (base32
+           "04y5m29pqmvkfdbppmsdifyx89v8xclxzklpfc7a1fkr9p4jz07s")))))))
 
 (define-public p11-kit
   (package
@@ -176,12 +190,15 @@ living in the same process.")
 and DTLS protocols.  It is provided in the form of a C library to support the
 protocols, as well as to parse and write X.5009, PKCS 12, OpenPGP and other
 required structures.")
-    (license license:lgpl2.1+)))
+    (license license:lgpl2.1+)
+    (properties '((ftp-server . "ftp.gnutls.org")
+                  (ftp-directory . "/gcrypt/gnutls")))))
 
 (define-public openssl
   (package
    (name "openssl")
    (version "1.0.2g")
+   (replacement openssl/fixed)
    (source (origin
              (method url-fetch)
              (uri (list (string-append "ftp://ftp.openssl.org/source/"
@@ -192,9 +209,8 @@ required structures.")
              (sha256
               (base32
                "0cxajjayi859czi545ddafi24m9nwsnjsw4q82zrmqvwj2rv315p"))
-             (patches (map search-patch
-                           '("openssl-runpath.patch"
-                             "openssl-c-rehash-in.patch")))))
+             (patches (search-patches "openssl-runpath.patch"
+                                      "openssl-c-rehash-in.patch"))))
    (build-system gnu-build-system)
    (native-inputs `(("perl" ,perl)))
    (arguments
@@ -283,18 +299,38 @@ required structures.")
    (license license:openssl)
    (home-page "http://www.openssl.org/")))
 
+(define openssl/fixed
+  (package
+    (inherit openssl)
+    (source
+     (let ((name "openssl")
+           (version "1.0.2h"))
+       (origin
+         (method url-fetch)
+         (uri (list (string-append "ftp://ftp.openssl.org/source/"
+                                   name "-" version ".tar.gz")
+                    (string-append "ftp://ftp.openssl.org/source/old/"
+                                   (string-trim-right version char-set:letter)
+                                   "/" name "-" version ".tar.gz")))
+         (sha256
+          (base32
+           "06996ds1rk8xhnyb5y273a7xkcxhggp4bq1g02rab55d7bjhfh0x"))
+         (patches (search-patches "openssl-runpath.patch"
+                                  "openssl-c-rehash-in.patch")))))))
+
 (define-public libressl
   (package
     (name "libressl")
-    (version "2.3.3")
+    (version "2.3.4")
     (source
      (origin
       (method url-fetch)
       (uri (string-append
              "http://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-"
              version ".tar.gz"))
-      (sha256 (base32
-               "1a8anm8nsfyxds03csk738m2cmzjbsb867my1rz5ij3w31k32wvn"))))
+      (sha256
+       (base32
+        "1ag65pbvdikqj5y1w780jicl3ngi9ld2332ki6794y0gcar3a4bs"))))
     (build-system gnu-build-system)
     (native-search-paths
       ;; FIXME: These two variables must designate a single file or directory
@@ -322,13 +358,16 @@ security, and applying best practice development processes.")
 (define-public python-acme
   (package
     (name "python-acme")
-    (version "0.4.2")
+    (version "0.8.0")
     (source (origin
-      (method url-fetch)
-      (uri (pypi-uri "acme" version))
+              (method url-fetch)
+              (uri (string-append
+                     "https://pypi.python.org/packages/"
+                     "45/17/6fdcede92c7fe4d9c1ab9d7513ded5aa969a0b9c90f3d7b3b074cd37e898/"
+                     "acme-" version ".tar.gz"))
       (sha256
         (base32
-         "1dh0qlsi309b37wa0nw0h2gvs94yk12lc4mhr3rb9c4h46m0hn8a"))))
+         "1nk48p0pi6xmqpsqjvw6xkx5vv4vl33yzq67fpr33ci8fra6pa6z"))))
     (build-system python-build-system)
     (arguments
      `(#:phases
@@ -378,35 +417,35 @@ security, and applying best practice development processes.")
 (define-public python2-acme
   (package-with-python2 python-acme))
 
-(define-public letsencrypt
+(define-public certbot
   (package
-    (name "letsencrypt")
-    (version "0.4.2")
+    (name "certbot")
+    (version "0.8.0")
     (source (origin
               (method url-fetch)
-              (uri (pypi-uri "letsencrypt" version))
+              (uri (string-append
+                     "https://pypi.python.org/packages/"
+                     "da/b8/fa6d7f0f8c0d37944ca4a1940b1e933fc6673498995a45db03c034bb11dd/"
+                     name "-" version ".tar.gz"))
               (sha256
                (base32
-                "1rjbblj60w7jwc5y04sy6fbxcynvakvazikg1pdmhyic5jmj9bg3"))))
+                "052338jdiy8dniskqxm2hzbca084ms0xqnjicshl6cpvhjs70g1w"))))
     (build-system python-build-system)
     (arguments
      `(#:python ,python-2
        #:phases
        (modify-phases %standard-phases
-         (add-after 'install 'docs
+         (add-after 'build 'docs
            (lambda* (#:key outputs #:allow-other-keys)
              (let* ((out (assoc-ref outputs "out"))
                     (man1 (string-append out "/share/man/man1"))
                     (man7 (string-append out "/share/man/man7"))
                     (info (string-append out "/info")))
-               (substitute* "docs/man/letsencrypt.rst"
-                 (("letsencrypt --help all")
-                  (string-append out "/bin/letsencrypt" " --help all")))
                (and
                  (zero? (system* "make" "-C" "docs" "man" "info"))
-                 (install-file "docs/_build/texinfo/LetsEncrypt.info" info)
-                 (install-file "docs/_build/man/letsencrypt.1" man1)
-                 (install-file "docs/_build/man/letsencrypt.7" man7)
+                 (install-file "docs/_build/texinfo/Certbot.info" info)
+                 (install-file "docs/_build/man/certbot.1" man1)
+                 (install-file "docs/_build/man/certbot.7" man7)
                  #t)))))))
     ;; TODO: Add optional inputs for testing.
     (native-inputs
@@ -436,8 +475,12 @@ security, and applying best practice development processes.")
     (description "Tool to automatically receive and install X.509 certificates
 to enable TLS on servers.  The client will interoperate with the Let’s Encrypt CA which
 will be issuing browser-trusted certificates for free.")
-    (home-page "https://letsencrypt.org/")
+    (home-page "https://certbot.eff.org/")
     (license license:asl2.0)))
+
+(define-public letsencrypt
+  (package (inherit certbot)
+    (name "letsencrypt")))
 
 (define-public perl-net-ssleay
   (package

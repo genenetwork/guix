@@ -1,6 +1,7 @@
 ;;; GNU Guix --- Functional package management for GNU
 ;;; Copyright © 2014, 2015, 2016 Ludovic Courtès <ludo@gnu.org>
 ;;; Copyright © 2015 David Thompson <davet@gnu.org>
+;;; Copyright © 2015 Mark H Weaver <mhw@netris.org>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -46,9 +47,25 @@
             mount-points
             swapon
             swapoff
+
+            file-system?
+            file-system-type
+            file-system-block-size
+            file-system-block-count
+            file-system-blocks-free
+            file-system-blocks-available
+            file-system-file-count
+            file-system-free-file-nodes
+            file-system-identifier
+            file-system-maximum-name-length
+            file-system-fragment-size
+            file-system-mount-flags
+            statfs
+
             processes
             mkdtemp!
             pivot-root
+            fcntl-flock
 
             CLONE_CHILD_CLEARTID
             CLONE_CHILD_SETTID
@@ -82,7 +99,29 @@
             interface-address
             interface-netmask
             interface-broadcast-address
-            network-interfaces))
+            network-interfaces
+
+            termios?
+            termios-input-flags
+            termios-output-flags
+            termios-control-flags
+            termios-local-flags
+            termios-line-discipline
+            termios-control-chars
+            termios-input-speed
+            termios-output-speed
+            local-flags
+            tcsetattr-action
+            tcgetattr
+            tcsetattr
+
+            window-size?
+            window-size-rows
+            window-size-columns
+            window-size-x-pixels
+            window-size-y-pixels
+            terminal-window-size
+            terminal-columns))
 
 ;;; Commentary:
 ;;;
@@ -91,6 +130,155 @@
 ;;; Guile, we instead apply 'guile-linux-syscalls.patch'.)
 ;;;
 ;;; Code:
+
+
+;;;
+;;; Packed structures.
+;;;
+
+(define-syntax sizeof*
+  ;; XXX: This duplicates 'compile-time-value'.
+  (syntax-rules (int128 array)
+    ((_ int128)
+     16)
+    ((_ (array type n))
+     (* (sizeof* type) n))
+    ((_ type)
+     (let-syntax ((v (lambda (s)
+                       (let ((val (sizeof type)))
+                         (syntax-case s ()
+                           (_ val))))))
+       v))))
+
+(define-syntax alignof*
+  ;; XXX: This duplicates 'compile-time-value'.
+  (syntax-rules (int128 array)
+    ((_ int128)
+     16)
+    ((_ (array type n))
+     (alignof* type))
+    ((_ type)
+     (let-syntax ((v (lambda (s)
+                       (let ((val (alignof type)))
+                         (syntax-case s ()
+                           (_ val))))))
+       v))))
+
+(define-syntax align                             ;as found in (system foreign)
+  (syntax-rules (~)
+    "Add to OFFSET whatever it takes to get proper alignment for TYPE."
+    ((_ offset (type ~ endianness))
+     (align offset type))
+    ((_ offset type)
+     (1+ (logior (1- offset) (1- (alignof* type)))))))
+
+(define-syntax type-size
+  (syntax-rules (~)
+    ((_ (type ~ order))
+     (sizeof* type))
+    ((_ type)
+     (sizeof* type))))
+
+(define-syntax struct-alignment
+  (syntax-rules ()
+    "Compute the alignment for the aggregate made of TYPES at OFFSET.  The
+result is the alignment of the \"most strictly aligned component\"."
+    ((_ offset types ...)
+     (max (align offset types) ...))))
+
+(define-syntax struct-size
+  (syntax-rules ()
+    "Return the size in bytes of the structure made of TYPES."
+    ((_ offset (types-processed ...))
+     ;; The SysV ABI P.S. says: "Aggregates (structures and arrays) and unions
+     ;; assume the alignment of their most strictly aligned component."  As an
+     ;; example, a struct such as "int32, int16" has size 8, not 6.
+     (1+ (logior (1- offset)
+                 (1- (struct-alignment offset types-processed ...)))))
+    ((_ offset (types-processed ...) type0 types ...)
+     (struct-size (+ (type-size type0) (align offset type0))
+                  (type0 types-processed ...)
+                  types ...))))
+
+(define-syntax write-type
+  (syntax-rules (~ array)
+    ((_ bv offset (type ~ order) value)
+     (bytevector-uint-set! bv offset value
+                           (endianness order) (sizeof* type)))
+    ((_ bv offset (array type n) value)
+     (let loop ((i 0)
+                (value value)
+                (o offset))
+       (unless (= i n)
+         (match value
+           ((head . tail)
+            (write-type bv o type head)
+            (loop (+ 1 i) tail (+ o (sizeof* type))))))))
+    ((_ bv offset type value)
+     (bytevector-uint-set! bv offset value
+                           (native-endianness) (sizeof* type)))))
+
+(define-syntax write-types
+  (syntax-rules ()
+    ((_ bv offset () ())
+     #t)
+    ((_ bv offset (type0 types ...) (field0 fields ...))
+     (begin
+       (write-type bv (align offset type0) type0 field0)
+       (write-types bv
+                    (+ (align offset type0) (type-size type0))
+                    (types ...) (fields ...))))))
+
+(define-syntax read-type
+  (syntax-rules (~ array quote *)
+    ((_ bv offset '*)
+     (make-pointer (bytevector-uint-ref bv offset
+                                        (native-endianness)
+                                        (sizeof* '*))))
+    ((_ bv offset (type ~ order))
+     (bytevector-uint-ref bv offset
+                          (endianness order) (sizeof* type)))
+    ((_ bv offset (array type n))
+     (unfold (lambda (i) (= i n))
+             (lambda (i)
+               (read-type bv (+ offset (* i (sizeof* type))) type))
+             1+
+             0))
+    ((_ bv offset type)
+     (bytevector-uint-ref bv offset
+                          (native-endianness) (sizeof* type)))))
+
+(define-syntax read-types
+  (syntax-rules ()
+    ((_ return bv offset () (values ...))
+     (return values ...))
+    ((_ return bv offset (type0 types ...) (values ...))
+     (read-types return
+                 bv
+                 (+ (align offset type0) (type-size type0))
+                 (types ...)
+                 (values ... (read-type bv
+                                        (align offset type0)
+                                        type0))))))
+
+(define-syntax define-c-struct
+  (syntax-rules ()
+    "Define SIZE as the size in bytes of the C structure made of FIELDS.  READ
+as a deserializer and WRITE! as a serializer for the C structure with the
+given TYPES.  READ uses WRAP-FIELDS to return its value."
+    ((_ name size wrap-fields read write! (fields types) ...)
+     (begin
+       (define size
+         (struct-size 0 () types ...))
+       (define (write! bv offset fields ...)
+         (write-types bv offset (types ...) (fields ...)))
+       (define* (read bv #:optional (offset 0))
+         (read-types wrap-fields bv offset (types ...) ()))))))
+
+
+;;;
+;;; FFI.
+;;;
 
 (define %libc-errno-pointer
   ;; Glibc's 'errno' pointer.
@@ -136,6 +324,24 @@
 (define-syntax-rule (restart-on-EINTR expr)
   "Evaluate EXPR and restart upon EINTR.  Return the value of EXPR."
   (call-with-restart-on-EINTR (lambda () expr)))
+
+(define (syscall->procedure return-type name argument-types)
+  "Return a procedure that wraps the C function NAME using the dynamic FFI.
+If an error occurs while creating the binding, defer the error report until
+the returned procedure is called."
+  (catch #t
+    (lambda ()
+      (let ((ptr (dynamic-func name (dynamic-link))))
+        (pointer->procedure return-type ptr argument-types)))
+    (lambda args
+      (lambda _
+        (error (format #f "~a: syscall->procedure failed: ~s"
+                       name args))))))
+
+
+;;;
+;;; File systems.
+;;;
 
 (define (augment-mtab source target type options)
   "Augment /etc/mtab with information about the given mount point."
@@ -185,8 +391,7 @@
 (define UMOUNT_NOFOLLOW 8)
 
 (define mount
-  (let* ((ptr  (dynamic-func "mount" (dynamic-link)))
-         (proc (pointer->procedure int ptr `(* * * ,unsigned-long *))))
+  (let ((proc (syscall->procedure int "mount" `(* * * ,unsigned-long *))))
     (lambda* (source target type #:optional (flags 0) options
                      #:key (update-mtab? #f))
       "Mount device SOURCE on TARGET as a file system TYPE.  Optionally, FLAGS
@@ -214,8 +419,7 @@ error."
           (augment-mtab source target type options))))))
 
 (define umount
-  (let* ((ptr  (dynamic-func "umount2" (dynamic-link)))
-         (proc (pointer->procedure int ptr `(* ,int))))
+  (let ((proc (syscall->procedure int "umount2" `(* ,int))))
     (lambda* (target #:optional (flags 0)
                      #:key (update-mtab? #f))
       "Unmount TARGET.  Optionally FLAGS may be one of the MNT_* or UMOUNT_*
@@ -242,8 +446,7 @@ constants from <sys/mount.h>."
                  (loop (cons mount-point result))))))))))
 
 (define swapon
-  (let* ((ptr  (dynamic-func "swapon" (dynamic-link)))
-         (proc (pointer->procedure int ptr (list '* int))))
+  (let ((proc (syscall->procedure int "swapon" (list '* int))))
     (lambda* (device #:optional (flags 0))
       "Use the block special device at DEVICE for swapping."
       (let ((ret (proc (string->pointer device) flags))
@@ -254,8 +457,7 @@ constants from <sys/mount.h>."
                  (list err)))))))
 
 (define swapoff
-  (let* ((ptr  (dynamic-func "swapoff" (dynamic-link)))
-         (proc (pointer->procedure int ptr '(*))))
+  (let ((proc (syscall->procedure int "swapoff" '(*))))
     (lambda (device)
       "Stop using block special device DEVICE for swapping."
       (let ((ret (proc (string->pointer device)))
@@ -304,6 +506,65 @@ string TMPL and return its file name.  TMPL must end with 'XXXXXX'."
                  (list err)))
         (pointer->string result)))))
 
+
+(define-record-type <file-system>
+  (file-system type block-size blocks blocks-free
+               blocks-available files free-files identifier
+               name-length fragment-size mount-flags spare)
+  file-system?
+  (type              file-system-type)
+  (block-size        file-system-block-size)
+  (blocks            file-system-block-count)
+  (blocks-free       file-system-blocks-free)
+  (blocks-available  file-system-blocks-available)
+  (files             file-system-file-count)
+  (free-files        file-system-free-file-nodes)
+  (identifier        file-system-identifier)
+  (name-length       file-system-maximum-name-length)
+  (fragment-size     file-system-fragment-size)
+  (mount-flags       file-system-mount-flags)
+  (spare             file-system--spare))
+
+(define-syntax fsword                             ;fsword_t
+  (identifier-syntax long))
+
+(define-c-struct %statfs                          ;<bits/statfs.h>
+  sizeof-statfs                                   ;slightly overestimated
+  file-system
+  read-statfs
+  write-statfs!
+  (type             fsword)
+  (block-size       fsword)
+  (blocks           uint64)
+  (blocks-free      uint64)
+  (blocks-available uint64)
+  (files            uint64)
+  (free-files       uint64)
+  (identifier       (array int 2))
+  (name-length      fsword)
+  (fragment-size    fsword)
+  (mount-flags      fsword)
+  (spare            (array fsword 4)))
+
+(define statfs
+  (let ((proc (syscall->procedure int "statfs64" '(* *))))
+    (lambda (file)
+      "Return a <file-system> data structure describing the file system
+mounted at FILE."
+      (let* ((stat (make-bytevector sizeof-statfs))
+             (ret  (proc (string->pointer file) (bytevector->pointer stat)))
+             (err  (errno)))
+        (if (zero? ret)
+            (read-statfs stat)
+            (throw 'system-error "statfs" "~A: ~A"
+                   (list file (strerror err))
+                   (list err)))))))
+
+
+;;;
+;;; Containers.
+;;;
+
 ;; Linux clone flags, from linux/sched.h
 (define CLONE_CHILD_CLEARTID #x00200000)
 (define CLONE_CHILD_SETTID   #x01000000)
@@ -319,18 +580,18 @@ string TMPL and return its file name.  TMPL must end with 'XXXXXX'."
 ;; declared in <unistd.h> as a variadic function; in practice, it expects 6
 ;; pointer-sized arguments, as shown in, e.g., x86_64/syscall.S.
 (define clone
-  (let* ((ptr        (dynamic-func "syscall" (dynamic-link)))
-         (proc       (pointer->procedure long ptr
-                                         (list long                   ;sysno
-                                               unsigned-long          ;flags
-                                               '* '* '*
-                                               '*)))
+  (let* ((proc (syscall->procedure int "syscall"
+                                   (list long                   ;sysno
+                                         unsigned-long          ;flags
+                                         '* '* '*
+                                         '*)))
          ;; TODO: Don't do this.
          (syscall-id (match (utsname:machine (uname))
                        ("i686"   120)
                        ("x86_64" 56)
                        ("mips64" 5055)
-                       ("armv7l" 120))))
+                       ("armv7l" 120)
+                       (_ #f))))
     (lambda (flags)
       "Create a new child process by duplicating the current parent process.
 Unlike the fork system call, clone accepts FLAGS that specify which resources
@@ -365,8 +626,7 @@ there is no such limitation."
                   (list err))))))))
 
 (define pivot-root
-  (let* ((ptr  (dynamic-func "pivot_root" (dynamic-link)))
-         (proc (pointer->procedure int ptr (list '* '*))))
+  (let ((proc (syscall->procedure int "pivot_root" (list '* '*))))
     (lambda (new-root put-old)
       "Change the root file system to NEW-ROOT and move the current root file
 system to PUT-OLD."
@@ -380,104 +640,78 @@ system to PUT-OLD."
 
 
 ;;;
-;;; Packed structures.
+;;; Advisory file locking.
 ;;;
 
-(define-syntax sizeof*
-  ;; XXX: This duplicates 'compile-time-value'.
-  (syntax-rules (int128)
-    ((_ int128)
-     16)
-    ((_ type)
-     (let-syntax ((v (lambda (s)
-                       (let ((val (sizeof type)))
-                         (syntax-case s ()
-                           (_ val))))))
-       v))))
+(define-c-struct %struct-flock                    ;<fcntl.h>
+  sizeof-flock
+  list
+  read-flock
+  write-flock!
+  (type   short)
+  (whence short)
+  (start  size_t)
+  (length size_t)
+  (pid    int))
 
-(define-syntax alignof*
-  ;; XXX: This duplicates 'compile-time-value'.
-  (syntax-rules (int128)
-    ((_ int128)
-     16)
-    ((_ type)
-     (let-syntax ((v (lambda (s)
-                       (let ((val (alignof type)))
-                         (syntax-case s ()
-                           (_ val))))))
-       v))))
+(define F_SETLKW
+  ;; On Linux-based systems, this is usually 7, but not always
+  ;; (exceptions include SPARC.)  On GNU/Hurd, it's 9.
+  (cond ((string-contains %host-type "sparc") 9)  ; sparc-*-linux-gnu
+        ((string-contains %host-type "linux") 7)  ; *-linux-gnu
+        (else 9)))                                ; *-gnu*
 
-(define-syntax align                             ;as found in (system foreign)
-  (syntax-rules (~)
-    "Add to OFFSET whatever it takes to get proper alignment for TYPE."
-    ((_ offset (type ~ endianness))
-     (align offset type))
-    ((_ offset type)
-     (1+ (logior (1- offset) (1- (alignof* type)))))))
+(define F_SETLK
+  ;; Likewise: GNU/Hurd and SPARC use 8, while the others typically use 6.
+  (cond ((string-contains %host-type "sparc") 8)  ; sparc-*-linux-gnu
+        ((string-contains %host-type "linux") 6)  ; *-linux-gnu
+        (else 8)))                                ; *-gnu*
 
-(define-syntax type-size
-  (syntax-rules (~)
-    ((_ (type ~ order))
-     (sizeof* type))
-    ((_ type)
-     (sizeof* type))))
+(define F_xxLCK
+  ;; The F_RDLCK, F_WRLCK, and F_UNLCK constants.
+  (cond ((string-contains %host-type "sparc") #(1 2 3))    ; sparc-*-linux-gnu
+        ((string-contains %host-type "hppa")  #(1 2 3))    ; hppa-*-linux-gnu
+        ((string-contains %host-type "linux") #(0 1 2))    ; *-linux-gnu
+        (else                                 #(1 2 3))))  ; *-gnu*
 
-(define-syntax write-type
-  (syntax-rules (~)
-    ((_ bv offset (type ~ order) value)
-     (bytevector-uint-set! bv offset value
-                           (endianness order) (sizeof* type)))
-    ((_ bv offset type value)
-     (bytevector-uint-set! bv offset value
-                           (native-endianness) (sizeof* type)))))
+(define fcntl-flock
+  (let ((proc (syscall->procedure int "fcntl" `(,int ,int *))))
+    (lambda* (fd-or-port operation #:key (wait? #t))
+      "Perform locking OPERATION on the file beneath FD-OR-PORT.  OPERATION
+must be a symbol, one of 'read-lock, 'write-lock, or 'unlock.  When WAIT? is
+true, block until the lock is acquired; otherwise, thrown an 'flock-error'
+exception if it's already taken."
+      (define (operation->int op)
+        (case op
+          ((read-lock)  (vector-ref F_xxLCK 0))
+          ((write-lock) (vector-ref F_xxLCK 1))
+          ((unlock)     (vector-ref F_xxLCK 2))
+          (else         (error "invalid fcntl-flock operation" op))))
 
-(define-syntax write-types
-  (syntax-rules ()
-    ((_ bv offset () ())
-     #t)
-    ((_ bv offset (type0 types ...) (field0 fields ...))
-     (begin
-       (write-type bv (align offset type0) type0 field0)
-       (write-types bv
-                    (+ (align offset type0) (type-size type0))
-                    (types ...) (fields ...))))))
+      (define fd
+        (if (port? fd-or-port)
+            (fileno fd-or-port)
+            fd-or-port))
 
-(define-syntax read-type
-  (syntax-rules (~ quote *)
-    ((_ bv offset '*)
-     (make-pointer (bytevector-uint-ref bv offset
-                                        (native-endianness)
-                                        (sizeof* '*))))
-    ((_ bv offset (type ~ order))
-     (bytevector-uint-ref bv offset
-                          (endianness order) (sizeof* type)))
-    ((_ bv offset type)
-     (bytevector-uint-ref bv offset
-                          (native-endianness) (sizeof* type)))))
+      (define bv
+        (make-bytevector sizeof-flock))
 
-(define-syntax read-types
-  (syntax-rules ()
-    ((_ return bv offset () (values ...))
-     (return values ...))
-    ((_ return bv offset (type0 types ...) (values ...))
-     (read-types return
-                 bv
-                 (+ (align offset type0) (type-size type0))
-                 (types ...)
-                 (values ... (read-type bv
-                                        (align offset type0)
-                                        type0))))))
+      (write-flock! bv 0
+                    (operation->int operation) SEEK_SET
+                    0 0                           ;whole file
+                    0)
 
-(define-syntax define-c-struct
-  (syntax-rules ()
-    "Define READ as a deserializer and WRITE! as a serializer for the C
-structure with the given TYPES.  READ uses WRAP-FIELDS to return its value."
-    ((_ name wrap-fields read write! (fields types) ...)
-     (begin
-       (define (write! bv offset fields ...)
-         (write-types bv offset (types ...) (fields ...)))
-       (define (read bv offset)
-         (read-types wrap-fields bv offset (types ...) ()))))))
+      ;; XXX: 'fcntl' is a vararg function, but here we happily use the
+      ;; standard ABI; crossing fingers.
+      (let ((ret (proc fd
+                       (if wait?
+                           F_SETLKW               ; lock & wait
+                           F_SETLK)               ; non-blocking attempt
+                       (bytevector->pointer bv)))
+            (err (errno)))
+        (unless (zero? ret)
+          ;; Presumably we got EAGAIN or so.
+          (throw 'flock-error err))))))
 
 
 ;;;
@@ -527,6 +761,7 @@ structure with the given TYPES.  READ uses WRAP-FIELDS to return its value."
       32))
 
 (define-c-struct sockaddr-in                      ;<linux/in.h>
+  sizeof-sockaddrin
   (lambda (family port address)
     (make-socket-address family address port))
   read-sockaddr-in
@@ -536,6 +771,7 @@ structure with the given TYPES.  READ uses WRAP-FIELDS to return its value."
   (address   (int32 ~ big)))
 
 (define-c-struct sockaddr-in6                     ;<linux/in6.h>
+  sizeof-sockaddr-in6
   (lambda (family port flowinfo address scopeid)
     (make-socket-address family address port flowinfo scopeid))
   read-sockaddr-in6
@@ -800,6 +1036,7 @@ an <interface> object, and whose cdr is the pointer NEXT."
         next))
 
 (define-c-struct ifaddrs                          ;<ifaddrs.h>
+  %sizeof-ifaddrs
   values->interface
   read-ifaddrs
   write-ifaddrs!
@@ -811,14 +1048,6 @@ an <interface> object, and whose cdr is the pointer NEXT."
   (broadcastaddr '*)
   (data          '*))
 
-(define-syntax %struct-ifaddrs-type
-  (identifier-syntax
-   `(* * ,unsigned-int * * * *)))
-
-(define-syntax %sizeof-ifaddrs
-  (identifier-syntax
-   (sizeof* %struct-ifaddrs-type)))
-
 (define (unfold-interface-list ptr)
   "Call 'read-ifaddrs' on PTR and all its 'next' fields, recursively, and
 return the list of resulting <interface> objects."
@@ -826,8 +1055,7 @@ return the list of resulting <interface> objects."
              (result '()))
     (if (null-pointer? ptr)
         (reverse result)
-        (match (read-ifaddrs (pointer->bytevector ptr %sizeof-ifaddrs)
-                             0)
+        (match (read-ifaddrs (pointer->bytevector ptr %sizeof-ifaddrs))
           ((ifaddr . ptr)
            (loop ptr (cons ifaddr result)))))))
 
@@ -852,5 +1080,189 @@ network interface.  This is implemented using the 'getifaddrs' libc function."
 (define free-ifaddrs
   (let ((ptr (dynamic-func "freeifaddrs" (dynamic-link))))
     (pointer->procedure void ptr '(*))))
+
+
+;;;
+;;; Terminals.
+;;;
+
+(define-syntax bits->symbols-body
+  (syntax-rules ()
+    ((_ bits () ())
+     '())
+    ((_ bits (name names ...) (value values ...))
+     (let ((result (bits->symbols-body bits (names ...) (values ...))))
+       (if (zero? (logand bits value))
+           result
+           (cons 'name result))))))
+
+(define-syntax define-bits
+  (syntax-rules (define)
+    "Define the given numerical constants under CONSTRUCTOR, such that
+ (CONSTRUCTOR NAME) returns VALUE.  Define BITS->SYMBOLS as a procedure that,
+given an integer, returns the list of names of the constants that are or'd."
+    ((_ constructor bits->symbols (define names values) ...)
+     (begin
+       (define-syntax constructor
+         (syntax-rules (names ...)
+           ((_ names) values) ...
+           ((_ several (... ...))
+            (logior (constructor several) (... ...)))))
+       (define (bits->symbols bits)
+         (bits->symbols-body bits (names ...) (values ...)))
+       (define names values) ...))))
+
+;; 'local-flags' bits from <bits/termios.h>
+(define-bits local-flags
+  local-flags->symbols
+ (define ISIG #o0000001)
+ (define ICANON #o0000002)
+ (define XCASE #o0000004)
+ (define ECHO #o0000010)
+ (define ECHOE #o0000020)
+ (define ECHOK #o0000040)
+ (define ECHONL #o0000100)
+ (define NOFLSH #o0000200)
+ (define TOSTOP #o0000400)
+ (define ECHOCTL #o0001000)
+ (define ECHOPRT #o0002000)
+ (define ECHOKE #o0004000)
+ (define FLUSHO #o0010000)
+ (define PENDIN #o0040000)
+ (define IEXTEN #o0100000)
+ (define EXTPROC #o0200000))
+
+;; "Actions" values for 'tcsetattr'.
+(define-bits tcsetattr-action
+  %unused-tcsetattr-action->symbols
+  (define TCSANOW  0)
+  (define TCSADRAIN 1)
+  (define TCSAFLUSH 2))
+
+(define-record-type <termios>
+  (termios input-flags output-flags control-flags local-flags
+           line-discipline control-chars
+           input-speed output-speed)
+  termios?
+  (input-flags      termios-input-flags)
+  (output-flags     termios-output-flags)
+  (control-flags    termios-control-flags)
+  (local-flags      termios-local-flags)
+  (line-discipline  termios-line-discipline)
+  (control-chars    termios-control-chars)
+  (input-speed      termios-input-speed)
+  (output-speed     termios-output-speed))
+
+(define-c-struct %termios                         ;<bits/termios.h>
+  sizeof-termios
+  termios
+  read-termios
+  write-termios!
+  (input-flags      unsigned-int)
+  (output-flags     unsigned-int)
+  (control-flags    unsigned-int)
+  (local-flags      unsigned-int)
+  (line-discipline  uint8)
+  (control-chars    (array uint8 32))
+  (input-speed      unsigned-int)
+  (output-speed     unsigned-int))
+
+(define tcgetattr
+  (let ((proc (syscall->procedure int "tcgetattr" (list int '*))))
+    (lambda (fd)
+      "Return the <termios> structure for the tty at FD."
+      (let* ((bv  (make-bytevector sizeof-termios))
+             (ret (proc fd (bytevector->pointer bv)))
+             (err (errno)))
+        (if (zero? ret)
+            (read-termios bv)
+            (throw 'system-error "tcgetattr" "~A"
+                   (list (strerror err))
+                   (list err)))))))
+
+(define tcsetattr
+  (let ((proc (syscall->procedure int "tcsetattr" (list int int '*))))
+    (lambda (fd actions termios)
+      "Use TERMIOS for the tty at FD.  ACTIONS is one of of the values
+produced by 'tcsetattr-action'; see tcsetattr(3) for details."
+      (define bv
+        (make-bytevector sizeof-termios))
+
+      (let-syntax ((match/write (syntax-rules ()
+                                  ((_ fields ...)
+                                   (match termios
+                                     (($ <termios> fields ...)
+                                      (write-termios! bv 0 fields ...)))))))
+        (match/write input-flags output-flags control-flags local-flags
+                     line-discipline control-chars input-speed output-speed))
+
+      (let ((ret (proc fd actions (bytevector->pointer bv)))
+            (err (errno)))
+        (unless (zero? ret)
+          (throw 'system-error "tcgetattr" "~A"
+                 (list (strerror err))
+                 (list err)))))))
+
+(define-syntax TIOCGWINSZ                         ;<asm-generic/ioctls.h>
+  (identifier-syntax #x5413))
+
+(define-record-type <window-size>
+  (window-size rows columns x-pixels y-pixels)
+  window-size?
+  (rows     window-size-rows)
+  (columns  window-size-columns)
+  (x-pixels window-size-x-pixels)
+  (y-pixels window-size-y-pixels))
+
+(define-c-struct winsize                          ;<bits/ioctl-types.h>
+  sizeof-winsize
+  window-size
+  read-winsize
+  write-winsize!
+  (rows          unsigned-short)
+  (columns       unsigned-short)
+  (x-pixels      unsigned-short)
+  (y-pixels      unsigned-short))
+
+(define* (terminal-window-size #:optional (port (current-output-port)))
+  "Return a <window-size> structure describing the terminal at PORT, or raise
+a 'system-error' if PORT is not backed by a terminal.  This procedure
+corresponds to the TIOCGWINSZ ioctl."
+  (let* ((size (make-bytevector sizeof-winsize))
+         (ret  (%ioctl (fileno port) TIOCGWINSZ
+                       (bytevector->pointer size)))
+         (err  (errno)))
+    (if (zero? ret)
+        (read-winsize size)
+        (throw 'system-error "terminal-window-size" "~A"
+               (list (strerror err))
+               (list err)))))
+
+(define* (terminal-columns #:optional (port (current-output-port)))
+  "Return the best approximation of the number of columns of the terminal at
+PORT, trying to guess a reasonable value if all else fails.  The result is
+always a positive integer."
+  (define (fall-back)
+    (match (and=> (getenv "COLUMNS") string->number)
+      (#f 80)
+      ((? number? columns)
+       (if (> columns 0) columns 80))))
+
+  (catch 'system-error
+    (lambda ()
+      (if (file-port? port)
+          (match (window-size-columns (terminal-window-size port))
+            ;; Things like Emacs shell-mode return 0, which is unreasonable.
+            (0 (fall-back))
+            ((? number? columns) columns))
+          (fall-back)))
+    (lambda args
+      (let ((errno (system-error-errno args)))
+        ;; ENOTTY is what we're after but 2012-and-earlier Linux versions
+        ;; would return EINVAL instead in some cases:
+        ;; <https://bugs.ruby-lang.org/issues/10494>.
+        (if (or (= errno ENOTTY) (= errno EINVAL))
+            (fall-back)
+            (apply throw args))))))
 
 ;;; syscalls.scm ends here

@@ -4,6 +4,7 @@
 ;;; Copyright © 2015 Mathieu Lirzin <mthl@openmailbox.org>
 ;;; Copyright © 2014 Manolis Fragkiskos Ragkousis <manolis837@gmail.com>
 ;;; Copyright © 2015 Mark H Weaver <mhw@netris.org>
+;;; Copyright © 2016 David Thompson <davet@gnu.org>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -159,6 +160,27 @@ exec ~a --no-auto-compile \"$0\" \"$@\"
                 port)))
            (chmod (string-append bin "/autoconf") #o555)))))))
 
+(define-public autoconf-archive
+  (package
+    (name "autoconf-archive")
+    (version "2016.03.20")
+    (source
+     (origin
+      (method url-fetch)
+      (uri (string-append "mirror://gnu/autoconf-archive/autoconf-archive-"
+                          version ".tar.xz"))
+      (sha256
+       (base32
+        "0dz4fnc723jqn3by22ds5fys7g31apzm1r9allldvva0yvzjxyw8"))))
+    (build-system gnu-build-system)
+    (home-page "https://www.gnu.org/software/autoconf-archive")
+    (synopsis "Collection of freely reusable Autoconf macros")
+    (description
+     "Autoconf Archive is a collection of over 450 new macros for Autoconf,
+greatly expanding the domain of its functionality.  These macros have been
+contributed as free software by the community.")
+    (license gpl3+)))
+
 (define-public autobuild
   (package
     (name "autobuild")
@@ -195,9 +217,8 @@ output is indexed in many ways to simplify browsing.")
               (base32
                "0dl6vfi2lzz8alnklwxzfz624b95hb1ipjvd3mk177flmddcf24r"))
              (patches
-              (map search-patch
-                   '("automake-regexp-syntax.patch"
-                     "automake-skip-amhello-tests.patch")))))
+              (search-patches "automake-regexp-syntax.patch"
+                              "automake-skip-amhello-tests.patch"))))
     (build-system gnu-build-system)
     (native-inputs
      `(("autoconf" ,(autoconf-wrapper))
@@ -273,8 +294,7 @@ Makefile, simplifying the entire process for the developer.")
               (sha256
                (base32
                 "0vxj52zm709125gwv9qqlw02silj8bnjnh4y07arrz60r31ai1vw"))
-              (patches
-               (list (search-patch "libtool-skip-tests2.patch")))))
+              (patches (search-patches "libtool-skip-tests2.patch"))))
     (build-system gnu-build-system)
     (propagated-inputs `(("m4" ,m4)))
     (native-inputs `(("m4" ,m4)
