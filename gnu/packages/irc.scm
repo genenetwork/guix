@@ -3,6 +3,7 @@
 ;;; Copyright © 2014 Kevin Lemonnier <lemonnierk@ulrar.net>
 ;;; Copyright © 2015 Ludovic Courtès <ludo@gnu.org>
 ;;; Copyright © 2015, 2016 Efraim Flashner <efraim@flashner.co.il>
+;;; Copyright © 2016 ng0 <ng0@we.make.ritual.n0.is>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -71,14 +72,16 @@
                            "-DUSE_QT5=ON" ; default is qt4
                            "-DWITH_KDE=OFF" ; no to integration
                            "-DWITH_OXYGEN=ON" ; on=embed icons
-                           "-DWITH_WEBKIT=ON") ; wants qtwebkit, in qt5
+                           "-DWITH_WEBKIT=OFF") ; qtwebkit isn't packaged
        #:tests? #f)) ; no test target
     (native-inputs `(("pkg-config" ,pkg-config)))
     (inputs
      `(("extra-cmake-modules" ,extra-cmake-modules)
        ("oxygen-icons" ,oxygen-icons)
        ("qca" ,qca)
-       ("qt", qt)
+       ("qtbase", qtbase)
+       ("qttools" ,qttools)
+       ("qtscript" ,qtscript)
        ("snorenotify" ,snorenotify)
        ("zlib" ,zlib)))
     (home-page "http://quassel-irc.org/")
@@ -134,14 +137,14 @@ SILC and ICB protocols via plugins.")
 (define-public weechat
   (package
     (name "weechat")
-    (version "1.4")
+    (version "1.5")
     (source (origin
               (method url-fetch)
               (uri (string-append "http://weechat.org/files/src/weechat-"
                                   version ".tar.gz"))
               (sha256
                (base32
-                "19apd3hav77v74j7flicai0843k7wrkr2fd3q2ayvzkgnbrrp1ai"))
+                "0w87w4wy61x705ama8h36z9mgdj2gmmzdfrsxvwyh2m2as2max1i"))
               (patches (search-patches "weechat-python.patch"))))
     (build-system gnu-build-system)
     (native-inputs `(("autoconf" ,autoconf)

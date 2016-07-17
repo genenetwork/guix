@@ -3,9 +3,9 @@
 ;;; Copyright © 2013, 2015 Andreas Enge <andreas@enge.fr>
 ;;; Copyright © 2015 Eric Bavier <bavier@member.fsf.org>
 ;;; Copyright © 2015 Sou Bunnbu <iyzsong@gmail.com>
-;;; Copyright © 2015 Ricardo Wurmus <rekado@elephly.net>
-;;; Copyright © 2015 Mark H Weaver <mhw@netris.org>
-;;; Copyright © 2015 Efraim Flashner <efraim@flashner.co.il>
+;;; Copyright © 2015, 2016 Ricardo Wurmus <rekado@elephly.net>
+;;; Copyright © 2015, 2016 Mark H Weaver <mhw@netris.org>
+;;; Copyright © 2015, 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;; Copyright © 2015 Raimon Grau <raimonster@gmail.com>
 ;;; Copyright © 2016 Leo Famulari <leo@famulari.name>
 ;;;
@@ -40,7 +40,8 @@
   #:use-module (guix build-system gnu)
   #:use-module (guix build-system perl)
   #:use-module (guix build-system python)
-  #:use-module (gnu packages linux))
+  #:use-module (gnu packages linux)
+  #:use-module (gnu packages pkg-config))
 
 (define-public expat
   (package
@@ -69,7 +70,8 @@ things the parser might find in the XML document (like start tags).")
     (inherit expat)
     (source (origin
               (inherit (package-source expat))
-              (patches (search-patches "expat-CVE-2015-1283.patch"
+              (patches (search-patches "expat-CVE-2012-6702-and-CVE-2016-5300.patch"
+                                       "expat-CVE-2015-1283.patch"
                                        "expat-CVE-2015-1283-refix.patch"
                                        "expat-CVE-2016-0718.patch"))))))
 
@@ -152,6 +154,7 @@ project (but it is usable outside of the Gnome platform).")
   (package
     (name "libxslt")
     (version "1.1.28")
+    (replacement libxslt/fixed)  ; CVE-2016-1683 and CVE-2016-1684
     (source (origin
              (method url-fetch)
              (uri (string-append "ftp://xmlsoft.org/libxslt/libxslt-"
@@ -171,6 +174,19 @@ project (but it is usable outside of the Gnome platform).")
      "Libxslt is an XSLT C library developed for the GNOME project.  It is
 based on libxml for XML parsing, tree manipulation and XPath support.")
     (license license:x11)))
+
+(define-public libxslt/fixed
+  (package
+    (inherit libxslt)
+    (source
+     (let ((version "1.1.29"))
+       (origin
+         (method url-fetch)
+         (uri (string-append "ftp://xmlsoft.org/libxslt/libxslt-"
+                             version ".tar.gz"))
+         (sha256
+          (base32
+           "1klh81xbm9ppzgqk339097i39b7fnpmlj8lzn8bpczl3aww6x5xm")))))))
 
 (define-public perl-xml-parser
   (package
@@ -228,7 +244,7 @@ module.")
 (define-public perl-xml-libxml
   (package
     (name "perl-xml-libxml")
-    (version "2.0118")
+    (version "2.0125")
     (source
      (origin
        (method url-fetch)
@@ -236,7 +252,7 @@ module.")
                            "XML-LibXML-" version ".tar.gz"))
        (sha256
         (base32
-         "170c8dbk4p6jw9is0cria73021yp3hpmhb19p9j0zg2yxwkawr6c"))))
+         "1mvbv1pwpdqni9ia9b6brg8brnnvfxr8j5x872qsngc92gipyh01"))))
     (build-system perl-build-system)
     (propagated-inputs
      `(("perl-xml-namespacesupport" ,perl-xml-namespacesupport)
@@ -246,7 +262,7 @@ module.")
     (home-page "http://search.cpan.org/dist/XML-LibXML")
     (synopsis "Perl interface to libxml2")
     (description "This module implements a Perl interface to the libxml2
-library which provides interfaces for parsing and manipulating XML files. This
+library which provides interfaces for parsing and manipulating XML files.  This
 module allows Perl programmers to make use of the highly capable validating
 XML parser and the high performance DOM implementation.")
     (license (package-license perl))))
@@ -353,7 +369,7 @@ callback.")
 (define-public perl-xml-simple
   (package
     (name "perl-xml-simple")
-    (version "2.20")
+    (version "2.22")
     (source (origin
              (method url-fetch)
              (uri (string-append
@@ -361,17 +377,18 @@ callback.")
                    version ".tar.gz"))
              (sha256
               (base32
-               "0jj3jiray1l4pi9wkjcpxjc3v431whdwx5aqnhgdm4i7h3817zsw"))))
+               "0jgbk30jizafpl7078jhw1di1yh08gf8d85dsvjllr595vr0widr"))))
     (build-system perl-build-system)
     (propagated-inputs
-     `(("perl-xml-parser" ,perl-xml-parser)))
+     `(("perl-xml-parser" ,perl-xml-parser)
+       ("perl-xml-sax" ,perl-xml-sax)))
     (license (package-license perl))
     (synopsis "Perl module for easy reading/writing of XML files")
     (description
      "The XML::Simple module provides a simple API layer on top of an
 underlying XML parsing module (either XML::Parser or one of the SAX2
 parser modules).")
-    (home-page "http://search.cpan.org/~grantm/XML-Simple-2.20/lib/XML/Simple.pm")))
+    (home-page "http://search.cpan.org/dist/XML-Simple")))
 
 (define-public perl-xml-regexp
   (package
@@ -552,16 +569,15 @@ server, collect the answer, and finally decoding the XML to Perl.")
 (define-public pugixml
   (package
     (name "pugixml")
-    (version "1.6")
+    (version "1.7")
     (source
      (origin
       (method url-fetch)
-      (uri (string-append "https://github.com/zeux/pugixml/archive/v"
-                          version ".tar.gz"))
-      (file-name (string-append name "-" version ".tar.gz"))
+      (uri (string-append "https://github.com/zeux/pugixml/releases/download/v"
+                          version "/pugixml-" version ".tar.gz"))
       (sha256
        (base32
-        "0czbcv9aqf2rw3s9cljz2wb1f4zbhd07wnj7ykklklccl0ipfnwi"))))
+        "1jpml475kbhs1aqwa48g2cbfxlrb9qp115m2j9yryxhxyr30vqgv"))))
     (build-system cmake-build-system)
     (arguments
      `(#:tests? #f
@@ -635,6 +651,8 @@ XSL-T processor.  It also performs any necessary post-processing.")
      `(("gnutls" ,gnutls)
        ("libgcrypt" ,libgcrypt)
        ("libltdl" ,libltdl)))
+    (native-inputs
+     `(("pkg-config" ,pkg-config)))
     (home-page "http://www.libexpat.org/")
     (synopsis "XML Security Library")
     (description

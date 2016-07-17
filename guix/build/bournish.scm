@@ -1,5 +1,6 @@
 ;;; GNU Guix --- Functional package management for GNU
 ;;; Copyright © 2016 Ludovic Courtès <ludo@gnu.org>
+;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -25,6 +26,7 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 ftw)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-26)
   #:export (%bournish-language))
 
@@ -103,6 +105,63 @@ characters."
        ((@ (guix build utils) dump-port) port (current-output-port))
        *unspecified*)))
 
+(define (lines+chars port)
+  "Return the number of lines and number of chars read from PORT."
+  (let loop ((lines 0) (chars 0))
+    (match (read-char port)
+      ((? eof-object?)              ;done!
+       (values lines chars))
+      (#\newline                    ;recurse
+       (loop (1+ lines) (1+ chars)))
+      (_                            ;recurse
+       (loop lines (1+ chars))))))
+
+(define (file-exists?* file)
+  "Like 'file-exists?' but emits a warning if FILE is not accessible."
+  (catch 'system-error
+    (lambda ()
+      (stat file))
+    (lambda args
+      (let ((errno (system-error-errno args)))
+        (format (current-error-port) "~a: ~a~%"
+                file (strerror errno))
+        #f))))
+
+(define (wc-print file)
+  (let-values (((lines chars)
+                (call-with-input-file file lines+chars)))
+              (format #t "~a ~a ~a~%" lines chars file)))
+
+(define (wc-l-print file)
+  (let-values (((lines chars)
+                (call-with-input-file file lines+chars)))
+              (format #t "~a ~a~%" lines file)))
+
+(define (wc-c-print file)
+  (let-values (((lines chars)
+                (call-with-input-file file lines+chars)))
+              (format #t "~a ~a~%" chars file)))
+
+(define (wc-command-implementation . files)
+  (for-each wc-print (filter file-exists?* files)))
+
+(define (wc-l-command-implementation . files)
+  (for-each wc-l-print (filter file-exists?* files)))
+
+(define (wc-c-command-implementation . files)
+  (for-each wc-c-print (filter file-exists?* files)))
+
+(define (wc-command . args)
+  "Emit code for the 'wc' command."
+  (cond ((member "-l" args)
+         `((@@ (guix build bournish) wc-l-command-implementation)
+           ,@(delete "-l" args)))
+        ((member "-c" args)
+         `((@@ (guix build bournish) wc-c-command-implementation)
+           ,@(delete "-c" args)))
+        (else
+         `((@@ (guix build bournish) wc-command-implementation) ,@args))))
+
 (define (help-command . _)
   (display "\
 Hello, this is Bournish, a minimal Bourne-like shell in Guile!
@@ -129,13 +188,16 @@ commands such as 'ls' and 'cd'; it lacks globbing, pipes---everything.\n"))
     ("help"   ,help-command)
     ("ls"     ,ls-command)
     ("which"  ,which-command)
-    ("cat"    ,cat-command)))
+    ("cat"    ,cat-command)
+    ("wc"     ,wc-command)))
 
 (define (read-bournish port env)
   "Read a Bournish expression from PORT, and return the corresponding Scheme
 code as an sexp."
-  (match (string-tokenize (read-line port))
-    ((command args ...)
+  (match (read-line port)
+    ((? eof-object? eof)
+     eof)
+    ((= string-tokenize (command args ...))
      (match (assoc command %commands)
        ((command proc)                            ;built-in command
         (apply proc (map expand-variable args)))
@@ -147,11 +209,24 @@ code as an sexp."
 
 (define %bournish-language
   (let ((scheme (lookup-language 'scheme)))
+    ;; XXX: The 'scheme' language lacks a "joiner", so we add one here.  This
+    ;; allows us to have 'read-bournish' read one shell statement at a time
+    ;; instead of having to read until EOF.
+    (set! (language-joiner scheme)
+      (lambda (exps env)
+        (match exps
+          (()   '(begin))
+          ((exp) exp)
+          (_    `(begin ,@exps)))))
+
     (make-language #:name 'bournish
                    #:title "Bournish"
+
+                   ;; The reader does all the heavy lifting.
                    #:reader read-bournish
-                   #:compilers (language-compilers scheme)
-                   #:decompilers (language-decompilers scheme)
+                   #:compilers `((scheme . ,(lambda (exp env options)
+                                              (values exp env env))))
+                   #:decompilers '()
                    #:evaluator (language-evaluator scheme)
                    #:printer (language-printer scheme)
                    #:make-default-environment

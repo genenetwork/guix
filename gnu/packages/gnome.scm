@@ -2,7 +2,7 @@
 ;;; Copyright © 2013, 2015 Andreas Enge <andreas@enge.fr>
 ;;; Copyright © 2014, 2015, 2016 Ludovic Courtès <ludo@gnu.org>
 ;;; Copyright © 2014 Ian Denhardt <ian@zenhack.net>
-;;; Copyright © 2014 Eric Bavier <bavier@member.fsf.org>
+;;; Copyright © 2014, 2016 Eric Bavier <bavier@member.fsf.org>
 ;;; Copyright © 2014, 2015 Federico Beffa <beffa@fbengineering.ch>
 ;;; Copyright © 2015, 2016 Sou Bunnbu <iyzsong@gmail.com>
 ;;; Copyright © 2015 Mathieu Lirzin <mthl@openmailbox.org>
@@ -18,6 +18,7 @@
 ;;; Copyright © 2016 Kei Kebreau <kei@openmailbox.org>
 ;;; Copyright © 2016 Jan Nieuwenhuizen <janneke@gnu.org>
 ;;; Copyright © 2016 Roel Janssen <roel@gnu.org>
+;;; Copyright © 2016 Leo Famulari <leo@famulari.name>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -1728,7 +1729,9 @@ passwords in the GNOME keyring.")
                        (setenv "CC" "gcc")
                        ;; For missing '/etc/machine-id'.
                        (setenv "DBUS_FATAL_WARNINGS" "0")
-                       #t)))))
+                       #t)))
+       ;; Build the Vala API generator
+       #:configure-flags '("--enable-vapigen")))
     (native-inputs
      `(("pkg-config" ,pkg-config)
        ("flex" ,flex)
@@ -2948,7 +2951,11 @@ GL based interactive canvas library.")
                (base32
                 "1arzd1hsgq14rbiwa1ih2g250x6ljna2s2kiqfrw155c612s9cxk"))))
     (build-system gnu-build-system)
-    (native-inputs `(("pkg-config" ,pkg-config)))
+    (arguments '(#:configure-flags '("--enable-vala")))
+    (native-inputs
+     `(("gobject-introspection" ,gobject-introspection)
+       ("pkg-config" ,pkg-config)
+       ("vala" ,vala)))
     (propagated-inputs
      `(("libsoup" ,libsoup)
        ("sqlite" ,sqlite)
@@ -3833,7 +3840,7 @@ metadata in photo and video files of various formats.")
 (define-public shotwell
   (package
     (name "shotwell")
-    (version "0.22.1")
+    (version "0.23.1")
     (source (origin
               (method url-fetch)
               (uri (string-append "mirror://gnome/sources/" name "/"
@@ -3841,7 +3848,7 @@ metadata in photo and video files of various formats.")
                                   name "-" version ".tar.xz"))
               (sha256
                (base32
-                "1a9lx9a7p6fgaf838xlw98f73xxyxmg6jmm29830lsl8ynbhq9bk"))))
+                "12imip32mav0zqg1fh4xm6zk4qsgg2435xsyb6ljz47i37zk6kg2"))))
     (build-system glib-or-gtk-build-system)
     (arguments
      `(#:tests? #f ;no "check" target
@@ -3869,7 +3876,7 @@ metadata in photo and video files of various formats.")
        ("libraw" ,libraw)
        ("json-glib" ,json-glib)
        ("rest" ,rest)
-       ("webkitgtk" ,webkitgtk-2.4)
+       ("webkitgtk" ,webkitgtk)
        ("sqlite" ,sqlite)
        ("libsoup" ,libsoup)
        ("libxml2" ,libxml2)
@@ -4249,6 +4256,7 @@ Exchange, Last.fm, IMAP/SMTP, Jabber, SIP and Kerberos.")
          (list "--disable-uoa"    ; disable Ubuntu Online Accounts support
                "--disable-google" ; disable Google Contacts support
                "--disable-google-auth" ; disable Google authentication
+               "--enable-vala-bindings"
                (string-append "--with-nspr-includes=" nspr "/include/nspr")
                (string-append "--with-nss-includes=" nss "/include/nss")
                (string-append "--with-nss-libs=" nss "/lib/nss")))
@@ -4265,6 +4273,7 @@ Exchange, Last.fm, IMAP/SMTP, Jabber, SIP and Kerberos.")
        ("gperf" ,gperf)
        ("intltool" ,intltool)
        ("pkg-config" ,pkg-config)
+       ("vala" ,vala)
        ("python" ,python)))
     (propagated-inputs
      ;; These are all in the Requires field of .pc files.
@@ -5182,3 +5191,198 @@ GNOME 3.  This includes things like the fonts used in user interface elements,
 alternative user interface themes, changes in window management behavior,
 GNOME Shell appearance and extension, etc.")
     (license license:gpl3+)))
+
+(define-public gnome-shell-extensions
+  (package
+    (name "gnome-shell-extensions")
+    (version "3.20.1")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "mirror://gnome/sources/" name "/"
+                                  (version-major+minor version)  "/"
+                                  name "-" version ".tar.xz"))
+              (sha256
+               (base32
+                "18rr55krnqx1nzrzlj6kfzh4n67f3crakmwh28rr95y7cg0jwhxw"))))
+    (build-system gnu-build-system)
+    (arguments
+     '(#:configure-flags '("--enable-extensions=all")))
+    (native-inputs
+     `(("intltool" ,intltool)
+       ("pkg-config" ,pkg-config)))
+    (propagated-inputs
+     `(("glib" ,glib)
+       ("glib" ,glib "bin")))
+    (synopsis "Extensions for GNOME Shell")
+    (description "GNOME Shell extensions modify and extend GNOME Shell
+functionality and behavior.")
+    (home-page "https://extensions.gnome.org/")
+    (license license:gpl3+)))
+
+(define-public arc-theme
+  (package
+    (name "arc-theme")
+    (version "20160605")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "https://github.com/horst3180/arc-theme"
+                                  "/archive/" version ".tar.gz"))
+              (file-name (string-append name "-" version ".tar.gz"))
+              (sha256
+               (base32
+                "0sq2031xda8jn2ws0x2bvhq77jfh7xy0c3kg86v6vm2kbrrss7y6"))))
+    (build-system gnu-build-system)
+    (arguments
+     '(#:phases
+       (modify-phases %standard-phases
+         (add-after 'unpack 'bootstrap
+           (lambda _
+             (zero? (system* "autoreconf" "-vif")))))))
+    (native-inputs
+     `(("autoconf" ,autoconf)
+       ("automake" ,automake)
+       ("pkg-config" ,pkg-config)))
+    (inputs
+     `(("gtk+" ,gtk+)))
+    (synopsis "A flat GTK+ theme with transparent elements")
+    (description "Arc is a flat theme with transparent elements for GTK 3, GTK
+2, and GNOME Shell which supports GTK 3 and GTK 2 based desktop environments
+like GNOME, Unity, Budgie, Pantheon, XFCE, Mate, etc.")
+    (home-page "https://github.com/horst3180/arc-theme")
+    ;; No "or later" language found.
+    (license license:gpl3)))
+
+(define-public moka-icon-theme
+  (package
+    (name "moka-icon-theme")
+    (version "5.3.1")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "https://github.com/moka-project"
+                                  "/moka-icon-theme/archive/v"
+                                  version ".tar.gz"))
+              (file-name (string-append name "-" version ".tar.gz"))
+              (sha256
+               (base32
+                "1lnk7p8dsd9xh6cgz5krvlcr457w8yl4m6p6s5c2g5narsjswzrm"))))
+    (build-system gnu-build-system)
+    (arguments
+     '(#:phases
+       (modify-phases %standard-phases
+         (add-after 'unpack 'patch-makefile.am
+           (lambda _
+             (substitute* '("Makefile.am")
+               (("\\$\\(DESTDIR\\)/usr/share")
+                "$(datadir)"))
+             #t))
+         (add-after 'patch-makefile.am 'bootstrap
+           (lambda _
+             (zero? (system* "autoreconf" "-vif")))))))
+    (native-inputs
+     `(("autoconf" ,autoconf)
+       ("automake" ,automake)))
+    (synopsis "Moka icon theme")
+    (description "Moka is a stylized desktop icon set, designed to be clear,
+simple and consistent.")
+    (home-page "http://snwh.org/moka")
+    (license license:gpl3+)))
+
+(define-public arc-icon-theme
+  (package
+    (name "arc-icon-theme")
+    (version "20160605")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "https://github.com/horst3180/arc-icon-theme"
+                                  "/archive/" version ".tar.gz"))
+              (file-name (string-append name "-" version ".tar.gz"))
+              (sha256
+               (base32
+                "1npf0ki0j0llrw9wbffhxxa1cdms0q7b8xlg9m943dd9g7pgdm2p"))))
+    (build-system gnu-build-system)
+    (arguments
+     '(#:phases
+       (modify-phases %standard-phases
+         (add-after 'unpack 'bootstrap
+           (lambda _
+             (zero? (system* "autoreconf" "-vif")))))))
+    (native-inputs
+     `(("autoconf" ,autoconf)
+       ("automake" ,automake)))
+    ;; When Arc is missing an icon, it looks in the Moka icon theme for it.
+    (propagated-inputs
+     `(("moka-icon-theme" ,moka-icon-theme)))
+    (synopsis "Arc icon theme")
+    (description "The Arc icon theme provides a set of icons matching the
+style of the Arc GTK theme.  Icons missing from the Arc theme are provided by
+the Moka icon theme.")
+    (home-page "https://github.com/horst3180/arc-icon-theme")
+    (license license:gpl3+)))
+
+(define-public folks
+  (package
+    (name "folks")
+    (version "0.11.2")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "mirror://gnome/sources/" name "/"
+                    (version-major+minor version) "/"
+                    name "-" version ".tar.xz"))
+              (sha256
+               (base32
+                "1f51albxgfqxbax57i3pcgv2fx7i419xaapzdvldas6gw100ma1m"))))
+    (build-system glib-or-gtk-build-system)
+    (inputs
+     `(("bdb" ,bdb)
+       ("dbus-glib" ,dbus-glib)
+       ("evolution-data-server" ,evolution-data-server)
+       ("glib" ,glib)
+       ("libgee" ,libgee)
+       ("telepathy-glib" ,telepathy-glib)))
+    (native-inputs
+     `(("gobject-introspection" ,gobject-introspection)
+       ("intltool" ,intltool)
+       ("pkg-config" ,pkg-config)
+       ("vala" ,vala)))
+    (synopsis "Library to aggregate data about people")
+    (description "Libfolks is a library that aggregates information about people
+from multiple sources (e.g., Telepathy connection managers for IM contacts,
+Evolution Data Server for local contacts, libsocialweb for web service contacts,
+etc.) to create metacontacts.  It's written in Vala, which generates C code when
+compiled.")
+    (home-page "https://wiki.gnome.org/Projects/Folks")
+    (license license:lgpl2.1+)))
+
+(define-public gfbgraph
+  (package
+    (name "gfbgraph")
+    (version "0.2.3")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "mirror://gnome/sources/" name "/"
+                    (version-major+minor version) "/"
+                    name "-" version ".tar.xz"))
+              (sha256
+               (base32
+                "1dp0v8ia35fxs9yhnqpxj3ir5lh018jlbiwifjfn8ayy7h47j4fs"))))
+    (build-system glib-or-gtk-build-system)
+    (arguments
+     `(#:tests? #f ; Tests appear to require the network.
+       ;; FIXME --enable-gtk-doc fails even with gtk-doc as a native-input.
+       #:configure-flags '("--disable-gtk-doc"
+                           "--disable-static"
+                           "--enable-introspection")))
+    (native-inputs
+     `(("pkg-config" ,pkg-config)
+       ("gobject-introspection" ,gobject-introspection)))
+    (inputs
+     `(("json-glib" ,json-glib)
+       ("gnome-online-accounts" ,gnome-online-accounts)
+       ("rest" ,rest)))
+    (synopsis "GLib/GObject wrapper for the Facebook API")
+    (description "This library allows you to use the Facebook API from
+GLib/GObject code.")
+    (home-page "https://wiki.gnome.org/Projects/GFBGraph")
+    (license license:lgpl2.1+)))

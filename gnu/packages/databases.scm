@@ -8,7 +8,7 @@
 ;;; Copyright © 2015 Sou Bunnbu <iyzsong@gmail.com>
 ;;; Copyright © 2015 Leo Famulari <leo@famulari.name>
 ;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
-;;; Copyright © 2016 Nils Gillmann <niasterisk@grrlz.net>
+;;; Copyright © 2016 ng0 <ng0@we.make.ritual.n0.is>
 ;;; Copyright © 2016 Roel Janssen <roel@gnu.org>
 ;;;
 ;;; This file is part of GNU Guix.
@@ -259,7 +259,7 @@ Language.")
 (define-public mariadb
   (package
     (name "mariadb")
-    (version "10.1.12")
+    (version "10.1.14")
     (source (origin
               (method url-fetch)
               (uri (string-append "https://downloads.mariadb.org/f/"
@@ -267,7 +267,7 @@ Language.")
                                   name "-" version ".tar.gz"))
               (sha256
                (base32
-                "1rzlc2ns84x540asbkgdp9562haxhlszfpdqh64i9pz4q1m4cpvr"))))
+                "04ysdbvj2qapfpaj7s5d2j3m8k9l0yb5k0c2yaini8jrl1s1krqq"))))
     (build-system cmake-build-system)
     (arguments
      '(#:configure-flags
@@ -400,6 +400,67 @@ types are supported, as is encryption.")
     (license gpl3+)
     (home-page "http://www.gnu.org/software/recutils/")))
 
+(define-public sparql-query
+  (package
+    (name "sparql-query")
+    (version "1.1")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "https://github.com/tialaramex/"
+                                  name "/archive/" version ".tar.gz"))
+              (sha256
+               (base32 "0yq3k20472rv8npcc420q9ab6idy584g5y0q501d360k5q0ggr8w"))
+              (file-name (string-append name "-" version ".tar.gz"))))
+    (build-system gnu-build-system)
+    (inputs
+     `(("readline" ,readline)
+       ("ncurses" ,ncurses)
+       ("glib" ,glib)
+       ("libxml2" ,libxml2)
+       ("curl" ,curl)))
+    (native-inputs
+     `(("pkg-config" ,pkg-config)))
+    (arguments
+     `(#:make-flags '("CC=gcc")
+       #:phases
+       (modify-phases %standard-phases
+         (delete 'configure)
+         ;; The Makefile uses git to obtain versioning information. This phase
+         ;; substitutes the git invocation with the package version.
+         (add-after 'unpack 'remove-git-dependency
+           (lambda _
+             (substitute* "Makefile"
+               (("^gitrev :=.*$")
+                (string-append "gitrev = \"v" ,version "\"")))))
+         ;; The install phase of the Makefile assumes $PREFIX/usr/local/bin.
+         ;; This replacement does the same thing, except for using $PREFIX/bin
+         ;; instead.
+         (replace 'install
+           (lambda* (#:key outputs #:allow-other-keys)
+             (let* ((out (assoc-ref outputs "out"))
+                    (bin (string-append out "/bin")))
+               (install-file "sparql-query" bin)
+               (system* "ln" "--symbolic"
+                        (string-append bin "/sparql-query")
+                        (string-append bin "/sparql-update")))))
+         (replace 'check
+           (lambda* (#:key make-flags #:allow-other-keys)
+             (and
+              (zero? (apply system* "make" `(,@make-flags "scan-test")))
+              (zero? (system "./scan-test"))))))))
+    (home-page "https://github.com/tialaramex/sparql-query/")
+    (synopsis "Command-line tool for accessing SPARQL endpoints over HTTP")
+    (description "Sparql-query is a command-line tool for accessing SPARQL
+endpoints over HTTP.  It has been intentionally designed to 'feel' similar to
+tools for interrogating SQL databases.  For example, you can enter a query over
+several lines, using a semi-colon at the end of a line to indicate the end of
+your query.  It also supports readline so that you can more easily recall and
+edit previous queries, even across sessions.  It can be used non-interactively,
+for example from a shell script.")
+    ;; Some files (like scan-sparql.c) contain a GPLv3+ license header, while
+    ;; others (like sparql-query.c) contain a GPLv2+ license header.
+    (license (list gpl3+))))
+
 (define-public sqlite
   (package
    (name "sqlite")
@@ -492,7 +553,7 @@ extremely small.")
 (define-public perl-dbi
   (package
     (name "perl-dbi")
-    (version "1.631")
+    (version "1.636")
     (source (origin
               (method url-fetch)
               (uri (string-append
@@ -500,11 +561,11 @@ extremely small.")
                     version ".tar.gz"))
               (sha256
                (base32
-                "04fmrnchhwi7jx4niaiv93vmi343hdm3xj04w9zr2m9hhqh782np"))))
+                "0v37vnr5p0bx396cj0lb5kb69jbryq2mspp602hbgd04gklxqzcg"))))
     (build-system perl-build-system)
     (synopsis "Database independent interface for Perl")
     (description "This package provides an database interface for Perl.")
-    (home-page "http://search.cpan.org/~timb/DBI-1.631/DBI.pm")
+    (home-page "http://search.cpan.org/dist/DBI")
     (license (package-license perl))))
 
 (define-public perl-dbix-class

@@ -39,16 +39,20 @@
 (define-public ntp
   (package
    (name "ntp")
-   (version "4.2.8p7")
+   (version "4.2.8p8")
    (source (origin
 	    (method url-fetch)
-	    (uri (string-append
-                  "http://archive.ntp.org/ntp4/ntp-"
-                  (version-major+minor version)
-                  "/ntp-" version ".tar.gz"))
+	    (uri (list (string-append
+                         "http://archive.ntp.org/ntp4/ntp-"
+                         (version-major+minor version)
+                         "/ntp-" version ".tar.gz")
+                       (string-append
+                         "https://www.eecis.udel.edu/~ntp/ntp_spool/ntp4/ntp-"
+                         (version-major+minor version)
+                         "/ntp-" version ".tar.gz")))
 	    (sha256
 	     (base32
-              "1p100856h17nb0kpnppy70nja57hbcc95h7shhxvw6mhl030rll1"))
+              "1vlpgd0dk2wkpmmf869sfxi8f46sfnmjgk51vl8n6vj5y2sx1cra"))
             (modules '((guix build utils)))
             (snippet
              '(begin
@@ -93,7 +97,7 @@ computers over a network.")
 (define-public openntpd
   (package
     (name "openntpd")
-    (version "5.9p1")
+    (version "6.0p1")
     (source (origin
               (method url-fetch)
               ;; XXX Use mirror://openbsd
@@ -102,7 +106,7 @@ computers over a network.")
                     version ".tar.gz"))
               (sha256
                (base32
-                "1cwp6vxv7nj039kgbf0mgfm06f8zc4axawdc7ijl2r2ddl2h8310"))))
+                "1s3plmxmybwpfrimq6sc54wxnn6ca7rb2g5k2bdjm4c88w4q1axi"))))
     (build-system gnu-build-system)
     (home-page "http://www.openntpd.org/")
     (synopsis "NTP client and server by the OpenBSD Project")

@@ -73,6 +73,7 @@
             setuid-program-service-type
             profile-service-type
             firmware-service-type
+            gc-root-service-type
 
             %boot-service
             %activation-service
@@ -237,42 +238,33 @@ directory."
 (define (cleanup-gexp _)
   "Return as a monadic value a gexp to clean up /tmp and similar places upon
 boot."
-  (define %modules
-    '((guix build utils)))
+  (with-monad %store-monad
+    (with-imported-modules '((guix build utils))
+      (return #~(begin
+                  (use-modules (guix build utils))
 
-  (mlet %store-monad ((modules  (imported-modules %modules))
-                      (compiled (compiled-modules %modules)))
-    (return #~(begin
-                (eval-when (expand load eval)
-                  ;; Make sure 'use-modules' below succeeds.
-                  (set! %load-path (cons #$modules %load-path))
-                  (set! %load-compiled-path
-                    (cons #$compiled %load-compiled-path)))
-
-                (use-modules (guix build utils))
-
-                ;; Clean out /tmp and /var/run.
-                ;;
-                ;; XXX This needs to happen before service activations, so it
-                ;; has to be here, but this also implicitly assumes that /tmp
-                ;; and /var/run are on the root partition.
-                (letrec-syntax ((fail-safe (syntax-rules ()
-                                             ((_ exp rest ...)
-                                              (begin
-                                                (catch 'system-error
-                                                  (lambda () exp)
-                                                  (const #f))
-                                                (fail-safe rest ...)))
-                                             ((_)
-                                              #t))))
-                  ;; Ignore I/O errors so the system can boot.
-                  (fail-safe
-                   (delete-file-recursively "/tmp")
-                   (delete-file-recursively "/var/run")
-                   (mkdir "/tmp")
-                   (chmod "/tmp" #o1777)
-                   (mkdir "/var/run")
-                   (chmod "/var/run" #o755)))))))
+                  ;; Clean out /tmp and /var/run.
+                  ;;
+                  ;; XXX This needs to happen before service activations, so it
+                  ;; has to be here, but this also implicitly assumes that /tmp
+                  ;; and /var/run are on the root partition.
+                  (letrec-syntax ((fail-safe (syntax-rules ()
+                                               ((_ exp rest ...)
+                                                (begin
+                                                  (catch 'system-error
+                                                    (lambda () exp)
+                                                    (const #f))
+                                                  (fail-safe rest ...)))
+                                               ((_)
+                                                #t))))
+                    ;; Ignore I/O errors so the system can boot.
+                    (fail-safe
+                     (delete-file-recursively "/tmp")
+                     (delete-file-recursively "/var/run")
+                     (mkdir "/tmp")
+                     (chmod "/tmp" #o1777)
+                     (mkdir "/var/run")
+                     (chmod "/var/run" #o755))))))))
 
 (define cleanup-service-type
   ;; Service that cleans things up in /tmp and similar.
@@ -308,10 +300,10 @@ file."
      one)
     (_
      (computed-file name
-                    #~(begin
-                        (use-modules (guix build union))
-                        (union-build #$output '#$things))
-                    #:modules '((guix build union))))))
+                    (with-imported-modules '((guix build union))
+                      #~(begin
+                          (use-modules (guix build union))
+                          (union-build #$output '#$things)))))))
 
 (define* (activation-service->script service)
   "Return as a monadic value the activation script for SERVICE, a service of
@@ -336,29 +328,22 @@ ACTIVATION-SCRIPT-TYPE."
           (cut gexp->file "activate-service" <>)
           gexps))
 
-  (mlet* %store-monad ((actions  (service-activations))
-                       (modules  (imported-modules %modules))
-                       (compiled (compiled-modules %modules)))
+  (mlet* %store-monad ((actions (service-activations)))
     (gexp->file "activate"
-                #~(begin
-                    (eval-when (expand load eval)
-                      ;; Make sure 'use-modules' below succeeds.
-                      (set! %load-path (cons #$modules %load-path))
-                      (set! %load-compiled-path
-                        (cons #$compiled %load-compiled-path)))
+                (with-imported-modules %modules
+                  #~(begin
+                      (use-modules (gnu build activation))
 
-                    (use-modules (gnu build activation))
+                      ;; Make sure /bin/sh is valid and current.
+                      (activate-/bin/sh
+                       (string-append #$(canonical-package bash) "/bin/sh"))
 
-                    ;; Make sure /bin/sh is valid and current.
-                    (activate-/bin/sh
-                     (string-append #$(canonical-package bash) "/bin/sh"))
+                      ;; Run the services' activation snippets.
+                      ;; TODO: Use 'load-compiled'.
+                      (for-each primitive-load '#$actions)
 
-                    ;; Run the services' activation snippets.
-                    ;; TODO: Use 'load-compiled'.
-                    (for-each primitive-load '#$actions)
-
-                    ;; Set up /run/current-system.
-                    (activate-current-system)))))
+                      ;; Set up /run/current-system.
+                      (activate-current-system))))))
 
 (define (gexps->activation-gexp gexps)
   "Return a gexp that runs the activation script containing GEXPS."
@@ -486,6 +471,33 @@ kernel."
                 (extensions
                  (list (service-extension activation-service-type
                                           firmware->activation-gexp)))
+                (compose concatenate)
+                (extend append)))
+
+(define (gc-roots->system-entry roots)
+  "Return an entry in the system's output containing symlinks to ROOTS."
+  (mlet %store-monad ((entry (gexp->derivation
+                              "gc-roots"
+                              #~(let ((roots '#$roots))
+                                  (mkdir #$output)
+                                  (chdir #$output)
+                                  (for-each symlink
+                                            roots
+                                            (map number->string
+                                                 (iota (length roots))))))))
+    (return (if (null? roots)
+                '()
+                `(("gc-roots" ,entry))))))
+
+(define gc-root-service-type
+  ;; A service to associate extra garbage-collector roots to the system.  This
+  ;; is a simple hack that guarantees that the system retains references to
+  ;; the given list of roots.  Roots must be "lowerable" objects like
+  ;; packages, or derivations.
+  (service-type (name 'gc-roots)
+                (extensions
+                 (list (service-extension system-service-type
+                                          gc-roots->system-entry)))
                 (compose concatenate)
                 (extend append)))
 

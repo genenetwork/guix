@@ -10,6 +10,8 @@
 ;;; Copyright © 2016 Pjotr Prins <pjotr.guix@thebird.nl>
 ;;; Copyright © 2016 Ricardo Wurmus <rekado@elephly.net>
 ;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
+;;; Copyright © 2016 Peter Feigl <peter.feigl@nexoid.at>
+;;; Copyright © 2016 John J. Foerch <jjfoerch@earthlink.net>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -58,6 +60,7 @@
   #:use-module (gnu packages mcrypt)
   #:use-module (gnu packages pkg-config)
   #:use-module (gnu packages popt)
+  #:use-module (gnu packages python)
   #:use-module (gnu packages texinfo)
   #:use-module (gnu packages groff)
   #:use-module (gnu packages pciutils)
@@ -787,18 +790,17 @@ system administrator.")
 (define-public sudo
   (package
     (name "sudo")
-    (version "1.8.15")
+    (version "1.8.17p1")
     (source (origin
               (method url-fetch)
               (uri
-               (list (string-append "http://www.sudo.ws/sudo/dist/sudo-"
+               (list (string-append "https://www.sudo.ws/sudo/dist/sudo-"
                                     version ".tar.gz")
                      (string-append "ftp://ftp.sudo.ws/pub/sudo/OLD/sudo-"
                                     version ".tar.gz")))
               (sha256
                (base32
-                "0263gi6i19fyzzc488n0qw3m518i39f6a7qmrfvahk9j10bkh5j3"))
-              (patches (search-patches "sudo-CVE-2015-5602.patch"))))
+                "1k2mn65l1kmsxm8wh0gjxy496xhbpiimbpm6yv6kw6snzc3xg466"))))
     (build-system gnu-build-system)
     (arguments
      `(#:configure-flags
@@ -847,7 +849,7 @@ system administrator.")
      `(("groff" ,groff)
        ("linux-pam" ,linux-pam)
        ("coreutils" ,coreutils)))
-    (home-page "http://www.sudo.ws/")
+    (home-page "https://www.sudo.ws/")
     (synopsis "Run commands as root")
     (description
      "Sudo (su \"do\") allows a system administrator to delegate authority to
@@ -1137,19 +1139,20 @@ characters can be replaced as well, as can UTF-8 characters.")
 (define-public testdisk
   (package
     (name "testdisk")
-    (version "6.14")
+    (version "7.0")
     (source (origin
               (method url-fetch)
               (uri (string-append "http://www.cgsecurity.org/testdisk-"
                                   version ".tar.bz2"))
               (sha256
                (base32
-                "0v1jap83f5h99zv01v3qmqm160d36n4ysi0gyq7xzb3mqgmw75x5"))))
+                "0ba4wfz2qrf60vwvb1qsq9l6j0pgg81qgf7fh22siaz649mkpfq0"))))
     (build-system gnu-build-system)
     (inputs
-     `(;; ("ntfs" ,ntfs)
+     `(("ntfs-3g" ,ntfs-3g)
        ("util-linux" ,util-linux)
        ("openssl" ,openssl)
+       ;; FIXME: add reiserfs
        ("zlib" ,zlib)
        ("e2fsprogs" ,e2fsprogs)
        ("libjpeg" ,libjpeg)
@@ -1343,17 +1346,14 @@ of supported upstream metrics systems simultaneously.")
 (define-public ansible
   (package
     (name "ansible")
-    (version "1.9.2")
+    (version "2.1.0.0")
     (source
      (origin
        (method url-fetch)
-       (uri (string-append
-             "https://pypi.python.org/packages/source/a/ansible/ansible-"
-             version
-             ".tar.gz"))
+       (uri (pypi-uri "ansible" version))
        (sha256
         (base32
-         "007fzgsqaahb0y4gjdxxmir9kcni7wph2z14jhqgpz88idrz8pn2"))))
+         "1bfc2xiplpad6f2nwi48y0kps7xqnsll85dlz63cy8k5bysl6d20"))))
     (build-system python-build-system)
     (native-inputs
      `(("python2-setuptools" ,python2-setuptools)
@@ -1643,3 +1643,97 @@ results (ndiff), and a packet generation and response analysis tool (nping).")
     ;; This package uses nmap's bundled versions of libdnet and liblinear, which
     ;; both use a 3-clause BSD license.
     (license (list license:nmap license:bsd-3))))
+
+(define-public dstat
+  (package
+    (name "dstat")
+    (version "0.7.3")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "https://github.com/dagwieers/dstat/archive/"
+                    version ".tar.gz"))
+              (file-name (string-append "dstat-" version ".tar.gz"))
+              (sha256
+               (base32
+                "16286z3y2lc9nsq8njzjkv6k2vyxrj9xiixj1k3gnsbvhlhkirj6"))))
+    (build-system gnu-build-system)
+    (arguments
+     `(#:tests? #f ;; no make check
+       #:make-flags (let ((out (assoc-ref %outputs "out")))
+                      (list (string-append "DESTDIR=" out)
+                            "prefix=/"))
+       ;; no configure script
+       #:phases (alist-delete 'configure %standard-phases)))
+    (inputs `(("python-2" ,python-2)))
+    (synopsis "Versatile resource statistics tool")
+    (description "Dstat is a versatile replacement for @command{vmstat},
+@command{iostat}, @command{netstat}, and @command{ifstat}.  Dstat overcomes
+some of their limitations and adds some extra features, more counters and
+flexibility.  Dstat is handy for monitoring systems during performance tuning
+tests, benchmarks or troubleshooting.
+
+Dstat allows you to view all of your system resources in real-time, you can,
+e.g., compare disk utilization in combination with interrupts from your IDE
+controller, or compare the network bandwidth numbers directly with the disk
+throughput (in the same interval).")
+    (home-page "http://dag.wiee.rs/home-made/dstat/")
+    (license license:gpl2+)))
+
+(define-public thefuck
+  (package
+    (name "thefuck")
+    (version "3.9")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "https://github.com/nvbn/thefuck/archive/"
+                                  version ".tar.gz"))
+              (file-name (string-append name "-" version ".tar.gz"))
+              (sha256
+               (base32
+                "0g4s2vkpl0mqhkdkbzib07qr4xf0cq25fvhdhna52290qgd69pwf"))))
+    (build-system python-build-system)
+    (native-inputs
+     `(("python-setuptools" ,python-setuptools)))
+    (inputs
+     `(("python-colorama" ,python-colorama)
+       ("python-decorator" ,python-decorator)
+       ("python-psutil" ,python-psutil)
+       ("python-six" ,python-six)))
+    (home-page "https://github.com/nvbn/thefuck")
+    (synopsis "Correct mistyped console command")
+    (description
+     "The Fuck tries to match a rule for a previous, mistyped command, creates
+a new command using the matched rule, and runs it.")
+    (license license:x11)))
+
+(define-public di
+  (package
+    (name "di")
+    (version "4.42")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "https://gentoo.com/di/di-" version ".tar.gz"))
+       (sha256
+        (base32 "1i6m9zdnidn8268q1lz9fd8payk7s4pgwh5zlam9rr4dy6h6a67n"))))
+    (build-system gnu-build-system)
+    (arguments
+     `(#:tests? #f ; Obscure test failures.
+       #:phases
+       (modify-phases %standard-phases
+         (delete 'configure)
+         (add-before 'build 'setup-environment
+           (lambda* (#:key outputs #:allow-other-keys)
+             (setenv "CC" "gcc")
+             (setenv "prefix" (assoc-ref outputs "out"))
+             #t)))
+       #:make-flags (list "--environment-overrides")))
+    (home-page "https://www.gentoo.com/di/")
+    (synopsis "Advanced df like disk information utility")
+    (description
+     "'di' is a disk information utility, displaying everything
+(and more) that your @code{df} command does.  It features the ability to
+display your disk usage in whatever format you prefer.  It is designed to be
+highly portable.  Great for heterogenous networks.")
+    (license license:zlib)))

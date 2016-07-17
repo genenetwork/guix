@@ -7,12 +7,13 @@
 ;;; Copyright © 2015 Taylan Ulrich Bayırlı/Kammer <taylanbayirli@gmail.com>
 ;;; Copyright © 2015, 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;; Copyright © 2016 Christopher Allan Webber <cwebber@dustycloud.org>
-;;; Copyright © 2016 Tobias Geerinckx-Rice <tobias.geerinckx.rice@gmail.com>
+;;; Copyright © 2016 Tobias Geerinckx-Rice <me@tobias.gr>
 ;;; Copyright © 2016 Alex Kost <alezost@gmail.com>
 ;;; Copyright © 2016 Raymond Nicholson <rain1@openmailbox.org>
 ;;; Copyright © 2016 Mathieu Lirzin <mthl@gnu.org>
 ;;; Copyright © 2016 Nicolas Goaziou <mail@nicolasgoaziou.fr>
 ;;; Copyright © 2016 Ricardo Wurmus <rekado@elephly.net>
+;;; Copyright © 2016 David Craven <david@craven.ch>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -30,49 +31,49 @@
 ;;; along with GNU Guix.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (gnu packages linux)
-  #:use-module ((guix licenses) #:prefix license:)
   #:use-module (gnu packages)
-  #:use-module (gnu packages compression)
-  #:use-module (gnu packages gcc)
-  #:use-module (gnu packages flex)
-  #:use-module (gnu packages bison)
   #:use-module (gnu packages admin)
-  #:use-module (gnu packages gperf)
-  #:use-module (gnu packages libusb)
-  #:use-module (gnu packages ncurses)
-  #:use-module (gnu packages pciutils)
-  #:use-module (gnu packages databases)
-  #:use-module (gnu packages perl)
-  #:use-module (gnu packages pkg-config)
-  #:use-module (gnu packages python)
-  #:use-module (gnu packages slang)
   #:use-module (gnu packages algebra)
-  #:use-module (gnu packages gettext)
-  #:use-module (gnu packages glib)
-  #:use-module (gnu packages pulseaudio)
   #:use-module (gnu packages attr)
-  #:use-module (gnu packages xml)
   #:use-module (gnu packages autotools)
-  #:use-module (gnu packages texinfo)
-  #:use-module (gnu packages check)
-  #:use-module (gnu packages maths)
   #:use-module (gnu packages base)
-  #:use-module (gnu packages rrdtool)
-  #:use-module (gnu packages elf)
-  #:use-module (gnu packages gtk)
+  #:use-module (gnu packages bison)
+  #:use-module (gnu packages calendar)
+  #:use-module (gnu packages check)
+  #:use-module (gnu packages compression)
+  #:use-module (gnu packages databases)
   #:use-module (gnu packages docbook)
   #:use-module (gnu packages documentation)
-  #:use-module (gnu packages readline)
-  #:use-module (gnu packages calendar)
-  #:use-module (gnu packages tls)
+  #:use-module (gnu packages elf)
+  #:use-module (gnu packages flex)
   #:use-module (gnu packages freedesktop)
-  #:use-module (guix packages)
-  #:use-module (guix download)
-  #:use-module (guix utils)
-  #:use-module (guix build-system gnu)
+  #:use-module (gnu packages gcc)
+  #:use-module (gnu packages gettext)
+  #:use-module (gnu packages glib)
+  #:use-module (gnu packages gperf)
+  #:use-module (gnu packages gtk)
+  #:use-module (gnu packages libusb)
+  #:use-module (gnu packages maths)
+  #:use-module (gnu packages ncurses)
+  #:use-module (gnu packages perl)
+  #:use-module (gnu packages pciutils)
+  #:use-module (gnu packages pkg-config)
+  #:use-module (gnu packages pulseaudio)
+  #:use-module (gnu packages python)
+  #:use-module (gnu packages readline)
+  #:use-module (gnu packages rrdtool)
+  #:use-module (gnu packages slang)
+  #:use-module (gnu packages texinfo)
+  #:use-module (gnu packages tls)
+  #:use-module (gnu packages xml)
   #:use-module (guix build-system cmake)
+  #:use-module (guix build-system gnu)
   #:use-module (guix build-system python)
   #:use-module (guix build-system trivial)
+  #:use-module (guix download)
+  #:use-module ((guix licenses) #:prefix license:)
+  #:use-module (guix packages)
+  #:use-module (guix utils)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-2)
   #:use-module (srfi srfi-26)
@@ -225,7 +226,7 @@ for SYSTEM and optionally VARIANT, or #f if there is no such configuration."
     (search-path %load-path file)))
 
 (define-public linux-libre
-  (let* ((version "4.6.1")
+  (let* ((version "4.6.4")
          (build-phase
           '(lambda* (#:key system inputs #:allow-other-keys #:rest args)
              ;; Avoid introducing timestamps
@@ -303,7 +304,7 @@ for SYSTEM and optionally VARIANT, or #f if there is no such configuration."
              (uri (linux-libre-urls version))
              (sha256
               (base32
-               "16cwr2jhd688bxdjfjpymap7sq0qsl24k5dylbz1rwfblnv2wn51"))))
+               "1294qw4agax0cnbhh0dk33jz358smhflllg77zv0rd8w9g433xiz"))))
     (build-system gnu-build-system)
     (supported-systems '("x86_64-linux" "i686-linux"))
     (native-inputs `(("perl" ,perl)
@@ -340,13 +341,13 @@ It has been modified to remove all non-free binary blobs.")
 (define-public linux-libre-4.4
   (package
     (inherit linux-libre)
-    (version "4.4.12")
+    (version "4.4.15")
     (source (origin
               (method url-fetch)
               (uri (linux-libre-urls version))
               (sha256
                (base32
-                "1zbds4ihk4x3lxr1jw7yrjzv1dkl995m41a54dfgqm0kj70li8ws"))))
+                "0n3lz4xnciif9v3y769q1pjs9321gvl6a2wr10r40sl1ixlk3ipz"))))
     (native-inputs
      (let ((conf (kernel-config (or (%current-target-system)
                                     (%current-system))
@@ -357,13 +358,13 @@ It has been modified to remove all non-free binary blobs.")
 (define-public linux-libre-4.1
   (package
     (inherit linux-libre)
-    (version "4.1.25")
+    (version "4.1.27")
     (source (origin
               (method url-fetch)
               (uri (linux-libre-urls version))
               (sha256
                (base32
-                "1vpgcnmfnn005rcd60wyyg0f84fgapdmz2dpcy77p2l66mw4pakf"))))
+                "0bbp782gdj8kz986a8hfygdrj7is0c8wgbb2mpb9gqhkfxcg74kf"))))
     (native-inputs
      (let ((conf (kernel-config (or (%current-target-system)
                                     (%current-system))
@@ -1419,17 +1420,15 @@ UnionFS-FUSE additionally supports copy-on-write.")
 (define-public sshfs-fuse
   (package
     (name "sshfs-fuse")
-    (version "2.5")
+    (version "2.8")
     (source (origin
               (method url-fetch)
-              (uri (let ((version-with-underscores
-                          (string-join (string-split version #\.) "_")))
-                     (string-append "https://github.com/libfuse/sshfs/releases/"
-                                    "download/sshfs_" version-with-underscores
-                                    "/sshfs-fuse-" version ".tar.gz")))
+              (uri (string-append "https://github.com/libfuse/sshfs/releases/"
+                                  "download/sshfs_" version
+                                  "/sshfs-" version ".tar.gz"))
               (sha256
                (base32
-                "0gp6qr33l2p0964j0kds0dfmvyyf5lpgsn11daf0n5fhwm9185z9"))))
+                "08mdd4rs7yys7hmyig6i08qlid76p17xlvrh64k7wsrfs1s92s3z"))))
     (build-system gnu-build-system)
     (inputs
      `(("fuse" ,fuse)
@@ -1862,9 +1861,14 @@ country-specific regulations for the wireless spectrum.")
     (version "3.3.5")
     (source (origin
               (method url-fetch)
-              (uri (string-append
-                    "ftp://ftp.netroedge.com/pub/lm-sensors/lm_sensors-"
-                    version ".tar.bz2"))
+              (uri (list (string-append
+                           "ftp://ftp.netroedge.com/pub/lm-sensors/"
+                           "lm_sensors-" version ".tar.bz2")
+                         (string-append
+                           "http://pkgs.fedoraproject.org/repo/pkgs/"
+                           "lm_sensors/lm_sensors-3.3.5.tar.bz2/"
+                           "da506dedceb41822e64865f6ba34828a/"
+                           "lm_sensors-3.3.5.tar.bz2")))
               (sha256
                (base32
                 "1ksgrynxgrq590nb2fwxrl1gwzisjkqlyg3ljfd1al0ibrk6mbjx"))
@@ -2410,7 +2414,7 @@ Bluetooth audio output devices like headphones or loudspeakers.")
 (define-public bluez
   (package
     (name "bluez")
-    (version "5.39")
+    (version "5.40")
     (source (origin
               (method url-fetch)
               (uri (string-append
@@ -2418,16 +2422,39 @@ Bluetooth audio output devices like headphones or loudspeakers.")
                     version ".tar.xz"))
               (sha256
                (base32
-                "0fsrf9rdmrdyx0vmcpfji4imjsvliawyy5sjb6b64myka28vrl91"))))
+                "09ywk3lvgis0nbi0d5z8d4qp5r33lzwnd6bdakacmbsm420qpnns"))))
     (build-system gnu-build-system)
     (arguments
      '(#:configure-flags
        (let ((out (assoc-ref %outputs "out")))
-         (list "--enable-library"
+         (list "--sysconfdir=/etc"
+               "--localstatedir=/var"
+               "--enable-library"
                "--disable-systemd"
                ;; Install dbus/udev files to the correct location.
                (string-append "--with-dbusconfdir=" out "/etc")
-               (string-append "--with-udevdir=" out "/lib/udev")))))
+               (string-append "--with-udevdir=" out "/lib/udev")))
+       #:phases
+       (modify-phases %standard-phases
+         (add-after 'install 'post-install
+           (lambda* (#:key inputs outputs #:allow-other-keys)
+             (let* ((out        (assoc-ref outputs "out"))
+                    (servicedir (string-append out "/share/dbus-1/services"))
+                    (service    "obexd/src/org.bluez.obex.service")
+                    (rule       (string-append
+                                 out "/lib/udev/rules.d/97-hid2hci.rules")))
+               ;; Install the obex dbus service file.
+               (substitute* service
+                 (("/bin/false")
+                  (string-append out "/libexec/bluetooth/obexd")))
+               (install-file service servicedir)
+               ;; Fix paths in the udev rule.
+               (substitute* rule
+                 (("hid2hci --method")
+                  (string-append out "/lib/udev/hid2hci --method"))
+                 (("/sbin/udevadm")
+                  (string-append (assoc-ref inputs "eudev") "/bin/udevadm")))
+               #t))))))
     (native-inputs
      `(("pkg-config" ,pkg-config)
        ("gettext" ,gnu-gettext)))
@@ -2703,3 +2730,25 @@ from userspace.")
 commonly found on Microsoft Windows.  It is implemented as a FUSE file system.
 The package provides additional NTFS tools.")
     (license license:gpl2+)))
+
+(define-public rng-tools
+  (package
+    (name "rng-tools")
+    (version "5")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                "http://downloads.sourceforge.net/sourceforge/gkernel/"
+                "rng-tools-" version ".tar.gz"))
+              (sha256
+               (base32
+                "13h7lc8wl9khhvkr0i3bl5j9bapf8anhqis1lcnwxg1vc2v058b0"))))
+    (build-system gnu-build-system)
+    (synopsis "Random number generator daemon")
+    (description
+     "Monitor a hardware random number generator, and supply entropy
+from that to the system kernel's @file{/dev/random} machinery.")
+    (home-page "http://sourceforge.net/projects/gkernel")
+    ;; The source package is offered under the GPL2+, but the files
+    ;; 'rngd_rdrand.c' and 'rdrand_asm.S' are only available under the GPL2.
+    (license (list license:gpl2 license:gpl2+))))

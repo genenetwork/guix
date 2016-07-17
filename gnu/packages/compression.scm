@@ -4,7 +4,7 @@
 ;;; Copyright © 2014, 2015 Mark H Weaver <mhw@netris.org>
 ;;; Copyright © 2015 Taylan Ulrich Bayırlı/Kammer <taylanbayirli@gmail.com>
 ;;; Copyright © 2015, 2016 Eric Bavier <bavier@member.fsf.org>
-;;; Copyright © 2015 Ricardo Wurmus <rekado@elephly.net>
+;;; Copyright © 2015, 2016 Ricardo Wurmus <rekado@elephly.net>
 ;;; Copyright © 2015 Leo Famulari <leo@famulari.name>
 ;;; Copyright © 2015 Jeff Mickey <j@codemac.net>
 ;;; Copyright © 2015, 2016 Efraim Flashner <efraim@flashner.co.il>
@@ -249,6 +249,29 @@ decompression.")
                                   "See LICENSE in the distribution."))
       (home-page "http://www.bzip.org/"))))
 
+(define-public lbzip2
+  (package
+    (name "lbzip2")
+    (version "2.5")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "http://archive.lbzip2.org/lbzip2-"
+                                  version ".tar.gz"))
+              (sha256
+               (base32
+                "1sahaqc5bw4i0iyri05syfza4ncf5cml89an033fspn97klmxis6"))))
+    (build-system gnu-build-system)
+    (synopsis "Parallel bzip2 compression utility")
+    (description
+     "lbzip2 is a multi-threaded compression utility with support for the
+bzip2 compressed file format.  lbzip2 can process standard bz2 files in
+parallel.  It uses POSIX threading model (pthreads), which allows it to take
+full advantage of symmetric multiprocessing (SMP) systems.  It has been proven
+to scale linearly, even to over one hundred processor cores.  lbzip2 is fully
+compatible with bzip2 – both at file format and command line level.")
+    (home-page "http://www.lbzip2.org/")
+    (license license:gpl3+)))
+
 (define-public pbzip2
   (package
     (name "pbzip2")
@@ -443,16 +466,17 @@ with the sfArk algorithm.")
     (license license:gpl3+)))
 
 (define-public sfarkxtc
+ (let ((commit "b5e0a2ba3921f019d74d4b92bd31c36dd19d2cf1"))
   (package
     (name "sfarkxtc")
-    (version "b5e0a2ba39")
+    (version (string-take commit 10))
     (source (origin
               ;; There are no release tarballs, so we just fetch the latest
               ;; commit at this time.
               (method git-fetch)
               (uri (git-reference
                     (url "https://github.com/raboof/sfarkxtc.git")
-                    (commit version)))
+                    (commit commit)))
               (sha256
                (base32
                 "0f5x6i46qfl6ry21s7g2p4sd4b2r1g4fb03yqi2vv4kq3saryhvj"))))
@@ -473,7 +497,7 @@ with the sfArk algorithm.")
     (synopsis "Basic sfArk decompressor")
     (description "SfArk extractor converts SoundFonts in the compressed legacy
 sfArk file format to the uncompressed sf2 format.")
-    (license license:gpl3+)))
+    (license license:gpl3+))))
 
 (define-public libmspack
   (package

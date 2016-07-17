@@ -54,7 +54,7 @@
 (define-public efl
   (package
     (name "efl")
-    (version "1.17.1")
+    (version "1.17.2")
     (source (origin
               (method url-fetch)
               (uri (string-append
@@ -62,7 +62,7 @@
                     version ".tar.xz"))
               (sha256
                (base32
-                "0d58bhvwg7c5hp07wywlwnqi01k4jhmpgac7gkx9lil1x6kmahqs"))))
+                "1dpq5flygrjg931nzsr2ra8icqffzrzbs1lnrzarbpsbmgq3zacs"))))
     (build-system gnu-build-system)
     (native-inputs
      `(("pkg-config" ,pkg-config)))
@@ -273,7 +273,7 @@ Libraries with some extra bells and whistles.")
 (define-public enlightenment
   (package
     (name "enlightenment")
-    (version "0.20.8")
+    (version "0.21.0")
     (source (origin
               (method url-fetch)
               (uri
@@ -281,7 +281,7 @@ Libraries with some extra bells and whistles.")
                               name "/" name "-" version ".tar.xz"))
               (sha256
                (base32
-                 "17fi3frq4a73i0x7v7244g9m0fbjfamw0cfb4zhqs2rp1z8nq1iy"))))
+                "0p85dmk9ysbf9y7vlc92z7495mh9l860xj3s8pspy9mscv3dnwg9"))))
     (build-system gnu-build-system)
     (arguments
      `(#:configure-flags '("--enable-mount-eeze")))
@@ -300,7 +300,7 @@ Libraries with some extra bells and whistles.")
      ;; both these inputs are present in pkgconfig file in Require section
      `(("efl" ,efl) ; enlightenment.pc
        ("elementary" ,elementary))) ; enlightenment.pc
-    (home-page "http://www.enlightenment.org")
+    (home-page "https://www.enlightenment.org")
     (synopsis "Lightweight desktop environment")
     (description
      "Enlightenment is resource friendly desktop environment with integrated
@@ -324,13 +324,18 @@ embedded systems.")
     (arguments
      '(#:phases
        (modify-phases %standard-phases
+        (replace 'build
+          (lambda _
+            (zero?
+              (system* "env" "ENABLE_CYTHON=1" "python" "setup.py" "build"))))
         (add-before 'build 'set-flags
          (lambda _
            (setenv "CFLAGS"
                    (string-append "-I" (assoc-ref %build-inputs "python-dbus")
                                   "/include/dbus-1.0")))))))
     (native-inputs
-     `(("pkg-config" ,pkg-config)))
+     `(("pkg-config" ,pkg-config)
+       ("python-cython" ,python-cython)))
     (inputs
      `(("efl" ,efl)
        ("elementary" ,elementary)

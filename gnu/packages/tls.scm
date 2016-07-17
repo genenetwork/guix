@@ -6,7 +6,7 @@
 ;;; Copyright © 2015 David Thompson <davet@gnu.org>
 ;;; Copyright © 2015 Leo Famulari <leo@famulari.name>
 ;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
-;;; Copyright © 2016 Nils Gillmann <niasterisk@grrlz.net>
+;;; Copyright © 2016 ng0 <ng0@we.make.ritual.n0.is>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -316,12 +316,14 @@ required structures.")
           (base32
            "06996ds1rk8xhnyb5y273a7xkcxhggp4bq1g02rab55d7bjhfh0x"))
          (patches (search-patches "openssl-runpath.patch"
-                                  "openssl-c-rehash-in.patch")))))))
+                                  "openssl-c-rehash-in.patch"
+                                  "openssl-CVE-2016-2177.patch"
+                                  "openssl-CVE-2016-2178.patch")))))))
 
 (define-public libressl
   (package
     (name "libressl")
-    (version "2.3.4")
+    (version "2.3.6")
     (source
      (origin
       (method url-fetch)
@@ -330,7 +332,7 @@ required structures.")
              version ".tar.gz"))
       (sha256
        (base32
-        "1ag65pbvdikqj5y1w780jicl3ngi9ld2332ki6794y0gcar3a4bs"))))
+        "1yipsp1ici207nbminbf1knh252kzvqg036v0xpx0fw1wrwlg2im"))))
     (build-system gnu-build-system)
     (native-search-paths
       ;; FIXME: These two variables must designate a single file or directory
@@ -358,16 +360,16 @@ security, and applying best practice development processes.")
 (define-public python-acme
   (package
     (name "python-acme")
-    (version "0.8.0")
+    (version "0.8.1")
     (source (origin
               (method url-fetch)
               (uri (string-append
                      "https://pypi.python.org/packages/"
-                     "45/17/6fdcede92c7fe4d9c1ab9d7513ded5aa969a0b9c90f3d7b3b074cd37e898/"
+                     "f5/7a/11a99b5d1d1c692f6eed27cfab69e6ba4d2f0c2a461d2607e6a930ff2c68/"
                      "acme-" version ".tar.gz"))
       (sha256
         (base32
-         "1nk48p0pi6xmqpsqjvw6xkx5vv4vl33yzq67fpr33ci8fra6pa6z"))))
+         "17vx2miczpd8ww4xizmc0nca2c7jf04wnhfnswx2bxhb537lmsnk"))))
     (build-system python-build-system)
     (arguments
      `(#:phases
@@ -420,16 +422,16 @@ security, and applying best practice development processes.")
 (define-public certbot
   (package
     (name "certbot")
-    (version "0.8.0")
+    (version "0.8.1")
     (source (origin
               (method url-fetch)
               (uri (string-append
                      "https://pypi.python.org/packages/"
-                     "da/b8/fa6d7f0f8c0d37944ca4a1940b1e933fc6673498995a45db03c034bb11dd/"
+                     "a2/3b/4756e6a0ceb14e084042a2a65c615d68d25621c6fd446d0fc10d14c4ce7d/"
                      name "-" version ".tar.gz"))
               (sha256
                (base32
-                "052338jdiy8dniskqxm2hzbca084ms0xqnjicshl6cpvhjs70g1w"))))
+                "0w972cf2mk74aji5d8dylg3jw6wczg01gb4asf3ndv8c64yxza3c"))))
     (build-system python-build-system)
     (arguments
      `(#:python ,python-2

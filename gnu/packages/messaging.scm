@@ -257,7 +257,7 @@ supports IPv6, SSL-protected connections as well as PAM for authentication.")
 (define-public pidgin
   (package
     (name "pidgin")
-    (version "2.10.11")
+    (version "2.11.0")
     (source
      (origin
        (method url-fetch)
@@ -265,7 +265,7 @@ supports IPv6, SSL-protected connections as well as PAM for authentication.")
                            version "/" name "-" version ".tar.bz2"))
        (sha256
         (base32
-         "01s0q30qrjlzj7kkz6f8lvrwsdd55a9yjh2xjjwyyxzw849j3bpj"))
+         "0crkggjj6y07v1kdwil9vw532b0vrs6p33nmlvdkpnl60m2169pp"))
        (patches (search-patches "pidgin-add-search-path.patch"))))
     (build-system glib-or-gtk-build-system)
     (native-inputs
@@ -378,14 +378,14 @@ compromised.")
 (define-public znc
   (package
     (name "znc")
-    (version "1.6.2")
+    (version "1.6.3")
     (source (origin
               (method url-fetch)
               (uri (string-append "http://znc.in/releases/archive/znc-"
                                   version ".tar.gz"))
               (sha256
                (base32
-                "14q5dyr5zg99hm6j6g1gilcn1zf7dskhxfpz3bnkyhy6q0kpgwgf"))))
+                "09xqi5fs40x6nj9gq99bnw1a7saq96bvqxknxx0ilq7yfvg4c733"))))
     (build-system gnu-build-system)
     (arguments
      '(#:tests? #f ; tries to download GoogleTest with wget

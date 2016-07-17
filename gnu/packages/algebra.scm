@@ -128,7 +128,7 @@ solve the shortest vector problem.")
 (define-public pari-gp
   (package
    (name "pari-gp")
-   (version "2.7.5")
+   (version "2.7.6")
    (source (origin
             (method url-fetch)
             (uri (string-append
@@ -136,7 +136,7 @@ solve the shortest vector problem.")
                   version ".tar.gz"))
             (sha256
               (base32
-                "0c8l83a0gjq73r9hndsrzkypwxvnnm4pxkkzbg6jm95m80nzwh11"))))
+                "04dqi697czd8mmw8aiwzrkgbvkjassqagg6lfy3lkf1k5qi9g9rr"))))
    (build-system gnu-build-system)
    (native-inputs `(("texlive" ,texlive-minimal)))
    (inputs `(("gmp" ,gmp)
@@ -202,7 +202,7 @@ GP2C, the GP to C compiler, translates GP scripts to PARI programs.")
 (define-public giac-xcas
   (package
     (name "giac-xcas")
-    (version "1.2.2-41")
+    (version "1.2.2-59")
     (source (origin
               (method url-fetch)
               ;; "~parisse/giac" is not used because the maintainer regularly
@@ -214,7 +214,7 @@ GP2C, the GP to C compiler, translates GP scripts to PARI programs.")
                                   "source/giac_" version ".tar.gz"))
               (sha256
                (base32
-                "061a0p5l1qlb9iqk7n7yznhv2f3hvll1hrzjbhn81bf31f2wj6sq"))))
+                "02s774v2zg2ya43rm8s7bcwzrmp4wlmn8h2rlg4816zpfrjkrdn4"))))
     (build-system gnu-build-system)
     (arguments
      `(#:phases

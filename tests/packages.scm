@@ -21,6 +21,7 @@
   #:use-module (guix store)
   #:use-module (guix monads)
   #:use-module (guix grafts)
+  #:use-module ((guix gexp) #:select (local-file local-file-file))
   #:use-module ((guix utils)
                 ;; Rename the 'location' binding to allow proper syntax
                 ;; matching when setting the 'location' field of a package.
@@ -295,6 +296,20 @@
     (and (direct-store-path? source)
          (string-suffix? "utils.scm" source))))
 
+(test-assert "package-source-derivation, local-file"
+  (let* ((file    (local-file "../guix/base32.scm"))
+         (package (package (inherit (dummy-package "p"))
+                    (source file)))
+         (source  (package-source-derivation %store
+                                             (package-source package))))
+    (and (store-path? source)
+         (string-suffix? "base32.scm" source)
+         (valid-path? %store source)
+         (equal? (call-with-input-file source get-bytevector-all)
+                 (call-with-input-file
+                     (search-path %load-path "guix/base32.scm")
+                   get-bytevector-all)))))
+
 (unless (network-reachable?) (test-skip 1))
 (test-equal "package-source-derivation, snippet"
   "OK"
@@ -320,7 +335,6 @@
                        ("patch" ,%bootstrap-coreutils&co)))
                     (patch-guile %bootstrap-guile)
                     (modules '((guix build utils)))
-                    (imported-modules modules)
                     (snippet '(begin
                                 ;; We end up in 'bin', because it's the first
                                 ;; directory, alphabetically.  Not a very good
@@ -782,7 +796,7 @@
                  #:guile-for-build (%guile-for-build))))
     (build-derivations %store (list prof))
     (string-match (format #f "^export XML_CATALOG_FILES=\"~a/xml/+bar/baz/catalog\\.xml\"\n"
-                          (derivation->output-path prof))
+                          (regexp-quote (derivation->output-path prof)))
                   (with-output-to-string
                     (lambda ()
                       (guix-package "-p" (derivation->output-path prof)

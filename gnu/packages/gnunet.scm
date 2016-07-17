@@ -3,9 +3,9 @@
 ;;; Copyright © 2014 Sree Harsha Totakura <sreeharsha@totakura.in>
 ;;; Copyright © 2015 Ludovic Courtès <ludo@gnu.org>
 ;;; Copyright © 2015 Efraim Flashner <efraim@flashner.co.il>
-;;; Copyright © 2016 Ni* Gillmann <ng@niasterisk.space>
 ;;; Copyright © 2016 Ricardo Wurmus <rekado@elephly.net>
 ;;; Copyright © 2016 Mark H Weaver <mhw@netris.org>
+;;; Copyright © 2016 ng0 <ng0@we.make.ritual.n0.is>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -121,14 +121,14 @@ tool to extract metadata from a file and print the results.")
 (define-public libmicrohttpd
   (package
    (name "libmicrohttpd")
-   (version "0.9.48")
+   (version "0.9.50")
    (source (origin
             (method url-fetch)
             (uri (string-append "mirror://gnu/libmicrohttpd/libmicrohttpd-"
                                 version ".tar.gz"))
             (sha256
              (base32
-              "1952z36lf31jy0x19r4y389d9188wgzmdqh2l28wdy1biwapwrl7"))))
+              "1mzbqr6sqisppz88mh73bbh5sw57g8l87qvhcjdx5pmbd183idni"))))
    (build-system gnu-build-system)
    (inputs
     `(("curl" ,curl)
@@ -153,13 +153,16 @@ and support for SSL3 and TLS.")
 (define-public gnurl
   (package
    (name "gnurl")
-   (version "7.45.0")
+   (version "7.48.0")
    (source (origin
             (method url-fetch)
-            (uri (string-append "https://gnunet.org/sites/default/files/gnurl-"
-                                version ".tar.bz2"))
+            (uri (let ((version-with-underscores
+                        (string-join (string-split version #\.) "_")))
+                   (string-append "https://gnunet.org/sites/default/files/"
+                                  name "-" version-with-underscores ".tar.bz2")))
             (sha256
-             (base32 "0hd8w4wyjwagd4k6vm6srphqbmysz08rcwf8z7f4b2d6d2yrn3mm"))))
+             (base32
+              "14gch4rdibrc8qs4mijsczxvl45dsclf234g17dk6c8nc2s4bm0a"))))
    (build-system gnu-build-system)
    (inputs `(("gnutls" ,gnutls)
              ("libidn" ,libidn)
@@ -266,10 +269,10 @@ privacy-preserving, decentralized public key infrastructure.")
    (home-page "https://gnunet.org/")))
 
 (define-public guile-gnunet                       ;GSoC 2015!
-  (let ((commit "383eac2"))
+  (let ((commit "383eac2aab175d8d9ea5315c2f1c8a5055c76a52"))
     (package
       (name "guile-gnunet")
-      (version (string-append "0.0." commit))
+      (version (string-append "0.0." (string-take commit 7)))
       (source (origin
                 (method git-fetch)
                 (uri (git-reference

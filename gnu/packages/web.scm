@@ -12,6 +12,8 @@
 ;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;; Copyright © 2016 Rene Saavedra <rennes@openmailbox.org>
 ;;; Copyright © 2016 Ben Woodcroft <donttrustben@gmail.com>
+;;; Copyright © 2016 Clément Lassieur <clement@lassieur.org>
+;;; Copyright © 2016 ng0 <ng0@we.make.ritual.n0.is>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -41,6 +43,7 @@
   #:use-module (guix build-system perl)
   #:use-module (guix build-system cmake)
   #:use-module (guix build-system r)
+  #:use-module (guix build-system trivial)
   #:use-module (gnu packages)
   #:use-module (gnu packages apr)
   #:use-module (gnu packages documentation)
@@ -73,14 +76,14 @@
 (define-public httpd
   (package
     (name "httpd")
-    (version "2.4.16")
+    (version "2.4.23")
     (source (origin
              (method url-fetch)
              (uri (string-append "mirror://apache/httpd/httpd-"
                                  version ".tar.bz2"))
              (sha256
               (base32
-               "0hrpy6gjwma0kba7p7m61vwh82qcnkf08123lrwpg257m93hnrmc"))))
+               "0n2yx3gjlpr4kgqx845fj6amnmg25r2l6a7rzab5hxnpmar985hc"))))
     (build-system gnu-build-system)
     (inputs `(("apr" ,apr)
               ("apr-util" ,apr-util)
@@ -192,7 +195,7 @@ and as a proxy to reduce the load on back-end HTTP or mail servers.")
 (define-public starman
   (package
     (name "starman")
-    (version "0.4011")
+    (version "0.4014")
     (source
      (origin
        (method url-fetch)
@@ -200,7 +203,7 @@ and as a proxy to reduce the load on back-end HTTP or mail servers.")
                            "Starman-" version ".tar.gz"))
        (sha256
         (base32
-         "1337zhi6v1sg4gd9rs3giybc7g1ysw8ak2da0vy098k4dacxyb57"))))
+         "1sbb5rb3vs82rlh1fjkgkcmj5pj62b4y9si4ihh45sl9m8c2qxx5"))))
     (build-system perl-build-system)
     (native-inputs
      `(("perl-libwww" ,perl-libwww)
@@ -291,8 +294,7 @@ parse JSON formatted strings back into the C representation of JSON objects.")
                "1fj5mf6wbwz7v74n2safbw7fpw32fik19vf0wdbc2srn82i8fiwz"))))
    (build-system perl-build-system)
    (arguments
-     `(#:tests? #f ; no tests
-       #:phases
+     `(#:phases
        (modify-phases %standard-phases
          ;; There is no configure or build steps.
          (delete 'configure)
@@ -314,9 +316,7 @@ parse JSON formatted strings back into the C representation of JSON objects.")
            (lambda* (#:key outputs #:allow-other-keys)
              (let ((bin   (string-append (assoc-ref outputs "out") "/bin"))
                    (perl  (string-append (assoc-ref outputs "out")
-                                         "/lib/perl5/site_perl"))
-                   (share (string-append
-                           (assoc-ref outputs "out") "/share/krona-tools")))
+                                         "/lib/perl5/site_perl/krona-tools/lib")))
                (mkdir-p bin)
                (for-each
                 (lambda (script)
@@ -341,13 +341,13 @@ parse JSON formatted strings back into the C representation of JSON objects.")
                   "ImportTaxonomy"
                   "ImportText"
                   "ImportXML"))
-               (mkdir-p share)
-               (copy-recursively "data" (string-append share "/data"))
-               (copy-recursively "img" (string-append share "/img"))
-               (copy-recursively "taxonomy" (string-append share "/taxonomy"))
-               (substitute* '("lib/KronaTools.pm")
-                 (("taxonomyDir = \".libPath/../taxonomy\"")
-                  (string-append "taxonomyDir = \"" share "/taxonomy\"")))
+               (copy-recursively "data" (string-append perl "/../data"))
+               (copy-recursively "img" (string-append perl "/../img"))
+               (copy-recursively "taxonomy" (string-append perl "/../taxonomy"))
+               (install-file "src/krona-2.0.js" (string-append perl "/../src"))
+               (substitute* "lib/KronaTools.pm"
+                 (("`ktGetLibPath`")
+                  (string-append "\"" perl "\"")))
                (install-file "lib/KronaTools.pm" perl))))
          (add-after 'install 'wrap-program
            (lambda* (#:key inputs outputs #:allow-other-keys)
@@ -357,8 +357,14 @@ parse JSON formatted strings back into the C representation of JSON objects.")
                 (lambda (executable)
                   (wrap-program executable
                     `("PERL5LIB" ":" prefix
-                      (,(string-append out "/lib/perl5/site_perl")))))
-                (find-files (string-append out "/bin/") ".*"))))))))
+                      (,(string-append out "/lib/perl5/site_perl/krona-tools/lib")))))
+                (find-files (string-append out "/bin/") ".*")))))
+         (delete 'check)
+         (add-after 'wrap-program 'check
+           (lambda* (#:key inputs outputs #:allow-other-keys)
+             (with-directory-excursion "data"
+               (zero? (system* (string-append (assoc-ref outputs "out") "/bin/ktImportText")
+                               "ec.tsv"))))))))
    (inputs
     `(("perl" ,perl)))
    (home-page "https://github.com/marbl/Krona/wiki")
@@ -2894,14 +2900,14 @@ applications.")
 (define-public perl-uri
   (package
     (name "perl-uri")
-    (version "1.67")
+    (version "1.71")
     (source (origin
              (method url-fetch)
              (uri (string-append "mirror://cpan/authors/id/E/ET/ETHER/"
                                  "URI-" version ".tar.gz"))
              (sha256
               (base32
-               "0ki7i830gs0cwwwjsyv3s6yy1l76ym8pfqp0lp7vw0j9bwyx923h"))))
+               "05a1ck1bhvqkkk690xhsxf7276dnagk96qkh2jy4prrrgw6wm3lw"))))
     (build-system perl-build-system)
     (license (package-license perl))
     (synopsis "Perl Uniform Resource Identifiers (absolute and relative)")
@@ -3347,3 +3353,39 @@ you'd expect.")
 HTTPS.  It provides a library, libuhttpmock, which implements recording and
 playback of HTTP request/response traces.")
     (license l:lgpl2.1+)))
+
+(define-public woof
+  (package
+    (name "woof")
+    (version "2012-05-31")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "http://www.home.unix-ag.org/simon/woof-"
+                    version ".py"))
+              (sha256
+               (base32
+                "0wjmjhpg6xlid33yi59j47q2qadz20sijrqsjahj30vngz856hyq"))))
+    (build-system trivial-build-system)
+    (arguments
+     '(#:modules ((guix build utils))
+       #:builder
+       (begin
+         (use-modules (guix build utils))
+         (let* ((source (assoc-ref %build-inputs "source"))
+                (out    (assoc-ref %outputs "out"))
+                (bin    (string-append out "/bin"))
+                (python (assoc-ref %build-inputs "python")))
+           (mkdir-p bin)
+           (with-directory-excursion bin
+             (copy-file source "woof")
+             (patch-shebang "woof" (list (string-append python "/bin")))
+             (chmod "woof" #o555))
+           #t))))
+    (inputs `(("python" ,python-2)))
+    (home-page "http://www.home.unix-ag.org/simon/woof.html")
+    (synopsis "Single file web server")
+    (description "Woof (Web Offer One File) is a small simple web server that
+can easily be invoked on a single file.  Your partner can access the file with
+tools they trust (e.g. wget).")
+    (license l:gpl2+)))

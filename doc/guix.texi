@@ -204,6 +204,7 @@ System Configuration
 Services
 
 * Base Services::               Essential system services.
+* Scheduled Job Execution::     The mcron service.
 * Networking Services::         Network setup, SSH daemon, etc.
 * X Window::                    Graphical display.
 * Desktop Services::            D-Bus and desktop services.
@@ -619,6 +620,31 @@ Upon failure, please email @email{bug-guix@@gnu.org} and attach the
 as well as version numbers of the dependencies (@pxref{Requirements}) in
 your message.
 
+Guix also comes with a whole-system test suite that tests complete
+GuixSD operating system instances.  It can only run on systems where
+Guix is already installed, using:
+
+@example
+make check-system
+@end example
+
+@noindent
+or, again, by defining @code{TESTS} to select a subset of tests to run:
+
+@example
+make check-system TESTS="basic mcron"
+@end example
+
+These system tests are defined in the @code{(gnu tests @dots{})}
+modules.  They work by running the operating systems under test with
+lightweight instrumentation in a virtual machine (VM).  They can be
+computationally intensive or rather cheap, depending on whether
+substitutes are available for their dependencies (@pxref{Substitutes}).
+Some of them require a lot of storage space to hold VM images.
+
+Again in case of test failures, please send @email{bug-guix@@gnu.org}
+all the details.
+
 @node Setting Up the Daemon
 @section Setting Up the Daemon
 
@@ -682,8 +708,13 @@ Bash syntax and the @code{shadow} commands):
 @noindent
 The number of build users determines how many build jobs may run in
 parallel, as specified by the @option{--max-jobs} option
-(@pxref{Invoking guix-daemon, @option{--max-jobs}}).  The
-@code{guix-daemon} program may then be run as @code{root} with the
+(@pxref{Invoking guix-daemon, @option{--max-jobs}}).  To use
+@command{guix system vm} and related commands, you may need to add the
+build users to the @code{kvm} group so they can access @file{/dev/kvm},
+using @code{-G guixbuild,kvm} instead of @code{-G guixbuild}
+(@pxref{Invoking guix system}).
+
+The @code{guix-daemon} program may then be run as @code{root} with the
 following command@footnote{If your machine uses the systemd init system,
 dropping the @file{@var{prefix}/lib/systemd/system/guix-daemon.service}
 file in @file{/etc/systemd/system} will ensure that
@@ -2503,8 +2534,12 @@ The name of the package, as a string.
 The version of the package, as a string.
 
 @item @code{source}
-An origin object telling how the source code for the package should be
-acquired (@pxref{origin Reference}).
+An object telling how the source code for the package should be
+acquired.  Most of the time, this is an @code{origin} object, which
+denotes a file fetched from the Internet (@pxref{origin Reference}).  It
+can also be any other ``file-like'' object such as a @code{local-file},
+which denotes a file from the local file system (@pxref{G-Expressions,
+@code{local-file}}).
 
 @item @code{build-system}
 The build system that should be used to build the package (@pxref{Build
@@ -2557,7 +2592,7 @@ one @i{via} its @code{Requires} field.
 
 Another example where @code{propagated-inputs} is useful is for languages
 that lack a facility to record the run-time search path akin to the
-@code{RUNPATH}of ELF files; this includes Guile, Python, Perl, GHC, and
+@code{RUNPATH} of ELF files; this includes Guile, Python, Perl, GHC, and
 more.  To ensure that libraries written in those languages can find
 library code they depend on at run time, run-time dependencies must be
 listed in @code{propagated-inputs} rather than @code{inputs}.
@@ -2634,6 +2669,7 @@ Examples include:
 download a file from the HTTP, HTTPS, or FTP URL specified in the
 @code{uri} field;
 
+@vindex git-fetch
 @item @var{git-fetch} from @code{(guix git-download)}
 clone the Git version control repository, and check out the revision
 specified in the @code{uri} field as a @code{git-reference} object; a
@@ -2651,6 +2687,10 @@ A bytevector containing the SHA-256 hash of the source.  Typically the
 @code{base32} form is used here to generate the bytevector from a
 base-32 string.
 
+You can obtain this information using @code{guix download}
+(@pxref{Invoking guix download}) or @code{guix hash} (@pxref{Invoking
+guix hash}).
+
 @item @code{file-name} (default: @code{#f})
 The file name under which the source code should be saved.  When this is
 @code{#f}, a sensible default value will be used in most cases.  In case
@@ -2662,8 +2702,9 @@ file name explicitly because the default is not very descriptive.
 A list of file names containing patches to be applied to the source.
 
 @item @code{snippet} (default: @code{#f})
-A quoted piece of code that will be run in the source directory to make
-any modifications, which is sometimes more convenient than a patch.
+A G-expression (@pxref{G-Expressions}) or S-expression that will be run
+in the source directory.  This is a convenient way to modify the source,
+sometimes more convenient than a patch.
 
 @item @code{patch-flags} (default: @code{'("-p1")})
 A list of command-line flags that should be passed to the @code{patch}
@@ -2677,10 +2718,6 @@ such as GNU@tie{}Patch.
 @item @code{modules} (default: @code{'()})
 A list of Guile modules that should be loaded during the patching
 process and while running the code in the @code{snippet} field.
-
-@item @code{imported-modules} (default: @code{'()})
-The list of Guile modules to import in the patch derivation, for use by
-the @code{snippet}.
 
 @item @code{patch-guile} (default: @code{#f})
 The Guile package that should be used in the patching process.  When
@@ -3498,7 +3535,7 @@ resulting text file refers to; it defaults to the empty list.
 @end deffn
 
 @deffn {Monadic Procedure} interned-file @var{file} [@var{name}] @
-         [#:recursive? #t]
+         [#:recursive? #t] [#:select? (const #t)]
 Return the name of @var{file} once interned in the store.  Use
 @var{name} as its store name, or the basename of @var{file} if
 @var{name} is omitted.
@@ -3506,6 +3543,11 @@ Return the name of @var{file} once interned in the store.  Use
 When @var{recursive?} is true, the contents of @var{file} are added
 recursively; if @var{file} designates a flat file and @var{recursive?}
 is true, its contents are added, and its permission bits are kept.
+
+When @var{recursive?} is true, call @code{(@var{select?} @var{file}
+@var{stat})} for each directory entry, where @var{file} is the entry's
+absolute file name and @var{stat} is the result of @code{lstat}; exclude
+entries for which @var{select?} does not return true.
 
 The example below adds a file to the store, under two different names:
 
@@ -3657,6 +3699,30 @@ In the example above, the native build of @var{coreutils} is used, so
 that @command{ln} can actually run on the host; but then the
 cross-compiled build of @var{emacs} is referenced.
 
+@cindex imported modules, for gexps
+@findex with-imported-modules
+Another gexp feature is @dfn{imported modules}: sometimes you want to be
+able to use certain Guile modules from the ``host environment'' in the
+gexp, so those modules should be imported in the ``build environment''.
+The @code{with-imported-modules} form allows you to express that:
+
+@example
+(let ((build (with-imported-modules '((guix build utils))
+               #~(begin
+                   (use-modules (guix build utils))
+                   (mkdir-p (string-append #$output "/bin"))))))
+  (gexp->derivation "empty-dir"
+                    #~(begin
+                        #$build
+                        (display "success!\n")
+                        #t)))
+@end example
+
+@noindent
+In this example, the @code{(guix build utils)} module is automatically
+pulled into the isolated build environment of our gexp, such that
+@code{(use-modules (guix build utils))} works as expected.
+
 The syntactic form to construct gexps is summarized below.
 
 @deffn {Scheme Syntax} #~@var{exp}
@@ -3716,6 +3782,16 @@ G-expressions created by @code{gexp} or @code{#~} are run-time objects
 of the @code{gexp?} type (see below.)
 @end deffn
 
+@deffn {Scheme Syntax} with-imported-modules @var{modules} @var{body}@dots{}
+Mark the gexps defined in @var{body}@dots{} as requiring @var{modules}
+in their execution environment.  @var{modules} must be a list of Guile
+module names, such as @code{'((guix build utils) (guix build gremlin))}.
+
+This form has @emph{lexical} scope: it has an effect on the gexps
+directly defined in @var{body}@dots{}, but not on those defined, say, in
+procedures called from @var{body}@dots{}.
+@end deffn
+
 @deffn {Scheme Procedure} gexp? @var{obj}
 Return @code{#t} if @var{obj} is a G-expression.
 @end deffn
@@ -3741,7 +3817,9 @@ stored in a file called @var{script-name}.  When @var{target} is true,
 it is used as the cross-compilation target triplet for packages referred
 to by @var{exp}.
 
-Make @var{modules} available in the evaluation context of @var{exp};
+@var{modules} is deprecated in favor of @code{with-imported-modules}.
+Its meaning is to
+make @var{modules} available in the evaluation context of @var{exp};
 @var{modules} is a list of names of Guile modules searched in
 @var{module-path} to be copied in the store, compiled, and made available in
 the load path during the execution of @var{exp}---e.g., @code{((guix
@@ -3795,7 +3873,7 @@ does not have any effect on what the G-expression does.
 content is directly passed as a string.
 
 @deffn {Scheme Procedure} local-file @var{file} [@var{name}] @
-   [#:recursive? #t]
+   [#:recursive? #f] [#:select? (const #t)]
 Return an object representing local file @var{file} to add to the store; this
 object can be used in a gexp.  If @var{file} is a relative file name, it is looked
 up relative to the source file where this form appears.  @var{file} will be added to
@@ -3804,6 +3882,11 @@ the store under @var{name}--by default the base name of @var{file}.
 When @var{recursive?} is true, the contents of @var{file} are added recursively; if @var{file}
 designates a flat file and @var{recursive?} is true, its contents are added, and its
 permission bits are kept.
+
+When @var{recursive?} is true, call @code{(@var{select?} @var{file}
+@var{stat})} for each directory entry, where @var{file} is the entry's
+absolute file name and @var{stat} is the result of @code{lstat}; exclude
+entries for which @var{select?} does not return true.
 
 This is the declarative counterpart of the @code{interned-file} monadic
 procedure (@pxref{The Store Monad, @code{interned-file}}).
@@ -3817,10 +3900,9 @@ This is the declarative counterpart of @code{text-file}.
 @end deffn
 
 @deffn {Scheme Procedure} computed-file @var{name} @var{gexp} @
-          [#:modules '()] [#:options '(#:local-build? #t)]
+          [#:options '(#:local-build? #t)]
 Return an object representing the store item @var{name}, a file or
-directory computed by @var{gexp}.  @var{modules} specifies the set of
-modules visible in the execution context of @var{gexp}.  @var{options}
+directory computed by @var{gexp}.  @var{options}
 is a list of additional arguments to pass to @code{gexp->derivation}.
 
 This is the declarative counterpart of @code{gexp->derivation}.
@@ -3828,7 +3910,7 @@ This is the declarative counterpart of @code{gexp->derivation}.
 
 @deffn {Monadic Procedure} gexp->script @var{name} @var{exp}
 Return an executable script @var{name} that runs @var{exp} using
-@var{guile} with @var{modules} in its search path.
+@var{guile}, with @var{exp}'s imported modules in its search path.
 
 The example below builds a script that simply invokes the @command{ls}
 command:
@@ -3854,16 +3936,20 @@ executable file @file{/gnu/store/@dots{}-list-files} along these lines:
 @end deffn
 
 @deffn {Scheme Procedure} program-file @var{name} @var{exp} @
-          [#:modules '()] [#:guile #f]
+          [#:guile #f]
 Return an object representing the executable store item @var{name} that
 runs @var{gexp}.  @var{guile} is the Guile package used to execute that
-script, and @var{modules} is the list of modules visible to that script.
+script.
 
 This is the declarative counterpart of @code{gexp->script}.
 @end deffn
 
-@deffn {Monadic Procedure} gexp->file @var{name} @var{exp}
+@deffn {Monadic Procedure} gexp->file @var{name} @var{exp} @
+            [#:set-load-path? #t]
 Return a derivation that builds a file @var{name} containing @var{exp}.
+When @var{set-load-path?} is true, emit code in the resulting file to
+set @code{%load-path} and @code{%load-compiled-path} to honor
+@var{exp}'s imported modules.
 
 The resulting file holds references to all the dependencies of @var{exp}
 or a subset thereof.
@@ -3898,7 +3984,7 @@ like this:
 @end example
 
 In this example, the resulting @file{/gnu/store/@dots{}-profile.sh} file
-will references @var{coreutils}, @var{grep}, and @var{sed}, thereby
+will reference @var{coreutils}, @var{grep}, and @var{sed}, thereby
 preventing them from being garbage-collected during its lifetime.
 @end deffn
 
@@ -3999,7 +4085,7 @@ for among the GNU distribution modules (@pxref{Package Modules}).
 
 Alternatively, the @code{--expression} option may be used to specify a
 Scheme expression that evaluates to a package; this is useful when
-disambiguation among several same-named packages or package variants is
+disambiguating among several same-named packages or package variants is
 needed.
 
 There may be zero or more @var{options}.  The available options are
@@ -4031,7 +4117,7 @@ the command-line tools.
 
 @item --keep-failed
 @itemx -K
-Keep the build tree of failed builds.  Thus, if a build fail, its build
+Keep the build tree of failed builds.  Thus, if a build fails, its build
 tree is kept under @file{/tmp}, in a directory whose name is shown at
 the end of the build log.  This is useful when debugging build issues.
 
@@ -4488,6 +4574,17 @@ hash (@pxref{Invoking guix archive}).
 @c FIXME: Replace xref above with xref to an ``Archive'' section when
 @c it exists.
 
+@vindex git-fetch
+As an example, here is how you would compute the hash of a Git checkout,
+which is useful when using the @code{git-fetch} method (@pxref{origin
+Reference}):
+
+@example
+$ git clone http://example.org/foo.git
+$ cd foo
+$ rm -rf .git
+$ guix hash -r .
+@end example
 @end table
 
 @node Invoking guix import
@@ -4545,7 +4642,9 @@ Import metadata from the @uref{https://pypi.python.org/, Python Package
 Index}@footnote{This functionality requires Guile-JSON to be installed.
 @xref{Requirements}.}.  Information is taken from the JSON-formatted
 description available at @code{pypi.python.org} and usually includes all
-the relevant information, including package dependencies.
+the relevant information, including package dependencies.  For maximum
+efficiency, it is recommended to install the @command{unzip} utility, so
+that the importer can unzip Python wheels and gather data from them.
 
 The command below imports metadata for the @code{itsdangerous} Python
 package:
@@ -5545,6 +5644,16 @@ accept connections from any interface.
 Change privileges to @var{user} as soon as possible---i.e., once the
 server socket is open and the signing key has been read.
 
+@item --ttl=@var{ttl}
+Produce @code{Cache-Control} HTTP headers that advertise a time-to-live
+(TTL) of @var{ttl}.  @var{ttl} must denote a duration: @code{5d} means 5
+days, @code{1m} means 1 month, and so on.
+
+This allows the user's Guix to keep substitute information in cache for
+@var{ttl}.  However, note that @code{guix publish} does not itself
+guarantee that the store items it provides will indeed remain available
+for as long as @var{ttl}.
+
 @item --repl[=@var{port}]
 @itemx -r [@var{port}]
 Spawn a Guile REPL server (@pxref{REPL Servers,,, guile, GNU Guile
@@ -6010,6 +6119,13 @@ Run the following command see what your network interfaces are called:
 ifconfig -a
 @end example
 
+@noindent
+@dots{} or, using the GNU/Linux-specific @command{ip} command:
+
+@example
+ip a
+@end example
+
 @c http://cgit.freedesktop.org/systemd/systemd/tree/src/udev/udev-builtin-net_id.c#n20
 Wired interfaces have a name starting with @samp{e}; for example, the
 interface corresponding to the first on-board Ethernet controller is
@@ -6041,7 +6157,7 @@ passphrase for the network you are connecting to:
 
 @example
 network=@{
-  ssid=@var{my-ssid}
+  ssid="@var{my-ssid}"
   key_mgmt=WPA-PSK
   psk="the network's secret passphrase"
 @}
@@ -7152,6 +7268,7 @@ declaration.
 
 @menu
 * Base Services::               Essential system services.
+* Scheduled Job Execution::     The mcron service.
 * Networking Services::         Network setup, SSH daemon, etc.
 * X Window::                    Graphical display.
 * Desktop Services::            D-Bus and desktop services.
@@ -7429,6 +7546,107 @@ created by @command{guix archive --generate-key} (@pxref{Invoking guix
 archive}).  If that is not the case, the service will fail to start.
 @end deffn
 
+@anchor{rngd-service}
+@deffn {Scheme Procedure} rngd-service [#:rng-tools @var{rng-tools}] @
+            [#:device "/dev/hwrng"]
+Return a service that runs the @command{rngd} program from @var{rng-tools}
+to add @var{device} to the kernel's entropy pool.  The service will fail if
+@var{device} does not exist.
+@end deffn
+
+@node Scheduled Job Execution
+@subsubsection Scheduled Job Execution
+
+@cindex cron
+@cindex scheduling jobs
+The @code{(gnu services mcron)} module provides an interface to
+GNU@tie{}mcron, a daemon to run jobs at scheduled times (@pxref{Top,,,
+mcron, GNU@tie{}mcron}).  GNU@tie{}mcron is similar to the traditional
+Unix @command{cron} daemon; the main difference is that it is
+implemented in Guile Scheme, which provides a lot of flexibility when
+specifying the scheduling of jobs and their actions.
+
+The example below defines an operating system that runs the
+@command{updatedb} (@pxref{Invoking updatedb,,, find, Finding Files})
+and the @command{guix gc} commands (@pxref{Invoking guix gc}) daily, as
+well as the @command{mkid} command on behalf of an unprivileged user
+(@pxref{mkid invocation,,, idutils, ID Database Utilities}).  It uses
+gexps to introduce job definitions that are passed to mcron
+(@pxref{G-Expressions}).
+
+@lisp
+(use-modules (guix) (gnu) (gnu services mcron))
+(use-package-modules base idutils)
+
+(define updatedb-job
+  ;; Run 'updatedb' at 3AM every day.  Here we write the
+  ;; job's action as a Scheme procedure.
+  #~(job '(next-hour '(3))
+         (lambda ()
+           (execl (string-append #$findutils "/bin/updatedb")
+                  "updatedb"
+                  "--prunepaths=/tmp /var/tmp /gnu/store"))))
+
+(define garbage-collector-job
+  ;; Collect garbage 5 minutes after midnight every day.
+  ;; The job's action is a shell command.
+  #~(job "5 0 * * *"            ;Vixie cron syntax
+         "guix gc -F 1G"))
+
+(define idutils-jobs
+  ;; Update the index database as user "charlie" at 12:15PM
+  ;; and 19:15PM.  This runs from the user's home directory.
+  #~(job '(next-minute-from (next-hour '(12 19)) '(15))
+         (string-append #$idutils "/bin/mkid src")
+         #:user "charlie"))
+
+(operating-system
+  ;; @dots{}
+  (services (cons (mcron-service (list garbage-collector-job
+                                       updatedb-job
+                                       idutils-job))
+                  %base-services)))
+@end lisp
+
+@xref{Guile Syntax, mcron job specifications,, mcron, GNU@tie{}mcron},
+for more information on mcron job specifications.  Below is the
+reference of the mcron service.
+
+@deffn {Scheme Procedure} mcron-service @var{jobs} [#:mcron @var{mcron2}]
+Return an mcron service running @var{mcron} that schedules @var{jobs}, a
+list of gexps denoting mcron job specifications.
+
+This is a shorthand for:
+@example
+  (service mcron-service-type
+           (mcron-configuration (mcron mcron) (jobs jobs)))
+@end example
+@end deffn
+
+@defvr {Scheme Variable} mcron-service-type
+This is the type of the @code{mcron} service, whose value is an
+@code{mcron-configuration} object.
+
+This service type can be the target of a service extension that provides
+it additional job specifications (@pxref{Service Composition}).  In
+other words, it is possible to define services that provide addition
+mcron jobs to run.
+@end defvr
+
+@deftp {Data Type} mcron-configuration
+Data type representing the configuration of mcron.
+
+@table @asis
+@item @code{mcron} (default: @var{mcron2})
+The mcron package to use.
+
+@item @code{jobs}
+This is a list of gexps (@pxref{G-Expressions}), where each gexp
+corresponds to an mcron job specification (@pxref{Syntax, mcron job
+specifications,, mcron, GNU@tie{}mcron}).
+@end table
+@end deftp
+
 
 @node Networking Services
 @subsubsection Networking Services
@@ -7443,7 +7661,7 @@ Protocol (DHCP) client, on all the non-loopback network interfaces.
 @end deffn
 
 @deffn {Scheme Procedure} static-networking-service @var{interface} @var{ip} @
-       [#:gateway #f] [#:name-services @code{'()}]
+       [#:gateway #f] [#:name-servers @code{'()}]
 Return a service that starts @var{interface} with address @var{ip}.  If
 @var{gateway} is true, it must be a string specifying the default network
 gateway.
@@ -7536,7 +7754,7 @@ In addition, @var{extra-settings} specifies a string to append to the
 configuration file.
 @end deffn
 
-Furthermore, @code{(gnu services ssh)} provides the following service.
+Furthermore, @code{(gnu services ssh)} provides the following services.
 
 @deffn {Scheme Procedure} lsh-service [#:host-key "/etc/lsh/host-key"] @
        [#:daemonic? #t] [#:interfaces '()] [#:port-number 22] @
@@ -7574,6 +7792,47 @@ root.
 The other options should be self-descriptive.
 @end deffn
 
+@deffn {Scheme Procedure} dropbear-service [@var{config}]
+Run the @uref{https://matt.ucc.asn.au/dropbear/dropbear.html,Dropbear SSH
+daemon} with the given @var{config}, a @code{<dropbear-configuration>}
+object.
+
+For example, to specify a Dropbear service listening on port 1234, add
+this call to the operating system's @code{services} field:
+
+@example
+(dropbear-service (dropbear-configuration
+                    (port-number 1234)))
+@end example
+@end deffn
+
+@deftp {Data Type} dropbear-configuration
+This data type represents the configuration of a Dropbear SSH daemon.
+
+@table @asis
+@item @code{dropbear} (default: @var{dropbear})
+The Dropbear package to use.
+
+@item @code{port-number} (default: 22)
+The TCP port where the daemon waits for incoming connections.
+
+@item @code{syslog-output?} (default: @code{#t})
+Whether to enable syslog output.
+
+@item @code{pid-file} (default: @code{"/var/run/dropbear.pid"})
+File name of the daemon's PID file.
+
+@item @code{root-login?} (default: @code{#f})
+Whether to allow @code{root} logins.
+
+@item @code{allow-empty-passwords?} (default: @code{#f})
+Whether to allow empty passwords.
+
+@item @code{password-authentication?} (default: @code{#t})
+Whether to enable password-based authentication.
+@end table
+@end deftp
+
 @defvr {Scheme Variable} %facebook-host-aliases
 This variable contains a string for use in @file{/etc/hosts}
 (@pxref{Host Names,,, libc, The GNU C Library Reference Manual}).  Each
@@ -7608,7 +7867,7 @@ The @code{(gnu services avahi)} provides the following definition.
 @deffn {Scheme Procedure} avahi-service [#:avahi @var{avahi}] @
           [#:host-name #f] [#:publish? #t] [#:ipv4? #t] @
           [#:ipv6? #t] [#:wide-area? #f] @
-          [#:domains-to-browse '()]
+          [#:domains-to-browse '()] [#:debug? #f]
 Return a service that runs @command{avahi-daemon}, a system-wide
 mDNS/DNS-SD responder that allows for service discovery and
 "zero-configuration" host name lookups (see @uref{http://avahi.org/}), and
@@ -7965,10 +8224,17 @@ location databases.  See
 web site} for more information.
 @end deffn
 
+@deffn {Scheme Procedure} bluetooth-service [#:bluez @var{bluez}]
+Return a service that runs the @command{bluetoothd} daemon, which manages
+all the Bluetooth devices and provides a number of D-Bus interfaces.
+
+Users need to be in the @code{lp} group to access the D-Bus service.
+@end deffn
+
 @node Database Services
 @subsubsection Database Services
 
-The @code{(gnu services databases)} module provides the following service.
+The @code{(gnu services databases)} module provides the following services.
 
 @deffn {Scheme Procedure} postgresql-service [#:postgresql postgresql] @
        [#:config-file] [#:data-directory ``/var/lib/postgresql/data'']
@@ -7979,6 +8245,27 @@ The PostgreSQL daemon loads its runtime configuration from
 @var{config-file} and stores the database cluster in
 @var{data-directory}.
 @end deffn
+
+@deffn {Scheme Procedure} mysql-service [#:config (mysql-configuration)]
+Return a service that runs @command{mysqld}, the MySQL or MariaDB
+database server.
+
+The optional @var{config} argument specifies the configuration for
+@command{mysqld}, which should be a @code{<mysql-configuraiton>} object.
+@end deffn
+
+@deftp {Data Type} mysql-configuration
+Data type representing the configuration of @var{mysql-service}.
+
+@table @asis
+@item @code{mysql} (default: @var{mariadb})
+Package object of the MySQL database server, can be either @var{mariadb}
+or @var{mysql}.
+
+For MySQL, a temorary root password will be displayed at activation time.
+For MariaDB, the root password is empty.
+@end table
+@end deftp
 
 @node Mail Services
 @subsubsection Mail Services
@@ -9388,6 +9675,60 @@ Finally, @var{extra-options} is a list of additional command-line options
 passed to @command{lircd}.
 @end deffn
 
+@subsubsection Dictionary Services
+The @code{(gnu services dict)} module provides the following service:
+
+@deffn {Scheme Procedure} dicod-service [#:config (dicod-configuration)]
+Return a service that runs the @command{dicod} daemon, an implementation
+of DICT server (@pxref{Dicod,,, dico, GNU Dico Manual}).
+
+The optional @var{config} argument specifies the configuration for
+@command{dicod}, which should be a @code{<dicod-configuration>} object, by
+default it serves the GNU Collaborative International Dictonary of English.
+
+You can add @command{open localhost} to your @file{~/.dico} file to make
+@code{localhost} the default server for @command{dico} client
+(@pxref{Initialization File,,, dico, GNU Dico Manual}).
+@end deffn
+
+@deftp {Data Type} dicod-configuration
+Data type representing the configuration of dicod.
+
+@table @asis
+@item @code{dico} (default: @var{dico})
+Package object of the GNU Dico dictionary server.
+
+@item @code{interfaces} (default: @var{'("localhost")})
+This is the list of IP addresses and ports and possibly socket file
+names to listen to (@pxref{Server Settings, @code{listen} directive,,
+dico, GNU Dico Manual}).
+
+@item @code{databases} (default: @var{(list %dicod-database:gcide)})
+List of @code{<dicod-database>} objects denoting dictionaries to be served.
+@end table
+@end deftp
+
+@deftp {Data Type} dicod-database
+Data type representing a dictionary database.
+
+@table @asis
+@item @code{name}
+Name of the database, will be used in DICT commands.
+
+@item @code{module}
+Name of the dicod module used by this database
+(@pxref{Modules,,, dico, GNU Dico Manual}).
+
+@item @code{options}
+List of strings or gexps representing the arguments for the module handler
+(@pxref{Handlers,,, dico, GNU Dico Manual}).
+@end table
+@end deftp
+
+@defvr {Scheme Variable} %dicod-database:gcide
+A @code{<dicod-database>} object serving the GNU Collaborative International
+Dictonary of English using the @code{gcide} package.
+@end defvr
 
 @node Setuid Programs
 @subsection Setuid Programs
@@ -9732,15 +10073,11 @@ program.  That gives a lot of flexibility.  The
 program to run in that initrd.
 
 @deffn {Monadic Procedure} expression->initrd @var{exp} @
-       [#:guile %guile-static-stripped] [#:name "guile-initrd"] @
-       [#:modules '()]
+       [#:guile %guile-static-stripped] [#:name "guile-initrd"]
 Return a derivation that builds a Linux initrd (a gzipped cpio archive)
 containing @var{guile} and that evaluates @var{exp}, a G-expression,
 upon booting.  All the derivations referenced by @var{exp} are
 automatically copied to the initrd.
-
-@var{modules} is a list of Guile module names to be embedded in the
-initrd.
 @end deffn
 
 @node GRUB Configuration
@@ -10006,12 +10343,14 @@ a list of available debugging commands.
 @end table
 @end table
 
-Note that all the actions above, except @code{build} and @code{init},
-rely on KVM support in the Linux-Libre kernel.  Specifically, the
-machine should have hardware virtualization support, the corresponding
+@quotation Note
+All the actions above, except @code{build} and @code{init},
+can use KVM support in the Linux-libre kernel.  Specifically, if the
+machine has hardware virtualization support, the corresponding
 KVM kernel module should be loaded, and the @file{/dev/kvm} device node
 must exist and be readable and writable by the user and by the
-build users of the daemon.
+build users of the daemon (@pxref{Build Environment Setup}).
+@end quotation
 
 Once you have built, configured, re-configured, and re-re-configured
 your GuixSD installation, you may find it useful to list the operating
@@ -10562,10 +10901,6 @@ where @var{service-name} is one of the symbols in @var{provision}
 This is the list of modules that must be in scope when @code{start} and
 @code{stop} are evaluated.
 
-@item @code{imported-modules} (default: @var{%default-imported-modules})
-This is the list of modules to import in the execution environment of
-the Shepherd.
-
 @end table
 @end deftp
 
@@ -11069,9 +11404,15 @@ something like ``Manipulate nucleotide sequence alignments'', which
 hopefully gives the user a better idea of whether this is what they are
 looking for.
 
-@cindex Texinfo markup, in package descriptions
 Descriptions should take between five and ten lines.  Use full
 sentences, and avoid using acronyms without first introducing them.
+Please avoid marketing phrases such as ``world-leading'',
+``industrial-strength'', and ``next-generation'', and avoid superlatives
+like ``the most advanced''---they are not helpful to users looking for a
+package and may even sound suspicious.  Instead, try to be factual,
+mentioning use cases and features.
+
+@cindex Texinfo markup, in package descriptions
 Descriptions can include Texinfo markup, which is useful to introduce
 ornaments such as @code{@@code} or @code{@@dfn}, bullet lists, or
 hyperlinks (@pxref{Overview,,, texinfo, GNU Texinfo}).  However you

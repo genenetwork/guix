@@ -7,6 +7,7 @@
 ;;; Copyright © 2015 Andy Patterson <ajpatter@uwaterloo.ca>
 ;;; Copyright © 2015 Ricardo Wurmus <rekado@elephly.net>
 ;;; Copyright © 2015 Alex Vong <alexvong1995@gmail.com>
+;;; Copyright © 2016 Alex Griffin <a@ajgrf.com>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -25,6 +26,8 @@
 
 (define-module (gnu packages video)
   #:use-module (ice-9 match)
+  #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-26)
   #:use-module ((guix licenses) #:prefix license:)
   #:use-module (guix utils)
   #:use-module (guix packages)
@@ -32,6 +35,7 @@
   #:use-module (guix git-download)
   #:use-module (guix build-system cmake)
   #:use-module (guix build-system gnu)
+  #:use-module (guix build-system glib-or-gtk)
   #:use-module (guix build-system python)
   #:use-module (guix build-system waf)
   #:use-module (gnu packages)
@@ -77,7 +81,7 @@
   #:use-module (gnu packages xiph)
   #:use-module (gnu packages xml)
   #:use-module (gnu packages xorg)
-  #:use-module (gnu packages yasm)
+  #:use-module (gnu packages assembly)
   #:use-module (gnu packages zip))
 
 (define-public aalib
@@ -373,14 +377,14 @@ standards (MPEG-2, MPEG-4 ASP/H.263, MPEG-4 AVC/H.264, and VC-1/VMW3).")
 (define-public ffmpeg
   (package
     (name "ffmpeg")
-    (version "3.0.2")
+    (version "3.1.1")
     (source (origin
              (method url-fetch)
              (uri (string-append "https://ffmpeg.org/releases/ffmpeg-"
                                  version ".tar.xz"))
              (sha256
               (base32
-               "08sjp4dxgcinmv9ly7nm24swmn2cnbbhvph44ihlplf4n33kr542"))))
+               "1nris3flwqd4v4b65yrrv9aqhsab7cb9lfp4wpxz6bi0m3r13g3i"))))
     (build-system gnu-build-system)
     (inputs
      `(("fontconfig" ,fontconfig)
@@ -539,14 +543,14 @@ audio/video codec library.")
 (define-public ffmpeg-2.8
   (package
     (inherit ffmpeg)
-    (version "2.8.6")
+    (version "2.8.7")
     (source (origin
              (method url-fetch)
              (uri (string-append "https://ffmpeg.org/releases/ffmpeg-"
                                  version ".tar.xz"))
              (sha256
               (base32
-               "1yh7dvm7zwdlsspdaq524s5qaggma5md9h95qc4kvb5dmyyyvg15"))))
+               "0z0mcj2q3ysp9qdn1ks03g5sn2zxyr06vxs4al0m4b5b3in8mglp"))))
     (arguments
      (substitute-keyword-arguments (package-arguments ffmpeg)
        ((#:configure-flags flags)
@@ -559,15 +563,15 @@ audio/video codec library.")
 (define-public vlc
   (package
     (name "vlc")
-    (version "2.2.1")
+    (version "2.2.4")
     (source (origin
              (method url-fetch)
              (uri (string-append
-                   "http://download.videolan.org/pub/videolan/vlc/"
+                   "https://download.videolan.org/pub/videolan/vlc/"
                    version "/vlc-" version ".tar.xz"))
              (sha256
               (base32
-               "1jqzrzrpw6932lbkf863xk8cfmn4z2ngbxz7w8ggmh4f6xz9sgal"))
+               "1gjkrwlg8ab3skzl67cxb9qzg4187ifckd1z9kpy11q058fyjchn"))
              (modules '((guix build utils)))
              (snippet
               ;; There are two occurrences where __DATE__ and __TIME__ are
@@ -609,7 +613,8 @@ audio/video codec library.")
        ("perl" ,perl)
        ("pulseaudio" ,pulseaudio)
        ("python" ,python-wrapper)
-       ("qt" ,qt)
+       ("qtbase" ,qtbase)
+       ;("qtx11extras" ,qtx11extras)
        ("sdl" ,sdl)
        ("sdl-image" ,sdl-image)
        ("speex" ,speex)
@@ -623,6 +628,13 @@ audio/video codec library.")
 
        #:phases
        (modify-phases %standard-phases
+         (add-before 'configure 'remove-visual-tests
+           ;; Some of the tests require using the display to test out VLC,
+           ;; which fails in our sandboxed build system
+           (lambda _
+             (substitute* "test/run_vlc.sh"
+                          (("./vlc --ignore-config") "echo"))
+             #t))
          (add-after 'install 'regenerate-plugin-cache
            (lambda* (#:key outputs #:allow-other-keys)
              ;; The 'install-exec-hook' rule in the top-level Makefile.am
@@ -747,7 +759,7 @@ SVCD, DVD, 3ivx, DivX 3/4/5, WMV and H.264 movies.")
 (define-public mpv
   (package
     (name "mpv")
-    (version "0.17.0")
+    (version "0.18.0")
     (source (origin
               (method url-fetch)
               (uri (string-append
@@ -755,7 +767,7 @@ SVCD, DVD, 3ivx, DivX 3/4/5, WMV and H.264 movies.")
                     ".tar.gz"))
               (sha256
                (base32
-                "0vms3viwqcwl1mrgmf2yy4c69fvv7xpbkyrl693l6zpwynqd4b30"))
+                "0az0zqb2rakak51zsvfqzj9a8jiqpvc61jxap8hjdkkb9y6n6mmn"))
               (file-name (string-append name "-" version ".tar.gz"))))
     (build-system waf-build-system)
     (native-inputs
@@ -810,7 +822,7 @@ SVCD, DVD, 3ivx, DivX 3/4/5, WMV and H.264 movies.")
           (lambda* (#:key inputs #:allow-other-keys)
             (copy-file (assoc-ref inputs "waf") "waf")
             (setenv "CC" "gcc"))))
-       #:configure-flags (list "--enable-gpl3" "--enable-zsh-comp")
+       #:configure-flags (list "--enable-libmpv-shared" "--enable-zsh-comp")
        ;; No check function defined.
        #:tests? #f))
     (home-page "https://mpv.io/")
@@ -819,6 +831,34 @@ SVCD, DVD, 3ivx, DivX 3/4/5, WMV and H.264 movies.")
 fork of mplayer2 and MPlayer.  It shares some features with the former
 projects while introducing many more.")
     (license license:gpl2+)))
+
+(define-public gnome-mpv
+  (package
+    (name "gnome-mpv")
+    (version "0.9")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "https://github.com/gnome-mpv/gnome-mpv/releases"
+                           "/download/v" version "/gnome-mpv-" version
+                           ".tar.xz"))
+       (sha256
+        (base32
+         "06pgxl6f3kkgxv8nlmyl7gy3pg55sqf8vgr8m6426mlpm4p3qdn0"))))
+    (native-inputs
+     `(("intltool" ,intltool)
+       ("pkg-config" ,pkg-config)))
+    (inputs
+     `(("gtk+" ,gtk+)
+       ("libepoxy" ,libepoxy)
+       ("mpv" ,mpv)))
+    (build-system glib-or-gtk-build-system)
+    (home-page "https://github.com/gnome-mpv/gnome-mpv")
+    (synopsis "GTK+ frontend for the mpv media player")
+    (description "GNOME MPV is a simple GTK+ frontend for the mpv media player.
+GNOME MPV interacts with mpv via the client API exported by libmpv, allowing
+access to mpv's powerful playback capabilities.")
+    (license license:gpl3+)))
 
 (define-public libvpx
   (package
@@ -831,7 +871,8 @@ projects while introducing many more.")
                                   name "-" version ".tar.bz2"))
               (sha256
                (base32
-                "15v7qw0ydyxn08ksb6lxn1l51pxgpwgshdwd3275yrr5hs86fv9h"))))
+                "15v7qw0ydyxn08ksb6lxn1l51pxgpwgshdwd3275yrr5hs86fv9h"))
+              (patches (search-patches "libvpx-CVE-2016-2818.patch"))))
     (build-system gnu-build-system)
     (arguments
      `(#:phases
@@ -860,17 +901,17 @@ projects while introducing many more.")
 (define-public youtube-dl
   (package
     (name "youtube-dl")
-    (version "2016.05.01")
+    (version "2016.06.14")
     (source (origin
               (method url-fetch)
-              (uri (string-append "http://youtube-dl.org/downloads/"
+              (uri (string-append "https://youtube-dl.org/downloads/"
                                   version "/youtube-dl-"
                                   version ".tar.gz"))
               (sha256
                (base32
-                "1w04afmwq5pjvp3nl2k59q0cigqrj9n8fwkydcfldwpq83l15j5d"))))
+                "0fmvpqipc1xwagvk7ih4slmv1xz1rb6s8wpndhypwvrq4pnnm9ns"))))
     (build-system python-build-system)
-    (home-page "http://youtube-dl.org")
+    (home-page "https://youtube-dl.org")
     (arguments
      ;; The problem here is that the directory for the man page and completion
      ;; files is relative, and for some reason, setup.py uses the
@@ -901,15 +942,15 @@ YouTube.com and a few more sites.")
 (define-public libbluray
   (package
     (name "libbluray")
-    (version "0.9.2")
+    (version "0.9.3")
     (source (origin
               (method url-fetch)
-              (uri (string-append "http://download.videolan.org/videolan/"
+              (uri (string-append "https://download.videolan.org/videolan/"
                                   name "/" version "/"
                                   name "-" version ".tar.bz2"))
               (sha256
                (base32
-                "1sp71j4agcsg17g6b85cqz78pn5vknl5pl39rvr6mkib5ps99jgg"))))
+                "1q1whviqv5sr9nr372h31zwid1rvbfbx3z4lzr8lnj25xha6cdm6"))))
     (build-system gnu-build-system)
     (arguments `(#:configure-flags '("--disable-bdjava")))
     (native-inputs `(("pkg-config" ,pkg-config)))
@@ -917,7 +958,7 @@ YouTube.com and a few more sites.")
      `(("fontconfig" ,fontconfig)
        ("freetype" ,freetype)
        ("libxml2" ,libxml2)))
-    (home-page "http://www.videolan.org/developers/libbluray.html")
+    (home-page "https://www.videolan.org/developers/libbluray.html")
     (synopsis "Blu-Ray Disc playback library")
     (description
      "libbluray is a library designed for Blu-Ray Disc playback for media
@@ -1049,7 +1090,7 @@ for use with HTML5 video.")
 (define-public avidemux
   (package
     (name "avidemux")
-    (version "2.6.10")
+    (version "2.6.12")
     (source (origin
              (method url-fetch)
              (uri (string-append
@@ -1057,7 +1098,7 @@ for use with HTML5 video.")
                    version ".tar.gz"))
              (sha256
               (base32
-               "1vas43bwb15q2wv3dpp7fgp8dc6szinmwl7i0ziq2vv5l2128v0p"))
+               "0nz52yih8sff53inndkh2dba759xjzsh4b8xjww419lcpk0qp6kn"))
              (patches (search-patches "avidemux-install-to-lib.patch"))))
     (build-system cmake-build-system)
     (native-inputs
@@ -1071,13 +1112,16 @@ for use with HTML5 video.")
        ("glu" ,glu)
        ("jack" ,jack-1)
        ("lame" ,lame)
+       ("libva" ,libva)
+       ("libvdpau" ,libvdpau)
        ("libvorbis" ,libvorbis)
        ("libvpx" ,libvpx)
        ("libxv" ,libxv)
        ("perl" ,perl)
        ("pulseaudio" ,pulseaudio)
        ("python" ,python-wrapper)
-       ("qt" ,qt)
+       ("qtbase" ,qtbase)
+       ("qttools" ,qttools)
        ("sdl" ,sdl)
        ("sqlite" ,sqlite)
        ("yasm" ,yasm)
@@ -1087,41 +1131,41 @@ for use with HTML5 video.")
        #:phases
        ;; Make sure files inside the included ffmpeg tarball are
        ;; patch-shebanged.
-       (alist-cons-before
-        'patch-source-shebangs 'unpack-ffmpeg
-        (lambda _
-          (with-directory-excursion "avidemux_core/ffmpeg_package"
-            (system* "tar" "xf" "ffmpeg-2.6.1.tar.bz2")
-            (delete-file "ffmpeg-2.6.1.tar.bz2")))
-        (alist-cons-after
-         'patch-source-shebangs 'repack-ffmpeg
+       (modify-phases %standard-phases
+       (add-before 'patch-source-shebangs 'unpack-ffmpeg
          (lambda _
            (with-directory-excursion "avidemux_core/ffmpeg_package"
-             (substitute* "ffmpeg-2.6.1/configure"
+             (system* "tar" "xf" "ffmpeg-2.7.6.tar.bz2")
+             (delete-file "ffmpeg-2.7.6.tar.bz2"))))
+       (add-after 'patch-source-shebangs 'repack-ffmpeg
+         (lambda _
+           (with-directory-excursion "avidemux_core/ffmpeg_package"
+             (substitute* "ffmpeg-2.7.6/configure"
                (("#! /bin/sh") (string-append "#!" (which "bash"))))
-             (system* "tar" "cjf" "ffmpeg-2.6.1.tar.bz2" "ffmpeg-2.6.1"
+             (system* "tar" "cjf" "ffmpeg-2.7.6.tar.bz2" "ffmpeg-2.7.6"
                       ;; avoid non-determinism in the archive
                       "--sort=name" "--mtime=@0"
                       "--owner=root:0" "--group=root:0")
-             (delete-file-recursively "ffmpeg-2.6.1")))
-         (alist-replace 'configure
-          (lambda _
-            ;; Copy-paste settings from the cmake build system.
-            (setenv "CMAKE_LIBRARY_PATH" (getenv "LIBRARY_PATH"))
-            (setenv "CMAKE_INCLUDE_PATH" (getenv "C_INCLUDE_PATH")))
-          (alist-replace 'build
-            (lambda* (#:key inputs outputs #:allow-other-keys)
-              (let*
-                ((out (assoc-ref outputs "out"))
-                 (lib (string-append out "/lib"))
-                 (top (getcwd))
-                 (sdl (assoc-ref inputs "sdl"))
-                 (build_component
-                   (lambda* (component srcdir #:optional (args '()))
-                     (let ((builddir (string-append "build_" component)))
-                       (mkdir builddir)
-                       (with-directory-excursion builddir
-                        (zero? (and
+             (delete-file-recursively "ffmpeg-2.7.6"))))
+       (replace 'configure
+         (lambda _
+           ;; Copy-paste settings from the cmake build system.
+           (setenv "CMAKE_LIBRARY_PATH" (getenv "LIBRARY_PATH"))
+           (setenv "CMAKE_INCLUDE_PATH" (getenv "C_INCLUDE_PATH"))))
+       (replace 'build
+         (lambda* (#:key inputs outputs #:allow-other-keys)
+           (let*
+             ((out (assoc-ref outputs "out"))
+              (lib (string-append out "/lib"))
+              (top (getcwd))
+              (sdl (assoc-ref inputs "sdl"))
+              (build_component
+                (lambda* (component srcdir #:optional (args '()))
+                  (let ((builddir (string-append "build_" component)))
+                    (mkdir builddir)
+                    (with-directory-excursion builddir
+                      (zero?
+                        (and
                           (apply system* "cmake"
                                  "-DCMAKE_INSTALL_RPATH_USE_LINK_PATH=TRUE"
                                  (string-append "-DCMAKE_INSTALL_PREFIX=" out)
@@ -1134,26 +1178,25 @@ for use with HTML5 video.")
                                  (string-append "../" srcdir)
                                  "-DENABLE_QT5=True"
                                  args)
-                          (system* "make" "-j"
-                                   (number->string (parallel-job-count)))
-                          (system* "make" "install"))))))))
-                (mkdir out)
-                (and (build_component "core" "avidemux_core")
-                     (build_component "cli" "avidemux/cli")
-                     (build_component "qt4" "avidemux/qt4")
-                     (build_component "plugins_common" "avidemux_plugins"
-                                     '("-DPLUGIN_UI=COMMON"))
-                     (build_component "plugins_cli" "avidemux_plugins"
-                                     '("-DPLUGIN_UI=CLI"))
-                     (build_component "plugins_qt4" "avidemux_plugins"
-                                     '("-DPLUGIN_UI=QT4"))
-                     (build_component "plugins_settings" "avidemux_plugins"
-                                     '("-DPLUGIN_UI=SETTINGS")))
-                ;; Remove .exe and .dll file.
-                (delete-file-recursively
-                  (string-append out "/share/ADM6_addons"))))
-            (alist-delete 'install
-               %standard-phases)))))))
+                         (system* "make" "-j"
+                                 (number->string (parallel-job-count)))
+                         (system* "make" "install"))))))))
+             (mkdir out)
+             (and (build_component "core" "avidemux_core")
+                  (build_component "cli" "avidemux/cli")
+                  (build_component "qt4" "avidemux/qt4")
+                  (build_component "plugins_common" "avidemux_plugins"
+                                  '("-DPLUGIN_UI=COMMON"))
+                  (build_component "plugins_cli" "avidemux_plugins"
+                                  '("-DPLUGIN_UI=CLI"))
+                  (build_component "plugins_qt4" "avidemux_plugins"
+                                  '("-DPLUGIN_UI=QT4"))
+                  (build_component "plugins_settings" "avidemux_plugins"
+                                  '("-DPLUGIN_UI=SETTINGS")))
+             ;; Remove .exe and .dll file.
+             (delete-file-recursively
+               (string-append out "/share/ADM6_addons")))))
+       (delete 'install))))
     (home-page "http://fixounet.free.fr/avidemux/")
     (synopsis "Video editor")
     (description "Avidemux is a video editor designed for simple cutting,
@@ -1319,14 +1362,14 @@ tools, XML authoring components, and an extensible plug-in based API.")
 (define-public v4l-utils
   (package
     (name "v4l-utils")
-    (version "1.10.0")
+    (version "1.10.1")
     (source (origin
               (method url-fetch)
               (uri (string-append "https://linuxtv.org/downloads/v4l-utils"
                                   "/v4l-utils-" version ".tar.bz2"))
               (sha256
                (base32
-                "0srkwh3r6f0bkb4kp0d7i0mlmp8babs3qc22cdy1sw4awmzd5skq"))))
+                "1h1nhg5cmmzlbipak526nk4bm6d0yb217mll75f3rpg7kz1cqiv1"))))
     (build-system gnu-build-system)
     (arguments
      '(#:configure-flags
@@ -1340,7 +1383,7 @@ tools, XML authoring components, and an extensible plug-in based API.")
        ("glu" ,glu)
        ("libjpeg" ,libjpeg)
        ("libx11" ,libx11)
-       ("qt" ,qt)
+       ("qtbase" ,qtbase)
        ("eudev" ,eudev)))
     (synopsis "Realtime video capture utilities for Linux")
     (description "The v4l-utils provide a series of libraries and utilities to
@@ -1352,7 +1395,7 @@ be used for realtime video capture via Linux-specific APIs.")
 (define-public obs
   (package
     (name "obs")
-    (version "0.14.2")
+    (version "0.15.1")
     (source (origin
               (method url-fetch)
               (uri (string-append "https://github.com/jp9000/obs-studio"
@@ -1360,9 +1403,23 @@ be used for realtime video capture via Linux-specific APIs.")
               (file-name (string-append name "-" version ".tar.gz"))
               (sha256
                (base32
-                "1cb8naa67kfnnngkzv1wpd4y241j29ggnk1w7jgnymp9j8dny1xl"))))
+                "18fycg7xlj2i89wdb9c5js0bnl964s1lpmnvmfyj11zi9k061wsg"))))
     (build-system cmake-build-system)
-    (arguments '(#:tests? #f)) ; no tests
+    (arguments
+     `(#:tests? #f ; no tests
+       ,@(if (any (cute string-prefix? <> (or (%current-target-system)
+                                              (%current-system)))
+                  '("arm" "mips"))
+           '(#:phases
+             (modify-phases %standard-phases
+             (add-after 'unpack 'remove-architecture-specific-instructions
+               ;; non-Intel platforms fail to build with the architecture
+               ;; specific compiler flags included by default.
+               (lambda _
+                 (substitute* "libobs/CMakeLists.txt"
+                              (("if\\(NOT MSVC\\)") "if(MSVC)"))
+                 #t))))
+           '())))
     (native-inputs
      `(("pkg-config" ,pkg-config)))
     (inputs
@@ -1376,7 +1433,8 @@ be used for realtime video capture via Linux-specific APIs.")
        ("libxcomposite" ,libxcomposite)
        ("mesa" ,mesa)
        ("pulseaudio" ,pulseaudio)
-       ("qt" ,qt)
+       ("qtbase" ,qtbase)
+       ("qtx11extras" ,qtx11extras)
        ("v4l-utils" ,v4l-utils)
        ("zlib" ,zlib)))
     (synopsis "Live streaming software")

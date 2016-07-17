@@ -16,10 +16,11 @@
 ;;; Copyright © 2015 Taylan Ulrich Bayırlı/Kammer <taylanbayirli@gmail.com>
 ;;; Copyright © 2016 Rodger Fox <thylakoid@openmailbox.org>
 ;;; Copyright © 2016 Manolis Fragkiskos Ragkousis <manolis837@gmail.com>
-;;; Copyright © 2016 Nils Gillmann <niasterisk@grrlz.net>
+;;; Copyright © 2016 ng0 <ng0@we.make.ritual.n0.is>
 ;;; Copyright © 2016 Albin Söderqvist <albin@fripost.org>
 ;;; Copyright © 2016 Kei Kebreau <kei@openmailbox.org>
 ;;; Copyright © 2016 Alex Griffin <a@ajgrf.com>
+;;; Copyright © 2013 Nikita Karetnikov <nikita@karetnikov.org>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -418,7 +419,7 @@ exec ~a/bin/freedink -refdir ~a/share/dink\n"
 (define-public xboard
   (package
     (name "xboard")
-    (version "4.8.0")
+    (version "4.9.0")
     (source
      (origin
        (method url-fetch)
@@ -426,12 +427,11 @@ exec ~a/bin/freedink -refdir ~a/share/dink\n"
                            ".tar.gz"))
        (sha256
         (base32
-         "05rdj0nyirc4g1qi5hhrjy45y52ihp1j3ldq2c5bwrz0gzy4i3y8"))))
+         "1av6r3s5vyclwf3c9i1pkr2442ryrf4ixhhf2i44a4j1xyhlp5jb"))))
     (build-system gnu-build-system)
-    (inputs `(("cairo" ,cairo)
-              ("librsvg" ,librsvg)
-              ("libxt" ,libxt)
-              ("libxaw" ,libxaw)))
+    (inputs
+     `(("gtk+" ,gtk+-2)
+       ("librsvg" ,librsvg)))
     (native-inputs `(("texinfo" ,texinfo)
                      ("pkg-config" ,pkg-config)))
     (home-page "http://www.gnu.org/software/xboard")
@@ -590,11 +590,11 @@ for common mesh file formats, and collision detection.")
   ;; The latest release on SourceForge relies on an unreleased version of SFML
   ;; with a different API, so we take the latest version from the official
   ;; repository on Github.
-  (let ((commit   "c855d04409")
+  (let ((commit   "c855d044094a1d92317e38935d81ba938946132e")
         (revision "1"))
     (package
       (name "mars")
-      (version (string-append "0.7.5." revision "." commit ))
+      (version (string-append "0.7.5." revision "." (string-take commit 7) ))
       (source (origin
                 (method git-fetch)
                 (uri (git-reference
@@ -1191,7 +1191,7 @@ is programmed in Haskell.")
 (define-public manaplus
   (package
     (name "manaplus")
-    (version "1.6.4.23")
+    (version "1.6.6.4")
     (source (origin
               (method url-fetch)
               (uri (string-append
@@ -1199,7 +1199,7 @@ is programmed in Haskell.")
                     version "/manaplus-" version ".tar.xz"))
               (sha256
                (base32
-                "1ja2w86rz3pliq0sdc7yxppsdjg3d1ymcx9fdsiwnw6fv5a8nbzj"))))
+                "00sdw2mspdhrqvz0vl6jbnhiclj7vmvyjih9qf8dbkfw2s921ybc"))))
     (build-system gnu-build-system)
     (arguments
      '(#:configure-flags
@@ -1833,36 +1833,37 @@ emulation community.  It provides highly accurate emulation.")
     (license license:gpl2+)))
 
 (define-public emulation-station
-  (package
-    (name "emulation-station")
-    (version "2.0.1")
-    (source (origin
-              (method git-fetch) ; no tarball available
-              (uri (git-reference
-                    (url "https://github.com/Aloshi/EmulationStation.git")
-                    (commit "646bede"))) ; no version tag
-              (sha256
-               (base32
-                "0cm0sq2wri2l9cvab1l0g02za59q7klj0h3p028vr96n6njj4w9v"))))
-    (build-system cmake-build-system)
-    (arguments
-     '(#:tests? #f)) ; no tests
-    (inputs
-     `(("alsa-lib" ,alsa-lib)
-       ("boost" ,boost)
-       ("curl" ,curl)
-       ("eigin" ,eigen)
-       ("freeimage" ,freeimage)
-       ("freetype" ,freetype)
-       ("mesa" ,mesa)
-       ("sdl2" ,sdl2)))
-    (synopsis "Video game console emulator front-end")
-    (description "EmulationStation provides a graphical front-end to a large
+  (let ((commit "646bede3d9ec0acf0ae378415edac136774a66c5"))
+    (package
+      (name "emulation-station")
+      (version "2.0.1")
+      (source (origin
+                (method git-fetch) ; no tarball available
+                (uri (git-reference
+                      (url "https://github.com/Aloshi/EmulationStation.git")
+                      (commit commit))) ; no version tag
+                (sha256
+                 (base32
+                  "0cm0sq2wri2l9cvab1l0g02za59q7klj0h3p028vr96n6njj4w9v"))))
+      (build-system cmake-build-system)
+      (arguments
+       '(#:tests? #f)) ; no tests
+      (inputs
+       `(("alsa-lib" ,alsa-lib)
+         ("boost" ,boost)
+         ("curl" ,curl)
+         ("eigin" ,eigen)
+         ("freeimage" ,freeimage)
+         ("freetype" ,freetype)
+         ("mesa" ,mesa)
+         ("sdl2" ,sdl2)))
+      (synopsis "Video game console emulator front-end")
+      (description "EmulationStation provides a graphical front-end to a large
 number of video game console emulators.  It features an interface that is
 usable with any game controller that has at least 4 buttons, theming support,
 and a game metadata scraper.")
-    (home-page "http://www.emulationstation.org")
-    (license license:expat)))
+      (home-page "http://www.emulationstation.org")
+      (license license:expat))))
 
 (define openttd-engine
   (package
@@ -2243,3 +2244,287 @@ Red Eclipse provides fast paced and accessible gameplay.")
                      license:cc-by-sa3.0
                      license:cc-by3.0
                      license:cc0)))))
+
+(define-public higan
+  (package
+    (name "higan")
+    (version "099")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append
+             "https://gitlab.com/higan/higan/repository/archive.tar.gz?ref=v"
+             version))
+       (file-name (string-append name "-" version ".tar.gz"))
+       (sha256
+        (base32 "0xlzjqrd308hmg6yjzjkmxkkr9p3w387kf6yxyplb47jcbx2sq4n"))
+       (patches (search-patches "higan-remove-march-native-flag.patch"))))
+    (build-system gnu-build-system)
+    (native-inputs
+     `(("pkg-config" ,pkg-config)))
+    (inputs
+     `(("alsa-lib" ,alsa-lib)
+       ("ao" ,ao)
+       ("eudev" ,eudev)
+       ("gtk+" ,gtk+-2)
+       ("gtksourceview-2" ,gtksourceview-2)
+       ("libxv" ,libxv)
+       ("mesa" ,mesa)
+       ("openal" ,openal)
+       ("pulseaudio" ,pulseaudio)
+       ("sdl" ,sdl)))
+    (arguments
+     '(#:phases
+       (let ((build-phase (assoc-ref %standard-phases 'build))
+             (install-phase (assoc-ref %standard-phases 'install)))
+         (modify-phases %standard-phases
+           ;; The higan build system has no configure phase.
+           (delete 'configure)
+           (add-before 'build 'chdir-to-higan
+             (lambda _
+               (chdir "higan")))
+           (add-before 'install 'create-/share/applications
+             (lambda* (#:key outputs #:allow-other-keys)
+               (let ((out (assoc-ref outputs "out")))
+                 ;; It seems the author forgot to do this in the Makefile.
+                 (mkdir-p (string-append out "/share/applications")))))
+           (add-after 'install 'chdir-to-icarus
+             (lambda _
+               (chdir "../icarus")))
+           (add-after 'chdir-to-icarus 'build-icarus build-phase)
+           (add-after 'build-icarus 'install-icarus install-phase)
+           (add-after 'install-icarus 'wrap-higan-executable
+             (lambda* (#:key inputs outputs #:allow-other-keys)
+               (let* ((out (assoc-ref outputs "out"))
+                      (bin (string-append out "/bin"))
+                      (higan (string-append bin "/higan"))
+                      (higan-original (string-append higan "-original"))
+                      (bash (string-append (assoc-ref inputs "bash")
+                                           "/bin/bash"))
+                      (coreutils (assoc-ref inputs "coreutils"))
+                      (mkdir (string-append coreutils "/bin/mkdir"))
+                      (cp (string-append coreutils "/bin/cp"))
+                      (cp-r (string-append cp " -r --no-preserve=mode")))
+                 ;; First, have the executable make sure ~/.local/share/higan
+                 ;; contains up to date files.  Higan insists on looking there
+                 ;; for these data files.
+                 (rename-file higan higan-original)
+                 (with-output-to-file higan
+                   (lambda ()
+                     (display
+                      (string-append
+                       "#!" bash "\n"
+                       ;; higan doesn't respect $XDG_DATA_HOME
+                       mkdir " -p ~/.local/share\n"
+                       cp-r " " out "/share/higan ~/.local/share\n"
+                       "exec " higan-original))))
+                 (chmod higan #o555)
+                 ;; Second, make sure higan will find icarus in PATH.
+                 (wrap-program higan
+                   `("PATH" ":" prefix (,bin))))))))
+       #:make-flags
+       (list "compiler=g++"
+             (string-append "prefix=" (assoc-ref %outputs "out")))
+       ;; There is no test suite.
+       #:tests? #f))
+    (home-page "http://byuu.org/emulation/higan/")
+    (synopsis "Nintendo multi-system emulator")
+    (description
+     "higan (formerly bsnes) is an emulator for multiple Nintendo video game
+consoles, including the Nintendo Entertainment System (NES/Famicom), Super
+Nintendo Entertainment System (SNES/Super Famicom), Game Boy, Game Boy
+Color (GBC), and Game Boy Advance (GBA).  It also supports the subsystems
+Super Game Boy, BS-X Satellaview, and Sufami Turbo.")
+    ;; As noted in these files among more:
+    ;; - icarus/icarus.cpp
+    ;; - higan/emulator/emulator.hpp
+    (license license:gpl3)))
+
+(define-public grue-hunter
+  (package
+    (name "grue-hunter")
+    (version "1.0")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "https://jxself.org/" name ".tar.gz"))
+              (sha256
+               (base32
+                "1hjcpy5439qs3v2zykis7hsi0i17zjs62gks3zd8mnfw9ni4i2h3"))))
+    (build-system trivial-build-system) ; no Makefile.PL
+    (arguments `(#:modules ((guix build utils))
+                 #:builder
+                 (begin
+                   (use-modules (guix build utils))
+                   (use-modules (srfi srfi-1))
+
+                   (let* ((tarball (assoc-ref %build-inputs "tarball"))
+                          (perl    (string-append (assoc-ref %build-inputs
+                                                             "perl")
+                                                  "/bin"))
+                          (gunzip  (string-append (assoc-ref %build-inputs
+                                                             "gzip")
+                                                  "/bin/gunzip"))
+                          (tar     (string-append (assoc-ref %build-inputs
+                                                             "tar")
+                                                  "/bin/tar"))
+                          (out     (assoc-ref %outputs "out"))
+                          (bin     (string-append out "/bin"))
+                          (doc     (string-append out "/share/doc")))
+                     (begin
+                       (mkdir out)
+                       (copy-file tarball "grue-hunter.tar.gz")
+                       (zero? (system* gunzip "grue-hunter.tar.gz"))
+                       (zero? (system* tar "xvf"  "grue-hunter.tar"))
+
+                       (mkdir-p bin)
+                       (copy-file "grue-hunter/gh.pl"
+                                  (string-append bin "/grue-hunter"))
+                       (patch-shebang (string-append bin "/grue-hunter")
+                                      (list perl))
+
+                       (mkdir-p doc)
+                       (copy-file "grue-hunter/AGPLv3.txt"
+                                  (string-append doc "/grue-hunter")))))))
+    (inputs `(("perl" ,perl)
+              ("tar" ,tar)
+              ("gzip" ,gzip)
+              ("tarball" ,source)))
+    (home-page "http://jxself.org/grue-hunter.shtml")
+    (synopsis "Text adventure game")
+    (description
+     "Grue Hunter is a text adventure game written in Perl.  You must make
+your way through an underground cave system in search of the Grue.  Can you
+capture it and get out alive?")
+    (license license:agpl3+)))
+
+(define-public warzone2100
+  (package
+    (name "warzone2100")
+    (version "3.1.5")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "mirror://sourceforge/" name
+                                  "/releases/" version "/" name "-" version
+                                  ".tar.xz"))
+              (sha256
+               (base32
+                "0hm49i2knvvg3wlnryv7h4m84s3qa7jfyym5yy6365sx8wzcrai1"))))
+    (build-system gnu-build-system)
+    (arguments
+     `(#:phases (modify-phases %standard-phases
+                  (add-after 'set-paths 'set-sdl-paths
+                    (lambda* (#:key inputs #:allow-other-keys)
+                      (setenv "CPATH"
+                              (string-append (assoc-ref inputs "sdl-union")
+                                             "/include/SDL"))
+                      #t)))))
+    (native-inputs `(("pkg-config" ,pkg-config)
+                     ("unzip" ,unzip)
+                     ("zip" ,zip)))
+    (inputs `(("fontconfig" ,fontconfig)
+              ("freetype" ,freetype)
+              ("fribidi" ,fribidi)
+              ("glew" ,glew)
+              ("libtheora" ,libtheora)
+              ("libvorbis" ,libvorbis)
+              ("libxrandr" ,libxrandr)
+              ("openal" ,openal)
+              ("physfs" ,physfs)
+              ("qt", qt-4)
+              ("quesoglc" ,quesoglc)
+              ("sdl-union" ,(sdl-union))))
+    (home-page "http://wz2100.net")
+    (synopsis "3D Real-time strategy and real-time tactics game")
+    (description
+     "Warzone 2100 offers campaign, multi-player, and single-player skirmish
+modes. An extensive tech tree with over 400 different technologies, combined
+with the unit design system, allows for a wide variety of possible units and
+tactics.")
+    ; Everything is GPLv2+ unless otherwise specified in COPYING.NONGPL
+    (license (list license:bsd-3
+                   license:cc0
+                   license:cc-by-sa3.0
+                   license:expat
+                   license:gpl2+
+                   license:lgpl2.1+))))
+
+(define-public starfighter
+  (package
+    (name "starfighter")
+    (version "1.5.1.1")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "mirror://savannah/starfighter/"
+                    (version-major+minor version) "/"
+                    name "-" version "-src.tar.gz"))
+              (sha256
+               (base32
+                "1qc0hhw9m8sy3n9fips52c7aph3w8a8pdl4n45yaasgxzbvpn9xg"))))
+    (build-system gnu-build-system)
+    (arguments
+     '(#:tests? #f ; no check target
+       #:make-flags
+       (let ((out (assoc-ref %outputs "out")))
+         (list (string-append "PREFIX=" out)
+               (string-append "BINDIR=" out "/bin/")))
+       #:phases
+       (modify-phases %standard-phases
+         ;; no configure script
+         (delete 'configure))))
+    (native-inputs
+     `(("pkg-config" ,pkg-config)))
+    (inputs
+     `(("sdl2" ,sdl2)
+       ("sdl2-image" ,sdl2-image)
+       ("sdl2-mixer" ,sdl2-mixer)))
+    (home-page "http://starfighter.nongnu.org/")
+    (synopsis "2D scrolling shooter game")
+    (description
+     "In the year 2579, the intergalactic weapons corporation, WEAPCO, has
+dominated the galaxy.  Guide Chris Bainfield and his friend Sid Wilson on
+their quest to liberate the galaxy from the clutches of WEAPCO.  Along the
+way, you will encounter new foes, make new allies, and assist local rebels
+in strikes against the evil corporation.")
+    ;; gfx and music are under CC-BY 3.0, CC-BY-SA 3.0, CC0 or Public Domain.
+    (license (list license:gpl3+
+                   license:cc-by3.0
+                   license:cc-by-sa3.0
+                   license:cc0
+                   license:public-domain))))
+
+(define-public chromium-bsu
+  (package
+    (name "chromium-bsu")
+    (version "0.9.15.1")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "mirror://sourceforge/" name
+                                  "/Chromium B.S.U. source code/"
+                                  name "-" version ".tar.gz"))
+              (sha256
+               (base32
+                "01c4mki0rpz6wrqbf18fj4vd7axln5v0xqm80cyksbv63g04s6w6"))))
+    (build-system gnu-build-system)
+    (arguments
+     `(#:phases (modify-phases %standard-phases
+                  (add-after 'set-paths 'set-sdl-paths
+                             (lambda* (#:key inputs #:allow-other-keys)
+                               (setenv "CPATH"
+                                       (string-append (assoc-ref inputs "sdl-union")
+                                                      "/include/SDL"))
+                               #t)))))
+    (native-inputs `(("pkg-config" ,pkg-config)))
+    (inputs `(("glu" ,glu)
+              ("quesoglc" ,quesoglc)
+              ("sdl-union" ,(sdl-union (list sdl sdl-image sdl-mixer)))))
+    (home-page "http://chromium-bsu.sourceforge.net/")
+    (synopsis "Fast-paced, arcade-style, top-scrolling space shooter")
+    (description
+     "In this game you are the captain of the cargo ship Chromium B.S.U. and
+are responsible for delivering supplies to the troops on the front line.  Your
+ship has a small fleet of robotic fighters which you control from the relative
+safety of the Chromium vessel.")
+    ;; Clarified Artistic License for everything but sound, which is covered
+    ;; by the Expat License.
+    (license (list license:clarified-artistic license:expat))))

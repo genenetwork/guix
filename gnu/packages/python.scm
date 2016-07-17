@@ -20,6 +20,10 @@
 ;;; Copyright © 2016 Danny Milosavljevic <dannym+a@scratchpost.org>
 ;;; Copyright © 2016 Lukas Gradl <lgradl@openmailbox.org>
 ;;; Copyright © 2016 Hartmut Goebel <h.goebel@crazy-compilers.com>
+;;; Copyright © 2016 Daniel Pimentel <d4n1@d4n1.org>
+;;; Copyright © 2016 Sou Bunnbu <iyzsong@gmail.com>
+;;; Copyright © 2016 Troy Sankey <sankeytms@gmail.com>
+;;; Copyright © 2016 ng0 <ng0@we.make.ritual.n0.is>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -363,18 +367,18 @@ instead of @command{python3}.")))
 (define-public python-psutil
   (package
     (name "python-psutil")
-    (version "3.3.0")
+    (version "4.3.0")
     (source
      (origin
        (method url-fetch)
        (uri (pypi-uri "psutil" version))
        (sha256
         (base32
-         "11bd1555vf2ibjnmqf64im5cp55vcqfq45ccinm9ll3bs68na6s2"))))
+         "1w4r09fvn6kd80m5mx4ws1wz100brkaq6hzzpwrns8cgjzjpl6c6"))))
     (build-system python-build-system)
     (native-inputs
      `(("python-setuptools" ,python-setuptools)))
-    (home-page "https://pypi.python.org/pypi/psutil/")
+    (home-page "https://www.github.com/giampaolo/psutil")
     (synopsis "Library for retrieving information on running processes")
     (description
      "psutil (Python system and process utilities) is a library for retrieving
@@ -2162,13 +2166,17 @@ is used by the Requests library to verify HTTPS requests.")
 (define-public python-click
   (package
     (name "python-click")
-    (version "6.2")
+    (version "6.6")
     (source
      (origin
        (method url-fetch)
-         (uri (pypi-uri "click" version))
+         (uri (string-append
+                "https://pypi.python.org/packages/"
+                "7a/00/c14926d8232b36b08218067bcd5853caefb4737cda3f0a47437151344792/"
+                "click-" version ".tar.gz"))
        (sha256
-        (base32 "10kavbisnk9m93jl2wi34pw7ryr2qbxshh2cysxwxd7bymqgz87v"))))
+        (base32
+         "1sggipyz52crrybwbr9xvwxd4aqigvplf53k9w3ygxmzivd1jsnc"))))
     (build-system python-build-system)
     (native-inputs
      `(("python-setuptools" ,python-setuptools)))
@@ -3258,15 +3266,14 @@ that client code uses to construct the grammar directly in Python code.")
 (define-public python-numexpr
   (package
     (name "python-numexpr")
-    (version "2.4.4")
+    (version "2.6.0")
     (source
      (origin
        (method url-fetch)
-       (uri (string-append "https://pypi.python.org/packages/source/"
-                           "n/numexpr/numexpr-" version ".tar.gz"))
+       (uri (pypi-uri "numexpr" version))
        (sha256
         (base32
-         "0nsnff5312fm38w6dm34bw7ghfqqy8vl9gig0al963h4mz8zm8nz"))))
+         "0i6iagl2hhbr8q4qzbbjd859v5806vqylq87fq7pi914ps6d6cag"))))
     (build-system python-build-system)
     (arguments `(#:tests? #f))          ; no tests included
     (propagated-inputs
@@ -4107,13 +4114,13 @@ child application and control it as if a human were typing commands.")
 (define-public python-setuptools-scm
   (package
     (name "python-setuptools-scm")
-    (version "1.9.0")
+    (version "1.11.1")
     (source (origin
               (method url-fetch)
               (uri (pypi-uri "setuptools_scm" version))
               (sha256
                (base32
-                "0y24bl893zk6nrklbvdrlmpkalf214zjn6k1xrglljd29rrn4wxi"))))
+                "1gqr73i150yzj3mz32854vj93x07yr52kn8fdckwa41ll8wgficc"))))
     (build-system python-build-system)
     (native-inputs `(("python-setuptools" ,python-setuptools)))
     (home-page "https://github.com/pypa/setuptools_scm/")
@@ -4481,6 +4488,30 @@ features useful for text console applications.")
 
 (define-public python2-urwid
   (package-with-python2 python-urwid))
+
+(define-public python-urwidtrees
+  (package
+    (name "python-urwidtrees")
+    (version "1.0.1.1")
+    (source
+      (origin
+        (method url-fetch)
+        (uri (pypi-uri "urwidtrees" version))
+        (sha256
+          (base32
+            "1zcvy12s7h3fazf33d6y7b4v19p8hg95xqwhqlmw6jz9fq76v9h8"))))
+    (build-system python-build-system)
+    (arguments
+     '(#:tests? #f)) ; no tests
+    (inputs `(("python-urwid" ,python-urwid)))
+    (home-page "https://github.com/pazz/urwidtrees")
+    (synopsis "Tree widgets for urwid")
+    (description "Urwidtrees is a Widget Container API for the @code{urwid}
+toolkit.  Use it to build trees of widgets.")
+    (license gpl3+)))
+
+(define-public python2-urwidtrees
+  (package-with-python2 python-urwidtrees))
 
 (define-public python-dbus
   (package
@@ -5716,6 +5747,63 @@ printing of sub-tables by specifying a row range.")
 (define-public python2-prettytable
   (package-with-python2 python-prettytable))
 
+(define-public python-tables
+  (package
+    (name "python-tables")
+    (version "3.2.2")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (pypi-uri "tables" version))
+       (sha256
+        (base32
+         "117s6w7s3yxafpmf3zz3svana7xfrsviw01va1xp7h8ylx8v6r1m"))))
+    (build-system python-build-system)
+    (arguments
+     `(;; FIXME: python-build-system does not pass configure-flags to "build"
+       ;; or "check", so we must override the build and check phases.
+       #:phases
+       (modify-phases %standard-phases
+         (add-after 'unpack 'use-gcc
+           (lambda _
+             (substitute* "setup.py"
+               (("compiler = new_compiler\\(\\)" line)
+                (string-append line
+                               "\ncompiler.set_executables(compiler='gcc',"
+                               "compiler_so='gcc',"
+                               "linker_exe='gcc',"
+                               "linker_so='gcc -shared')")))
+             #t))
+         (replace 'build
+           (lambda* (#:key inputs #:allow-other-keys)
+             (zero? (system* "python" "setup.py" "build"
+                             (string-append "--hdf5="
+                                            (assoc-ref inputs "hdf5"))))))
+         (replace 'check
+           (lambda* (#:key inputs #:allow-other-keys)
+             (zero? (system* "python" "setup.py" "check"
+                             (string-append "--hdf5="
+                                            (assoc-ref inputs "hdf5")))))))))
+    (propagated-inputs
+     `(("python-numexpr" ,python-numexpr)
+       ("python-numpy" ,python-numpy)))
+    (native-inputs
+     `(("python-setuptools" ,python-setuptools)
+       ("python-cython" ,python-cython)
+       ("pkg-config" ,pkg-config)))
+    (inputs
+     `(("hdf5" ,hdf5)
+       ("bzip2" ,bzip2)
+       ("zlib" ,zlib)))
+    (home-page "http://www.pytables.org/")
+    (synopsis "Hierarchical datasets for Python")
+    (description "PyTables is a package for managing hierarchical datasets and
+designed to efficently cope with extremely large amounts of data.")
+    (license bsd-3)))
+
+(define-public python2-tables
+  (package-with-python2 python-tables))
+
 (define-public python-pyasn1
   (package
     (name "python-pyasn1")
@@ -5879,18 +5967,14 @@ responses, rather than doing any computation.")
 (define-public python-cryptography-vectors
   (package
     (name "python-cryptography-vectors")
-    (version "1.3.2")
+    (version "1.3.4")
     (source
      (origin
        (method url-fetch)
-       (uri (string-append
-              "https://pypi.python.org/packages/"
-              "3f/fd/"
-              "5883a7fdfcdf6edec55c58605be99d8c36ce97a9b729763ea9cf30e761b7"
-              "/cryptography_vectors-" version ".tar.gz"))
+       (uri (pypi-uri "cryptography_vectors" version))
        (sha256
         (base32
-         "0ss682bpgzdfy2vam8yhhrx7p5gnw89ydlvaswqp52za8sd8nsh0"))))
+         "15h1iz2klnpb4f8djxy7cpbnyn3wbjp7bnj4pz6s7w6plghbq524"))))
     (build-system python-build-system)
     (native-inputs
      `(("python-setuptools" ,python-setuptools)))
@@ -5907,18 +5991,14 @@ responses, rather than doing any computation.")
 (define-public python-cryptography
   (package
     (name "python-cryptography")
-    (version "1.3.2")
+    (version "1.3.4")
     (source
      (origin
        (method url-fetch)
-       (uri (string-append
-              "https://pypi.python.org/packages/"
-              "04/da/"
-              "35f9a1d34dab5d777f65fb87731288f338ab0ae46a525ffdf0405b573dd0"
-              "/cryptography-" version ".tar.gz"))
+       (uri (pypi-uri "cryptography" version))
        (sha256
         (base32
-         "121067qdbzd0ir0nxjdf0kgai7qlsc9yh2xhrj4cavcn4y4gmapv"))))
+         "1a85l548w5vvq3yhz0az7ajg2ijixzp6gagapw6wgrqvq28ghgs2"))))
     (build-system python-build-system)
     (inputs
      `(("openssl" ,openssl)))
@@ -6584,16 +6664,14 @@ facilities for defining, registering and looking up components.")
 (define-public python2-pythondialog
   (package
     (name "python2-pythondialog")
-    (version "3.3.0")
+    (version "3.4.0")
     (source
      (origin
        (method url-fetch)
-       (uri (string-append "https://pypi.python.org/packages/source/p/"
-                           "python2-pythondialog/python2-pythondialog-"
-                           version ".tar.gz"))
+       (uri (pypi-uri "python2-pythondialog" version))
        (sha256
         (base32
-         "1yhkagsh99bfi592ymczf8rnw8rk6n9hdqy3dd98m3yrx8zmjvry"))))
+         "0d8k7lxk50imdyx85lv8j98i4c93a71iwpapnl1506rpkbm9qvd9"))))
     (build-system python-build-system)
     (arguments
      `(#:phases
@@ -6814,16 +6892,14 @@ tables.")
 (define-public python-websocket-client
   (package
     (name "python-websocket-client")
-    (version "0.34.0")
+    (version "0.37.0")
     (source
      (origin
        (method url-fetch)
-       (uri (string-append "https://pypi.python.org/packages/source/w"
-                           "/websocket-client/websocket_client-"
-                           version ".tar.gz"))
+       (uri (pypi-uri "websocket_client" version))
        (sha256
         (base32
-         "1prdx6d49f1cff17kzj15bnz09palfdgc1m5dkq9jd4mr90n4ak8"))))
+         "0h9glp1jll3z76ly3kg08aqgxqk0a68p4zi9yn50353bh5nj92v7"))))
     (build-system python-build-system)
     (native-inputs
      `(("python-six" ,python-six))) ; for tests
@@ -6865,13 +6941,16 @@ for atomic filesystem operations.")
 (define-public python-requests-toolbelt
   (package
     (name "python-requests-toolbelt")
-    (version "0.6.0")
+    (version "0.6.2")
     (source (origin
              (method url-fetch)
-             (uri (pypi-uri "requests-toolbelt" version))
+             (uri (string-append
+                    "https://pypi.python.org/packages/"
+                    "e1/a4/a94c037bc72ad70441aff1403d3243510d2542ddca7759faaeffeb11aefe/"
+                    "requests-toolbelt-" version ".tar.gz"))
              (sha256
               (base32
-               "07slish560haspn0hpwgy2izhk2snqq06s6acp8xzmhhz079qknc"))))
+               "15q9nrgp85nqlr4kdz1zvj8z2npafi2sr12y7fqgxbkq28j1aci6"))))
     (build-system python-build-system)
     (propagated-inputs
      `(("python-requests" ,python-requests)))
@@ -6884,13 +6963,16 @@ with python-requests.")
 (define-public python-click-threading
   (package
     (name "python-click-threading")
-    (version "0.1.2")
+    (version "0.2.0")
     (source (origin
              (method url-fetch)
-             (uri (pypi-uri "click-threading" version))
+             (uri (string-append
+                    "https://pypi.python.org/packages/"
+                    "fe/b7/e7f609d18a2a351cb71616adcf54df1acd82f83cb9b5936935a4d20e2c23/"
+                    "click-threading-" version ".tar.gz"))
              (sha256
               (base32
-               "0jmrv4334lfxa2ss53c06dafdwqbk1pb3ihd26izn5igw1bm8145"))))
+               "18bcqikxwb3drb8rf60cclxkxw52521b38ax3byah6j8cn8y9p4j"))))
     (build-system python-build-system)
     (propagated-inputs
      `(("python-click" ,python-click)))
@@ -7006,7 +7088,17 @@ minimal and fast API targetting the following uses:
     (description "The pytest-cache plugin provides tools to rerun failures from
 the last py.test invocation.")
     (home-page "https://bitbucket.org/hpk42/pytest-cache/")
-    (license license:expat)))
+    (license license:expat)
+    (properties `((python2-variant . ,(delay python2-pytest-cache))))))
+
+(define-public python2-pytest-cache
+  (let ((pytest-cache (package-with-python2
+                        (strip-python2-variant python-pytest-cache))))
+    (package
+      (inherit pytest-cache)
+      (native-inputs
+       `(("python2-setuptools" ,python2-setuptools)
+         ,@(package-native-inputs pytest-cache))))))
 
 (define-public python-pytest-localserver
   (package
@@ -7040,13 +7132,16 @@ framework which enables you to test server connections locally.")
 (define-public python-wsgi-intercept
   (package
     (name "python-wsgi-intercept")
-    (version "1.1.2")
+    (version "1.2.2")
     (source (origin
              (method url-fetch)
-             (uri (pypi-uri "wsgi_intercept" version))
+             (uri (string-append
+                    "https://pypi.python.org/packages/"
+                    "38/76/ebcbc24d0cb77db34520a3ca6ed1bd43ace17d182bbd8dd7d976f1c176fb/"
+                    "wsgi_intercept-" version ".tar.gz"))
              (sha256
               (base32
-               "14ajy415ch5d0dnspg4b592p66wlgzah7ay218flp13517fp49zl"))))
+               "0kjj2v2dvmnpdd5h5gk9rzz0f54rhjb0yiz3zg65bmp65slfw65d"))))
     (build-system python-build-system)
     (native-inputs
      `(("python-pytest" ,python-pytest)
@@ -8244,13 +8339,13 @@ commands into documents, helping you to keep your command examples up to date.")
 (define-public python-sphinx-repoze-autointerface
   (package
     (name "python-sphinx-repoze-autointerface")
-    (version "0.7.1")
+    (version "0.8")
     (source (origin
               (method url-fetch)
               (uri (pypi-uri "repoze.sphinx.autointerface" version))
               (sha256
                (base32
-                "016mv3wbylw278wl7z33y2liyra8ljp08zq1g0anzadh1an5zvwp"))))
+                "08ycivzf7bh4a1zcyp31hbyqs1b2c9r26raa3vxjwwmbfqr3iw4f"))))
     (build-system python-build-system)
     (propagated-inputs
      `(("python-docutils" ,python-docutils)
@@ -8709,6 +8804,43 @@ LDFLAGS and parse the output to build extensions with setup.py.")
 (define-public python2-pkgconfig
   (package-with-python2 python-pkgconfig))
 
+(define-public python-bz2file
+  (package
+    (name "python-bz2file")
+    (version "0.98")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (pypi-uri "bz2file" version))
+       (sha256
+        (base32
+         "126s53fkpx04f33a829yqqk8fj4png3qwg4m66cvlmhmwc8zihb4"))))
+    (build-system python-build-system)
+    (arguments
+     `(#:phases
+       (modify-phases %standard-phases
+         ;; python setup.py test does not work as of 0.98
+         ;; but there is only the one test file
+         (replace 'check
+           (lambda _ (zero? (system* "python" "test_bz2file.py")))))))
+    (home-page "https://github.com/nvawda/bz2file")
+    (synopsis "Read and write bzip2-compressed files")
+    (description
+     "Bz2file is a Python library for reading and writing bzip2-compressed
+files.  It contains a drop-in replacement for the I/O interface in the
+standard library's @code{bz2} module, including features from the latest
+development version of CPython that are not available in older releases.")
+    (license asl2.0)
+    (properties `((python2-variant . ,(delay python2-bz2file))))))
+
+(define-public python2-bz2file
+  (let ((base (package-with-python2
+               (strip-python2-variant python-bz2file))))
+    (package
+      (inherit base)
+      (native-inputs
+       `(("python2-setuptools" ,python2-setuptools))))))
+
 (define-public python-cysignals
   (package
     (name "python-cysignals")
@@ -8989,17 +9121,15 @@ to provide a high-level synchronous API on top of the libev event loop.")
     (version "16.2.0")
     (source (origin
               (method url-fetch)
-              (uri (list (pypi-uri "Twisted" version ".tar.bz2") ; 404
-                         (string-append
-                          "https://pypi.io/packages/source/T/Twisted/"
-                          "Twisted-" version ".tar.bz2")))
+              (uri (pypi-uri "Twisted" version ".tar.bz2"))
               (sha256
                (base32
                 "0ydxrp9myw1mvsz3qfzx5579y5llmqa82pxvqchgp5syczffi450"))))
     (build-system python-build-system)
     (native-inputs
-     `(("python-setuptools" ,python-setuptools)
-       ("python-zope-interface" ,python-zope-interface)))
+     `(("python-setuptools" ,python-setuptools)))
+    (propagated-inputs
+     `(("python-zope-interface" ,python-zope-interface)))
     (home-page "https://twistedmatrix.com/")
     (synopsis "Asynchronous networking framework written in Python")
     (description
@@ -9009,3 +9139,616 @@ focus on event-based network programming and multiprotocol integration.")
 
 (define-public python2-twisted
   (package-with-python2 python-twisted))
+
+(define-public python-ply
+  (package
+    (name "python-ply")
+    (version "3.8")
+    (source
+      (origin
+        (method url-fetch)
+        (uri (string-append
+               "https://pypi.python.org/packages/"
+               "96/e0/430fcdb6b3ef1ae534d231397bee7e9304be14a47a267e82ebcb3323d0b5"
+               "/ply-" version ".tar.gz"))
+        (sha256
+          (base32
+            "1f70ipynmiy09k6px2j7v4w5cdrc21za3xs2k6f1bsvb0bzvvlg7"))))
+    (build-system python-build-system)
+    (home-page "http://www.dabeaz.com/ply/")
+    (synopsis "Python Lex & Yacc")
+    (description "PLY is a @code{lex}/@code{yacc} implemented purely in Python.
+It uses LR parsing and does extensive error checking.")
+    (license bsd-3)
+    (properties `((python2-variant . ,(delay python2-ply))))))
+
+(define-public python2-ply
+  (package
+    (inherit (package-with-python2
+              (strip-python2-variant python-ply)))
+    (native-inputs `(("python2-setuptools" ,python2-setuptools)))))
+
+(define-public python-tabulate
+  (package
+    (name "python-tabulate")
+    (version "0.7.5")
+    (source (origin
+             (method url-fetch)
+             (uri (pypi-uri "tabulate" version))
+             (sha256
+              (base32
+               "03l1r7ddd1a0j2snv1yd0hlnghjad3fg1an1jr8936ksv75slwch"))
+             ;; Fix tests
+             (modules '((guix build utils)))
+             (snippet '(substitute* '("test/test_cli.py"
+                                      "test/test_input.py"
+                                      "test/test_output.py"
+                                      "test/test_regression.py")
+                         (("from common") "from nose.tools")))))
+    (build-system python-build-system)
+    (native-inputs
+     `(("python-setuptools" ,python-setuptools)
+       ;; For testing
+       ("python-nose" ,python-nose)))
+    (home-page "https://bitbucket.org/astanin/python-tabulate")
+    (synopsis "Pretty-print tabular data")
+    (description
+     "Tabulate is a library and command-line utility to pretty-print tabular
+data in Python.")
+    (license license:expat)))
+
+(define-public python2-tabulate
+  (package-with-python2 python-tabulate))
+
+(define-public python-kazoo
+  (package
+    (name "python-kazoo")
+    (version "2.2.1")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (pypi-uri "kazoo" version))
+       (sha256
+        (base32
+         "10pb864if9qi2pq9lfb9m8f7z7ss6rml80gf1d9h64lap5crjnjj"))))
+    (build-system python-build-system)
+    (arguments '(#:tests? #f)) ; XXX: needs zookeeper
+    (native-inputs
+     `(("python-setuptools" ,python-setuptools)))
+    (propagated-inputs
+     `(("python-six" ,python-six)))
+    (home-page "https://kazoo.readthedocs.org")
+    (synopsis "High-level Zookeeper client library")
+    (description
+     "Kazoo is a Python client library for the Apache Zookeeper distributed
+application service.  It is designed to be easy to use and to avoid common
+programming errors.")
+    (license asl2.0)))
+
+(define-public python2-kazoo
+  (package-with-python2 python-kazoo))
+
+(define-public python-pykafka
+  (package
+    (name "python-pykafka")
+    (version "2.4.0")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                     "https://pypi.python.org/packages/8b/3e/"
+                     "384eeff406b06315738b62483fd2126c6e4f544167116b17cc04ea7d2a59/"
+                     "pykafka-" version ".tar.gz"))
+              (sha256
+               (base32
+                "1id6sr159p6aa13bxcqyr9gln8sqg1l0ddzns5iws8kk5q1p5cfv"))))
+    (build-system python-build-system)
+    (arguments '(#:tests? #f)) ; XXX: needs zookeeper, kafka, etc.
+    (native-inputs
+     `(("python-setuptools" ,python-setuptools)))
+    (propagated-inputs
+     `(("python-gevent" ,python-gevent)
+       ("python-kazoo" ,python-kazoo)
+       ("python-tabulate" ,python-tabulate)))
+    (inputs
+     `(("librdkafka" ,librdkafka)))
+    (home-page "https://pykafka.readthedocs.io/")
+    (synopsis "Apache Kafka client for Python")
+    (description
+     "PyKafka is a client for the Apache Kafka distributed messaging system.
+It includes Python implementations of Kafka producers and consumers, which
+are optionally backed by a C extension built on librdkafka.")
+    (license asl2.0)))
+
+(define-public python2-pykafka
+  (package-with-python2 python-pykafka))
+
+(define-public python-wcwidth
+ (package
+  (name "python-wcwidth")
+  (version "0.1.6")
+  (source
+    (origin
+      (method url-fetch)
+      (uri (string-append
+             "https://pypi.python.org/packages/"
+             "c2/d1/7689293086a8d5320025080cde0e3155b94ae0a7496fb89a3fbaa92c354a/"
+             "wcwidth-" version ".tar.gz"))
+      (sha256
+        (base32
+          "02wjrpf001gjdjsaxxbzcwfg19crlk2dbddayrfc2v06f53yrcyw"))))
+  (build-system python-build-system)
+  (home-page "https://github.com/jquast/wcwidth")
+  (synopsis "Measure number of terminal column cells of wide-character codes.")
+  (description "Wcwidth measures the number of terminal column cells of
+wide-character codes.  It is useful for those implementing a terminal emulator,
+or programs that carefully produce output to be interpreted by one.  It is a
+Python implementation of the @code{wcwidth} and @code{wcswidth} C functions
+specified in POSIX.1-2001 and POSIX.1-2008.")
+  (license license:expat)
+  (properties `((python2-variant . ,(delay python2-wcwidth))))))
+
+(define-public python2-wcwidth
+  (package
+    (inherit (package-with-python2
+              (strip-python2-variant python-wcwidth)))
+    (native-inputs `(("python2-setuptools" ,python2-setuptools)))))
+
+(define-public python2-jsonrpclib
+  (package
+    (name "python2-jsonrpclib")
+    (version "0.1.7")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "https://pypi.python.org/packages/source/j/jsonrpclib/"
+                    "jsonrpclib-" version ".tar.gz"))
+              (sha256
+               (base32
+                "02vgirw2bcgvpcxhv5hf3yvvb4h5wzd1lpjx8na5psdmaffj6l3z"))))
+    (build-system python-build-system)
+    (native-inputs
+     `(("python2-setuptools" ,python2-setuptools)))
+    (arguments
+     `(#:tests? #f
+       #:python ,python-2))
+    (home-page "https://github.com/joshmarshall/jsonrpclib/")
+    (synopsis "Implementation of JSON-RPC specification for Python")
+    (description
+     "This library is an implementation of the JSON-RPC specification.
+It supports both the original 1.0 specification, as well as the
+new (proposed) 2.0 spec, which includes batch submission, keyword arguments,
+etc.")
+    (license asl2.0)))
+
+(define-public python-chai
+  (package
+    (name "python-chai")
+    (version "1.1.1")
+    (source (origin
+              (method url-fetch)
+              (uri (pypi-uri "chai" version))
+              (sha256
+               (base32
+                "016kf3irrclpkpvcm7q0gmkfibq7jgy30a9v73pp42bq9h9a32bl"))))
+    (build-system python-build-system)
+    (native-inputs
+     `(("python-setuptools" ,python-setuptools)))
+    (home-page "https://github.com/agoragames/chai")
+    (synopsis "Mocking framework for Python")
+    (description
+     "Chai provides an api for mocking, stubbing and spying your python
+objects, patterned after the Mocha library for Ruby.")
+    (license bsd-3)))
+
+(define-public python2-chai
+  (package-with-python2 python-chai))
+
+(define-public python-arrow
+  (package
+    (name "python-arrow")
+    (version "0.8.0")
+    (source (origin
+              (method url-fetch)
+              (uri (pypi-uri "arrow" version))
+              (sha256
+               (base32
+                "1bz7hkdgpqcjs866y58z8jywpy7al0f4rxdr00bh2l5qddyw245j"))))
+    (build-system python-build-system)
+    (native-inputs
+     `(("python-setuptools" ,python-setuptools)
+       ;; For testing
+       ("python-chai" ,python-chai)
+       ("python-simplejson" ,python-simplejson)))
+    (propagated-inputs
+     `(("python-dateutil" ,python-dateutil-2)))
+    (home-page "https://github.com/crsmithdev/arrow/")
+    (synopsis "Dates and times for Python")
+    (description
+     "Arrow is a Python library to creating, manipulating, formatting and
+converting dates, times, and timestamps.  It implements and updates the
+datetime type.")
+    (license asl2.0)))
+
+(define-public python2-arrow
+  (package-with-python2 python-arrow))
+
+(define-public python-inflection
+  (package
+    (name "python-inflection")
+    (version "0.3.1")
+    (source
+     (origin (method url-fetch)
+             (uri (pypi-uri "inflection" version))
+             (sha256
+              (base32
+               "1jhnxgnw8y3mbzjssixh6qkc7a3afc4fygajhqrqalnilyvpzshq"))))
+    (build-system python-build-system)
+    (native-inputs
+     `(("python-setuptools" ,python-setuptools)))
+    (home-page "http://github.com/jpvanhal/inflection")
+    (synopsis "Python string transformation library")
+    (description
+     "Inflection is a string transformation library.  It singularizes
+and pluralizes English words, and transforms strings from CamelCase to
+underscored string.")
+    (license license:expat)))
+
+(define-public python2-inflection
+  (package-with-python2 python-inflection))
+
+(define-public python-pylev
+  (package
+    (name "python-pylev")
+    (version "1.3.0")
+    (source (origin
+              (method url-fetch)
+              (uri (pypi-uri "pylev" version))
+              (sha256
+               (base32
+                "1hz1x9blsbxya1y9nnhnwwdnqmakxi9mc0jkwj0rn6b1h44i0f86"))))
+    (build-system python-build-system)
+    (native-inputs
+     `(("python-setuptools" ,python-setuptools)))
+    (home-page "http://github.com/toastdriven/pylev")
+    (synopsis "Levenshtein distance implementation in Python")
+    (description "Pure Python Levenshtein implementation, based off the
+Wikipedia code samples at
+@url{http://en.wikipedia.org/wiki/Levenshtein_distance}.")
+    (license bsd-3)))
+
+(define-public python2-pylev
+  (package-with-python2 python-pylev))
+
+(define-public python-cleo
+  (package
+    (name "python-cleo")
+    (version "0.4.1")
+    (source (origin
+              (method url-fetch)
+              (uri (pypi-uri "cleo" version))
+              (sha256
+               (base32
+                "1k2dcl6mqpn5bljyl6w42rqyd9mb3y9kh2mg7m2x3kfjwvg0rpva"))))
+    (build-system python-build-system)
+    (native-inputs
+     `(("python-setuptools" ,python-setuptools)
+       ;; For testing
+       ("python-mock" ,python-mock)
+       ("python-pytest" ,python-pytest)))
+    (propagated-inputs
+     `(("python-psutil" ,python-psutil)
+       ("python-pylev" ,python-pylev)))
+    (home-page "https://github.com/sdispater/cleo")
+    (synopsis "Command-line arguments library for Python")
+    (description
+     "Cleo allows you to create command-line commands with signature in
+docstring and colored output.")
+    (license license:expat)))
+
+(define-public python2-cleo
+  (package-with-python2 python-cleo))
+
+(define-public python-lazy-object-proxy
+  (package
+    (name "python-lazy-object-proxy")
+    (version "1.2.2")
+    (source (origin
+              (method url-fetch)
+              (uri (pypi-uri "lazy-object-proxy" version))
+              (sha256
+               (base32
+                "0s22aqqkdscyh8sjspyyax7qa1aiz8p4midrnyf39717fhfczm6x"))))
+    (build-system python-build-system)
+    (native-inputs
+     `(("python-setuptools" ,python-setuptools)))
+    (home-page "https://github.com/ionelmc/python-lazy-object-proxy")
+    (synopsis "Lazy object proxy for python")
+    (description
+     "Lazy object proxy is an object that wraps a callable but defers the call
+until the object is actually required, and caches the result of said call.")
+    (license bsd-2)))
+
+(define-public python2-lazy-object-proxy
+  (package-with-python2 python-lazy-object-proxy))
+
+(define-public python-dnspython
+  (package
+  (name "python-dnspython")
+  (version "1.14.0")
+  (source (origin
+            (method url-fetch)
+            (uri (string-append "http://www.dnspython.org/kits/"
+                                version "/dnspython-" version ".tar.gz"))
+            (sha256
+             (base32
+              "1z472r63gdqsxhsxj3plr5vs478yf4303vrqxxpsccc940g441hl"))))
+  (build-system python-build-system)
+  (arguments '(#:tests? #f)) ; XXX: requires internet access
+  (native-inputs
+   `(("python-setuptools" ,python-setuptools)))
+  (home-page "http://www.dnspython.org")
+  (synopsis "DNS toolkit for Python")
+  (description
+   "dnspython is a DNS toolkit for Python.  It supports almost all record
+types.  It can be used for queries, zone transfers, and dynamic updates.
+It supports TSIG authenticated messages and EDNS0.")
+  (license license:expat)))
+
+(define-public python2-dnspython
+  (package-with-python2 python-dnspython))
+
+(define-public python-email-validator
+  (package
+    (name "python-email-validator")
+    (version "1.0.1")
+    (source
+     (origin (method url-fetch)
+             (uri (pypi-uri "email_validator" version))
+             (sha256
+              (base32
+               "0mn8jg5h8ifl8w6a6m0hq8kbk0mzw9vm054qfamkn89b3npz52qw"))))
+    (build-system python-build-system)
+    (arguments
+     '(#:phases
+       (modify-phases %standard-phases
+         (add-before 'build 'use-dnspython
+           (lambda _
+             (substitute* "setup.py"
+               (("dnspython3") "dnspython"))
+             #t)))))
+    (native-inputs
+     `(("python-setuptools" ,python-setuptools)))
+    (propagated-inputs
+     `(("python-dnspython" ,python-dnspython)
+       ("python-idna" ,python-idna)))
+    (home-page "https://github.com/JoshData/python-email-validator")
+    (synopsis "Email address validation library for Python")
+    (description
+     "This library validates email address syntax and deliverability.")
+    (license cc0)))
+
+(define-public python2-email-validator
+  (package-with-python2 python-email-validator))
+
+(define-public python-ukpostcodeparser
+  (package
+    (name "python-ukpostcodeparser")
+    (version "1.0.3")
+    (source (origin
+              (method url-fetch)
+              (uri (pypi-uri "UkPostcodeParser" version))
+              (sha256
+               (base32
+                "1jwg9z4rz51mcka1821rwgycsd0mcicyp1kiwjfa2kvg8bm9p2qd"))))
+    (build-system python-build-system)
+    (native-inputs
+     `(("python-setuptools" ,python-setuptools)))
+    (home-page "https://github.com/hamstah/ukpostcodeparser")
+    (synopsis "UK Postcode parser for Python")
+    (description
+     "This library provides the @code{parse_uk_postcode} function for
+parsing UK postcodes.")
+    (license license:expat)))
+
+(define-public python2-ukpostcodeparser
+  (package-with-python2 python-ukpostcodeparser))
+
+(define-public python-fake-factory
+  (package
+  (name "python-fake-factory")
+  (version "0.5.7")
+  (source (origin
+            (method url-fetch)
+            (uri (pypi-uri "fake-factory" version))
+            (sha256
+             (base32
+              "1chmarnrdzn4r017n8qlic0m0bbnhw04s3hkwribjvm3mqpb6pa0"))))
+  (build-system python-build-system)
+  (arguments
+   '(#:phases
+     (modify-phases %standard-phases
+       (add-before 'check 'disable-failing-test
+         ;; XXX: faker/tests/ne_np/__init__.py, line 40, in test_names
+         ;;      first_name, last_name = name.split()
+         ;; ValueError: too many values to unpack (expected 2)
+         (lambda _
+           (delete-file "faker/tests/ne_np/__init__.py")
+           #t)))))
+  (native-inputs
+   `(("python-setuptools" ,python-setuptools)
+     ;; For testing
+     ("python-email-validator" ,python-email-validator)
+     ("python-mock" ,python-mock)
+     ("python-ukpostcodeparser" ,python-ukpostcodeparser)))
+  (propagated-inputs
+   `(("python-dateutil" ,python-dateutil-2)
+     ("python-six" ,python-six)))
+  (home-page "http://github.com/joke2k/faker")
+  (synopsis "Python package that generates fake data")
+  (description
+   "Faker is a Python package that generates fake data such as names,
+addresses, and phone numbers.")
+  (license license:expat)
+  (properties `((python2-variant . ,(delay python2-fake-factory))))))
+
+(define-public python2-fake-factory
+  (let ((base (package-with-python2 (strip-python2-variant
+                                     python-fake-factory))))
+    (package
+      (inherit base)
+      (propagated-inputs
+       `(("python2-ipaddress" ,python2-ipaddress)
+         ,@(package-propagated-inputs base))))))
+
+(define-public python-pyaml
+  (package
+    (name "python-pyaml")
+    (version "15.8.2")
+    (source (origin
+              (method url-fetch)
+              (uri (pypi-uri "pyaml" version))
+              (sha256
+               (base32
+                "1f5m28vkh4ksq3d80d8mmd2z8wxvc3mgy2pmrv2751dm2xgznm4w"))))
+    (build-system python-build-system)
+    (native-inputs
+     `(("python-setuptools" ,python-setuptools)))
+    (propagated-inputs
+     `(("python-pyyaml" ,python-pyyaml)))
+    (home-page "https://github.com/mk-fg/pretty-yaml")
+    (synopsis "YAML pretty-print library for Python")
+    (description
+     "pyaml is a PyYAML based python module to produce pretty and readable
+YAML-serialized data.")
+    (license (non-copyleft "http://www.wtfpl.net/txt/copying/"))))
+
+(define-public python2-pyaml
+  (package-with-python2 python-pyaml))
+
+(define-public python-flexmock
+  (package
+    (name "python-flexmock")
+    (version "0.10.2")
+    (source (origin
+              (method url-fetch)
+              (uri (pypi-uri "flexmock" version))
+              (sha256
+               (base32
+                "0arc6njvs6i9v9hgvzk5m50296g7zy5m9d7pyb43vdsdgxrci5gy"))))
+    (build-system python-build-system)
+    (native-inputs
+     `(("python-setuptools" ,python-setuptools)))
+    (home-page "https://flexmock.readthedocs.org")
+    (synopsis "Testing library for Python")
+    (description
+     "flexmock is a testing library for Python that makes it easy to create
+mocks, stubs and fakes.")
+    (license bsd-3)))
+
+(define-public python2-flexmock
+  (package-with-python2 python-flexmock))
+
+(define-public python-orator
+  (package
+    (name "python-orator")
+    (version "0.8.2")
+    (source (origin
+              (method url-fetch)
+              (uri (pypi-uri "orator" version))
+              (sha256
+               (base32
+                "1li49irsqha17nrda4nsb48biyy0rarp9pphf0jpqwm5zr8hv569"))))
+    (build-system python-build-system)
+    (arguments '(#:tests? #f)) ; no tests
+    (native-inputs
+     `(("python-setuptools" ,python-setuptools)))
+    (propagated-inputs
+     `(("python-arrow" ,python-arrow)
+       ("python-blinker" ,python-blinker)
+       ("python-cleo" ,python-cleo)
+       ("python-fake-factory" ,python-fake-factory)
+       ("python-inflection" ,python-inflection)
+       ("python-lazy-object-proxy" ,python-lazy-object-proxy)
+       ("python-pyaml" ,python-pyaml)
+       ("python-simplejson" ,python-simplejson)
+       ("python-wrapt" ,python-wrapt)))
+    (home-page "https://orator-orm.com/")
+    (synopsis "ActiveRecord ORM for Python")
+    (description
+     "Orator provides a simple ActiveRecord-like Object Relational Mapping
+implementation for Python.")
+    (license license:expat)
+    (properties `((python2-variant . ,(delay python2-orator))))))
+
+(define-public python2-orator
+  (let ((base (package-with-python2 (strip-python2-variant python-orator))))
+    (package
+      (inherit base)
+      (propagated-inputs
+       `(("python2-ipaddress" ,python2-ipaddress)
+         ,@(package-propagated-inputs base))))))
+
+(define-public python-prompt-toolkit
+ (package
+  (name "python-prompt-toolkit")
+  (version "1.0.3")
+  (source
+    (origin
+      (method url-fetch)
+      (uri (string-append
+             "https://pypi.python.org/packages/"
+             "8d/de/412f23919929c01e6b55183e124623f705e4b91796d3d2dce2cb53d595ad/"
+             "prompt_toolkit-" version ".tar.gz"))
+      (sha256
+        (base32
+          "18lbmmkyjf509klc3217lq0x863pfzix779zx5kp9lms1iph4pl0"))))
+  (build-system python-build-system)
+  (inputs `(("python-wcwidth" ,python-wcwidth)
+            ("python-pygments" ,python-pygments)))
+  (native-inputs `(("python-six" ,python-six)))
+  (home-page "https://github.com/jonathanslenders/python-prompt-toolkit")
+  (synopsis "Library for building command line interfaces in Python")
+  (description
+    "Prompt-Toolkit is a library for building interactive command line
+interfaces in Python.  It's like GNU Readline but it also features syntax
+highlighting while typing, out-of-the-box multi-line input editing, advanced
+code completion, incremental search, support for Chinese double-width
+characters, mouse support, and auto suggestions.")
+  (license bsd-3)
+  (properties `((python2-variant . ,(delay python2-prompt-toolkit))))))
+
+(define-public python2-prompt-toolkit
+  (let ((base (package-with-python2 (strip-python2-variant python-prompt-toolkit))))
+    (package
+      (inherit base)
+      (native-inputs
+       `(("python2-setuptools" ,python2-setuptools)
+         ,@(package-native-inputs base))))))
+
+(define-public python-jedi
+  (package
+    (name "python-jedi")
+    (version "0.9.0")
+    (source
+      (origin
+        (method url-fetch)
+        (uri (pypi-uri "jedi" version))
+        (sha256
+          (base32
+            "0c8x962ynpx001fdvp07m2q5jk4igkxbj3rmnydavphvlgxijk1v"))))
+    (build-system python-build-system)
+    (home-page "https://github.com/davidhalter/jedi")
+    (synopsis
+      "Autocompletion for Python that can be used for text editors")
+    (description
+      "Jedi is an autocompletion tool for Python that can be used for text editors.")
+    (license license:expat)
+    (properties `((python2-variant . ,(delay python2-jedi))))))
+
+(define-public python2-jedi
+  (let ((base (package-with-python2 (strip-python2-variant python-jedi))))
+    (package
+      (inherit base)
+      (native-inputs
+       `(("python2-setuptools" ,python2-setuptools)
+         ,@(package-native-inputs base))))))

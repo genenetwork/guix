@@ -317,14 +317,14 @@ mashups, office (web agendas, mail clients, ...), etc.")
 (define-public chicken
   (package
     (name "chicken")
-    (version "4.10.0")
+    (version "4.11.0")
     (source (origin
              (method url-fetch)
              (uri (string-append "http://code.call-cc.org/releases/"
                                  version "/chicken-" version ".tar.gz"))
              (sha256
               (base32
-               "16w96jrhb6qf62fgznk53f55yhfv81damghdjn31k5hirnmza1qf"))))
+               "12ddyiikqknpr8h6llsxbg2fz75xnayvcnsvr1cwv8xnjn7jpp73"))))
     (build-system gnu-build-system)
     (arguments
      `(#:modules ((guix build gnu-build-system)
@@ -394,7 +394,7 @@ implementation techniques and as an expository tool.")
 (define-public racket
   (package
     (name "racket")
-    (version "6.2.1")
+    (version "6.5")
     (source (origin
              (method url-fetch)
              (uri (list (string-append "http://mirror.racket-lang.org/installers/"
@@ -404,7 +404,7 @@ implementation techniques and as an expository tool.")
                          version "/racket/racket-" version "-src-unix.tgz")))
              (sha256
               (base32
-               "0555j63k7fs10iv0icmivlxpzgp6s7gwcbfddmbwxlf2rk80qhq0"))))
+               "0gvh7i5k87mg1gpqk8gaq50ja9ksbhnvdqn7qqh0n17byidd6999"))))
     (build-system gnu-build-system)
     (arguments
      '(#:phases

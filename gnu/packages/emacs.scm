@@ -5,12 +5,14 @@
 ;;; Copyright © 2014, 2015, 2016 Alex Kost <alezost@gmail.com>
 ;;; Copyright © 2015 Federico Beffa <beffa@fbengineering.ch>
 ;;; Copyright © 2015, 2016 Ricardo Wurmus <rekado@elephly.net>
-;;; Copyright © 2016 Nils Gillmann <niasterisk@grrlz.net>
 ;;; Copyright © 2016 Chris Marusich <cmmarusich@gmail.com>
 ;;; Copyright © 2015, 2016 Christopher Allan Webber <cwebber@dustycloud.org>
 ;;; Copyright © 2016 humanitiesNerd <catonano@gmail.com>
 ;;; Copyright © 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;; Copyright © 2016 David Thompson <davet@gnu.org>
+;;; Copyright © 2016 Matthew Jordan <matthewjordandevops@yandex.com>
+;;; Copyright © 2016 Roel Janssen <roel@gnu.org>
+;;; Copyright © 2016 ng0 <ng0@we.make.ritual.n0.is>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -44,6 +46,7 @@
   #:use-module (gnu packages gtk)
   #:use-module (gnu packages gnome)
   #:use-module (gnu packages ncurses)
+  #:use-module (gnu packages tex)
   #:use-module (gnu packages texinfo)
   #:use-module (gnu packages tls)
   #:use-module (gnu packages pkg-config)
@@ -65,6 +68,7 @@
   #:use-module (gnu packages perl)
   #:use-module (gnu packages pdf)
   #:use-module (gnu packages scheme)
+  #:use-module (gnu packages statistics)
   #:use-module (gnu packages xiph)
   #:use-module (gnu packages mp3)
   #:use-module (guix utils)
@@ -559,6 +563,31 @@ operations.")
 support for Git-SVN.")
     (license license:gpl3+)))
 
+(define-public emacs-magit-popup
+  (package
+    (name "emacs-magit-popup")
+    (version (package-version magit))
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "https://raw.githubusercontent.com/magit/magit/"
+                    version "/lisp/magit-popup.el"))
+              (file-name (string-append "magit-popup-" version ".el"))
+              (sha256
+               (base32
+                "144nl7j5mn86ccan6qxgg40bsxpkbc83vwnhd5y657gqki74972r"))))
+    (build-system emacs-build-system)
+    (propagated-inputs
+     `(("emacs-dash" ,emacs-dash)))
+    (home-page "https://github.com/magit/magit")
+    (synopsis "Define prefix-infix-suffix command combos")
+    (description
+     "This library implements a generic interface for toggling switches and
+setting options and then invoking an Emacs command which does something with
+these arguments.  The prototypical use is for the command to call an external
+process, passing on the arguments as command line arguments.")
+    (license license:gpl3+)))
+
 (define-public haskell-mode
   (package
     (name "haskell-mode")
@@ -669,7 +698,7 @@ the body are let-bound and this search is done at compile time.")
 (define-public flycheck
   (package
     (name "emacs-flycheck")
-    (version "0.23")
+    (version "28")
     (source (origin
               (method url-fetch)
               (uri (string-append
@@ -677,11 +706,12 @@ the body are let-bound and this search is done at compile time.")
                     version "/flycheck-" version ".tar"))
               (sha256
                (base32
-                "1n2cifzsl5dbv42l82bi3y1vk6q33msi8dd4bj7b9nvnl9jfjj5b"))))
+                "1yjxivk11d7w39zfhj2xr4h6xhwx1aj6yhyzd63rjrad7xpjfl86"))))
     (build-system emacs-build-system)
     (propagated-inputs
      `(("emacs-dash" ,emacs-dash)
-       ("emacs-let-alist" ,let-alist)))
+       ("emacs-let-alist" ,let-alist)
+       ("emacs-seq" ,emacs-seq)))
     (home-page "https://www.flycheck.org")
     (synopsis "On-the-fly syntax checking")
     (description
@@ -826,7 +856,7 @@ provides an optional IDE-like error list.")
 
 (define-public emms
   (package
-    (name "emms")
+    (name "emacs-emms")
     (version "4.1")
     (source (origin
               (method url-fetch)
@@ -936,6 +966,29 @@ whatever formats are supported by your music player.  It also
 supports tagging and playlist management, all behind a clean and
 light user interface.")
     (home-page "http://www.gnu.org/software/emms/")
+    (license license:gpl3+)))
+
+(define-public emacs-emms-player-mpv
+  (package
+    (name "emacs-emms-player-mpv")
+    (version "0.0.8")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "https://github.com/dochang/emms-player-mpv/archive/"
+                           version ".tar.gz"))
+       (file-name (string-append name "-" version ".tar.gz"))
+       (sha256
+        (base32
+         "01wj410dpx25b3i8781i2j9c6nlvzvvphy9qgh7zfpmyz6a3wsm4"))))
+    (build-system emacs-build-system)
+    (propagated-inputs
+     `(("emms" ,emms)))
+    (home-page "https://github.com/dochang/emms-player-mpv/")
+    (synopsis "Mpv support for EMMS")
+    (description
+     "This package provides an EMMS player that uses mpv.  It supports pause
+and seeking.")
     (license license:gpl3+)))
 
 
@@ -1237,7 +1290,7 @@ files and directories.")
     (source (origin
               (method git-fetch)
               (uri (git-reference
-                    (commit "8807064693")
+                    (commit "880706469338ab59b5bb7dbe8460016f89755364")
                     (url "https://github.com/gregsexton/ob-ipython.git")))
               (sha256
                (base32
@@ -1328,6 +1381,50 @@ integration servers.  Users can specify a list of server in the
 @code{butler-server-list} variable and then use @code{M-x butler-status} to
 view the build status of those servers' build jobs, and possibly to trigger
 build jobs.")
+    (license license:gpl3+)))
+
+(define-public emacs-company
+  (package
+    (name "emacs-company")
+    (version "0.8.12")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "https://github.com/company-mode/company-mode/archive/"
+                           version ".tar.gz"))
+       (file-name (string-append name "-" version ".tar.gz"))
+       (sha256
+        (base32
+         "1vwmbqm7h4lrszv2qxy6fqzznm9raigi84cadx982c9m7shp0zzz"))))
+    (build-system emacs-build-system)
+    (home-page "http://company-mode.github.io/")
+    (synopsis "Modular text completion framework")
+    (description
+     "Company is a modular completion mechanism.  Modules for retrieving
+completion candidates are called back-ends, modules for displaying them are
+front-ends.  Company comes with many back-ends, e.g. @code{company-elisp}.
+These are distributed in separate files and can be used individually.")
+    (license license:gpl3+)))
+
+(define-public emacs-multiple-cursors
+  (package
+    (name "emacs-multiple-cursors")
+    (version "1.4.0")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "https://github.com/magnars/multiple-cursors.el/"
+                           "archive/" version ".tar.gz"))
+       (file-name (string-append name "-" version ".tar.gz"))
+       (sha256
+        (base32
+         "0hihihlvcvzayg5fnqzcg45fhvlmq6xlq58syy00rjwbry9w389k"))))
+    (build-system emacs-build-system)
+    (home-page "https://github.com/magnars/multiple-cursors.el")
+    (synopsis "Multiple cursors for Emacs")
+    (description
+     "This package adds support to Emacs for editing text with multiple
+simultaneous cursors.")
     (license license:gpl3+)))
 
 (define-public typo
@@ -1446,7 +1543,7 @@ constants and units into an Emacs buffer.")
 (define-public emacs-slime
   (package
     (name "emacs-slime")
-    (version "2.15")
+    (version "2.18")
     (source
      (origin
        (file-name (string-append name "-" version ".tar.gz"))
@@ -1456,7 +1553,7 @@ constants and units into an Emacs buffer.")
              version ".tar.gz"))
        (sha256
         (base32
-         "0l2z6l2xm78mhh0nczkrmzh2ddb1n911ij9xb6q40zwvx4f8blds"))))
+         "146avwbwr6mw0nmgyihx8gkr0mv6al7a73igzxvysj62000cqvlj"))))
     (build-system emacs-build-system)
     (native-inputs
      `(("texinfo" ,texinfo)))
@@ -1599,6 +1696,27 @@ that it correctly finds RFCs even when a space appears before the
 number.")
     (license license:gpl3+)))
 
+(define-public emacs-org-bullets
+  (package
+    (name "emacs-org-bullets")
+    (version "0.2.4")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "https://github.com/sabof/org-bullets/archive/"
+                           version ".tar.gz"))
+       (file-name (string-append name "-" version ".tar.gz"))
+       (sha256
+        (base32
+         "1dyxvpb73vj80v8br2q9rf255hfphrgaw91fbvwdcd735np9pcnh"))))
+    (build-system emacs-build-system)
+    (home-page "https://github.com/sabof/org-bullets")
+    (synopsis "Show bullets in org-mode as UTF-8 characters")
+    (description
+     "This package provides an Emacs minor mode causing bullets in
+@code{org-mode} to be rendered as UTF-8 characters.")
+    (license license:gpl3+)))
+
 (define-public emacs-zenburn-theme
   (package
     (name "emacs-zenburn-theme")
@@ -1647,6 +1765,192 @@ and the like.  Some of these packages include autopair, textmate,
 wrap-region, electric-pair-mode, paredit and others.  With the basic
 features found in other packages it also brings many improvements as
 well as completely new features.")
+    (license license:gpl3+)))
+
+(define-public emacs-hl-todo
+  (package
+    (name "emacs-hl-todo")
+    (version "1.7.0")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "https://raw.githubusercontent.com/tarsius/hl-todo/"
+                    version "/hl-todo.el"))
+              (sha256
+               (base32
+                "18zydm43zajlglhgr0bhdkd4pln27amd063k2ql6p1mvyam3j8ia"))))
+    (build-system emacs-build-system)
+    (home-page "https://github.com/tarsius/hl-todo")
+    (synopsis "Emacs mode to highlight TODO and similar keywords")
+    (description
+     "This package provides an Emacs mode to highlight TODO and similar
+keywords in comments and strings.  This package also provides commands for
+moving to the next or previous keyword and to invoke @code{occur} with a
+regexp that matches all known keywords.")
+    (license license:gpl3+)))
+
+(define-public emacs-hydra
+  (package
+    (name "emacs-hydra")
+    (version "0.13.0")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "https://github.com/abo-abo/hydra/archive/"
+                           version ".tar.gz"))
+       (file-name (string-append name "-" version ".tar.gz"))
+       (sha256
+        (base32
+         "19ynkjlg3jj7x90xxbz885324h6nkxmzlb2c2c95xkr20zckn0lk"))))
+    (build-system emacs-build-system)
+    (home-page "https://github.com/abo-abo/hydra")
+    (synopsis "Make Emacs bindings that stick around")
+    (description
+     "This package can be used to tie related commands into a family of short
+bindings with a common prefix---a Hydra.  Once you summon the Hydra (through
+the prefixed binding), all the heads can be called in succession with only a
+short extension.  Any binding that isn't the Hydra's head vanquishes the
+Hydra.  Note that the final binding, besides vanquishing the Hydra, will still
+serve its original purpose, calling the command assigned to it.  This makes
+the Hydra very seamless; it's like a minor mode that disables itself
+automatically.")
+    (license license:gpl3+)))
+
+(define-public emacs-ivy
+  (package
+    (name "emacs-ivy")
+    (version "0.8.0")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "https://github.com/abo-abo/swiper/archive/"
+                           version ".tar.gz"))
+       (file-name (string-append name "-" version ".tar.gz"))
+       (sha256
+        (base32
+         "18nqwl05is71dzswnvpfhlg7b0v3apvbsfxrwab9c0apwavi892q"))))
+    (build-system emacs-build-system)
+    (propagated-inputs
+     `(("emacs-hydra" ,emacs-hydra)))
+    (home-page "http://oremacs.com/swiper/")
+    (synopsis "Incremental vertical completion for Emacs")
+    (description
+     "This package provides @code{ivy-read} as an alternative to
+@code{completing-read} and similar functions.  No attempt is made to determine
+the best candidate.  Instead, the user can navigate candidates with
+@code{ivy-next-line} and @code{ivy-previous-line}.  The matching is done by
+splitting the input text by spaces and re-building it into a regular
+expression.")
+    (license license:gpl3+)))
+
+(define-public emacs-avy
+  (package
+    (name "emacs-avy")
+    (version "0.4.0")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "https://github.com/abo-abo/avy/archive/"
+                           version ".tar.gz"))
+       (file-name (string-append name "-" version ".tar.gz"))
+       (sha256
+        (base32
+         "1wdrq512h25ymzjbf2kbsdymvd2ryfwzb6bh5bc3yv7q203im796"))))
+    (build-system emacs-build-system)
+    (home-page "https://github.com/abo-abo/avy")
+    (synopsis "Tree-based completion for Emacs")
+    (description
+     "This package provides a generic completion method based on building a
+balanced decision tree with each candidate being a leaf.  To traverse the tree
+from the root to a desired leaf, typically a sequence of @code{read-key} can
+be used.
+
+In order for @code{read-key} to make sense, the tree needs to be visualized
+appropriately, with a character at each branch node.  So this completion
+method works only for things that you can see on your screen, all at once,
+such as the positions of characters, words, line beginnings, links, or
+windows.")
+    (license license:gpl3+)))
+
+(define-public emacs-ace-window
+  (package
+    (name "emacs-ace-window")
+    (version "0.9.0")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "https://github.com/abo-abo/ace-window/archive/"
+                           version ".tar.gz"))
+       (file-name (string-append name "-" version ".tar.gz"))
+       (sha256
+        (base32
+         "1p2sgfl5dml4zbd6ldql6lm2m9vmd236ah996ni32x254s48j5pn"))))
+    (build-system emacs-build-system)
+    (propagated-inputs
+     `(("emacs-avy" ,emacs-avy)))
+    (home-page "https://github.com/abo-abo/ace-window")
+    (synopsis "Quickly switch windows in Emacs")
+    (description
+     "@code{ace-window} is meant to replace @code{other-window}.
+In fact, when there are only two windows present, @code{other-window} is
+called.  If there are more, each window will have its first character
+highlighted.  Pressing that character will switch to that window.")
+    (license license:gpl3+)))
+
+(define-public emacs-iedit
+  (package
+    (name "emacs-iedit")
+    (version "0.9.9")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "https://github.com/victorhge/iedit/archive/v"
+                           version ".tar.gz"))
+       (file-name (string-append name "-" version ".tar.gz"))
+       (sha256
+        (base32
+         "00v86zllcsivmiibigbr91qij2zdf1lr9db8z8again1sn63wkdj"))))
+    (build-system emacs-build-system)
+    (home-page "http://www.emacswiki.org/emacs/Iedit")
+    (synopsis "Edit multiple regions in the same way simultaneously")
+    (description
+     "This package is an Emacs minor mode and allows you to edit one
+occurrence of some text in a buffer (possibly narrowed) or region, and
+simultaneously have other occurrences edited in the same way.
+
+You can also use Iedit mode as a quick way to temporarily show only the buffer
+lines that match the current text being edited.  This gives you the effect of
+a temporary @code{keep-lines} or @code{occur}.")
+    (license license:gpl3+)))
+
+(define-public emacs-lispy
+  (package
+    (name "emacs-lispy")
+    (version "0.26.0")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "https://github.com/abo-abo/lispy/archive/"
+                           version ".tar.gz"))
+       (file-name (string-append name "-" version ".tar.gz"))
+       (sha256
+        (base32
+         "15gig95cvamw5zlw99cxggd27c18b9scznjj97gvjn2zbljcaqzl"))))
+    (build-system emacs-build-system)
+    (propagated-inputs
+     `(("emacs-ace-window" ,emacs-ace-window)
+       ("emacs-iedit" ,emacs-iedit)
+       ("emacs-ivy" ,emacs-ivy)
+       ("emacs-hydra" ,emacs-hydra)))
+    (home-page "https://github.com/abo-abo/lispy")
+    (synopsis "Modal S-expression editing")
+    (description
+     "Due to the structure of Lisp syntax it's very rare for the programmer to
+want to insert characters right before \"(\" or right after \")\".  Thus
+unprefixed printable characters can be used to call commands when the point is
+at one of these special locations.  Lispy provides unprefixed keybindings for
+S-expression editing when point is at the beginning or end of an
+S-expression.")
     (license license:gpl3+)))
 
 (define-public emacs-clojure-mode
@@ -1797,6 +2101,65 @@ Emacs default configuration in uncontroversial ways that nearly everyone can
 agree upon.")
     (license license:gpl3+)))
 
+(define-public emacs-eprime
+  (let ((commit "17a481af26496be91c07139a9bfc05cfe722506f"))
+    (package
+      (name "emacs-eprime")
+      (version (string-append "20140513-" (string-take commit 7)))
+      (source (origin
+                (method url-fetch)
+                (uri (string-append "https://raw.githubusercontent.com"
+                                    "/AndrewHynes/eprime-mode/"
+                                    commit "/eprime-mode.el"))
+                (file-name (string-append "eprime-" version ".el"))
+                (sha256
+                 (base32
+                  "0v68lggkyq7kbcr9zyi573m2g2x251xy3jadlaw8kx02l8krwq8d"))))
+      (build-system emacs-build-system)
+      (home-page "https://github.com/AndrewHynes/eprime-mode")
+      (synopsis "E-prime checking mode for Emacs")
+      (description "This package provides an E-prime checking mode for Emacs
+that highlights non-conforming text.  The subset of the English language called
+E-Prime forbids the use of the \"to be\" form to strengthen your writing.")
+      (license license:gpl3+))))
+
+(define-public emacs-ess
+  (package
+    (name "emacs-ess")
+    (version "16.04")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "http://ess.r-project.org/downloads/ess/ess-"
+                                  version ".tgz"))
+              (sha256
+               (base32
+                "0w7mbbajn377gdmvnd21mpyr368b2ia46gq6cb99y4y5rspf9pcg"))))
+    (build-system gnu-build-system)
+    (arguments
+     `(#:tests? #f ; There is no test suite.
+       #:make-flags (list (string-append "PREFIX=" (assoc-ref %outputs "out")))
+       #:phases
+       (modify-phases %standard-phases
+         (delete 'configure)
+         (add-before 'build 'more-shebang-patching
+           (lambda* (#:key inputs #:allow-other-keys)
+             (substitute* "Makeconf"
+               (("SHELL = /bin/sh")
+                (string-append "SHELL = " (which "sh")))))))))
+    (inputs
+     `(("emacs" ,emacs-minimal)
+       ("r" ,r)))
+    (native-inputs
+     `(("perl" ,perl)
+       ("texinfo" ,texinfo)
+       ("texlive" ,texlive)))
+    (home-page "http://ess.r-project.org/")
+    (synopsis "Emacs mode for statistical analysis programs")
+    (description "Emacs Speaks Statistics (ESS) is an add-on package for GNU
+Emacs.  It is designed to support editing of scripts and interaction with
+various statistical analysis programs such as R and OpenBUGS.")
+    (license license:gpl2+)))
+
 (define-public emacs-smex
   (package
     (name "emacs-smex")
@@ -1932,6 +2295,28 @@ matching delimiters, orient yourself in the code, and tell which statements
 are at a given level.")
     (license license:gpl3+)))
 
+(define-public emacs-rainbow-identifiers
+  (package
+    (name "emacs-rainbow-identifiers")
+    (version "0.2.2")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append "https://raw.githubusercontent.com/Fanael"
+                                  "/rainbow-identifiers/" version
+                                  "/rainbow-identifiers.el"))
+              (file-name (string-append "rainbow-identifiers-" version ".el"))
+              (sha256
+               (base32
+                "0325abxj47k0g1i8nqrq70w2wr6060ckhhf92krv1s072b3jzm31"))))
+    (build-system emacs-build-system)
+    (home-page "https://github.com/Fanael/rainbow-identifiers")
+    (synopsis "Highlight identifiers in source code")
+    (description
+     "Rainbow identifiers mode is an Emacs minor mode providing highlighting of
+identifiers based on their names.  Each identifier gets a color based on a hash
+of its name.")
+    (license license:bsd-2)))
+
 (define-public emacs-ido-completing-read+
   (package
     (name "emacs-ido-completing-read+")
@@ -2022,4 +2407,133 @@ engines: PHP, JSP, ASP, Django, Twig, Jinja, Mustache, ERB, FreeMarker,
 Velocity, Cheetah, Smarty, CTemplate, Mustache, Blade, ErlyDTL, Go Template,
 Dust.js, React/JSX, Angularjs, ejs, etc.")
     (home-page "http://web-mode.org/")
+    (license license:gpl3+)))
+
+(define-public emacs-helm
+  (package
+    (name "emacs-helm")
+    (version "1.9.8")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "https://github.com/" name "/helm/archive/v"
+                    version ".tar.gz"))
+              (file-name (string-append name "-" version ".tar.gz"))
+              (sha256
+               (base32
+                "019dpzr6l83k1fgxn40aqxjvrpz4dl5d9vi7fc5wjnifmxaqxia6"))))
+    (build-system emacs-build-system)
+    (propagated-inputs
+     `(("emacs-async" ,emacs-async)
+       ("emacs-popup" ,emacs-popup)))
+    (home-page "https://emacs-helm.github.io/helm/")
+    (synopsis "Incremental completion and selection narrowing
+framework for Emacs")
+    (description "Helm is incremental completion and selection narrowing
+framework for Emacs.  It will help steer you in the right direction when
+you're looking for stuff in Emacs (like buffers, files, etc).  Helm is a fork
+of @code{anything.el} originally written by Tamas Patrovic and can be
+considered to be its successor.  Helm sets out to clean up the legacy code in
+@code{anything.el} and provide a cleaner, leaner and more modular tool, that's
+not tied in the trap of backward compatibility.")
+    (license license:gpl3+)))
+
+(define-public emacs-cider
+  (package
+    (name "emacs-cider")
+    (version "0.12.0")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "https://github.com/clojure-emacs/cider/archive/v"
+                    version ".tar.gz"))
+              (file-name (string-append name "-" version ".tar.gz"))
+              (sha256
+               (base32
+                "00qzbfjy3w6bcnki7gw0clmi0cc5yqjdrcyhgv4ymijjs79h9p5s"))))
+    (build-system emacs-build-system)
+    (propagated-inputs
+     `(("emacs-clojure-mode" ,emacs-clojure-mode)
+       ("emacs-spinner" ,emacs-spinner)
+       ("emacs-pkg-info" ,emacs-pkg-info)
+       ("emacs-queue" ,emacs-queue)
+       ("emacs-seq" ,emacs-seq)))
+    (home-page "https://cider.readthedocs.org/")
+    (synopsis "Clojure development environment for Emacs")
+    (description
+     "CIDER (Clojure Interactive Development Environment that Rocks) aims to
+provide an interactive development experience similar to the one you'd get
+when programming in Emacs Lisp, Common Lisp (with SLIME or Sly), Scheme (with
+Geiser) and Smalltalk.
+
+CIDER is the successor to the now deprecated combination of using SLIME +
+swank-clojure for Clojure development.
+
+There are plenty of differences between CIDER and SLIME, but the core ideas
+are pretty much the same (and SLIME served as the principle inspiration for
+CIDER).")
+    (license license:gpl3+)))
+
+(define-public emacs-lua-mode
+  (package
+    (name "emacs-lua-mode")
+    (version "20151025")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "https://github.com/immerrr/lua-mode/archive/v"
+                    version ".tar.gz"))
+              (file-name (string-append name "-" version ".tar.gz"))
+              (sha256
+               (base32
+                "0sbhfny5ib65cnx6xcy6h9bbw27mw034s8m9cca00bhxqaqi6p4v"))))
+    (build-system emacs-build-system)
+    (home-page "http://github.com/immerrr/lua-mode/")
+    (synopsis "Major mode for lua")
+    (description
+     "This Emacs package provides a mode for @uref{https://www.lua.org/,
+Lua programing language}.")
+    (license license:gpl2+)))
+
+(define-public emacs-ebuild-mode
+  (package
+    (name "emacs-ebuild-mode")
+    (version "1.30")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "https://dev.gentoo.org/~ulm/emacs/ebuild-mode"
+                    "-" version ".tar.xz"))
+              (file-name (string-append name "-" version ".tar.xz"))
+              (sha256
+               (base32
+                "0vp7lq1kvmh1b2bms2x1kf2k76dy9m02d7cirkxpiglwaxa0h9vz"))))
+    (build-system emacs-build-system)
+    (home-page "https://devmanual.gentoo.org")
+    (synopsis "Major modes for Gentoo package files")
+    (description
+     "This Emacs package provides modes for ebuild, eclass, eblit, GLEP42
+news items, openrc and runscripts.")
+    (license license:gpl2+)))
+
+(define-public emacs-writegood-mode
+  (package
+    (name "emacs-writegood-mode")
+    (version "2.0.2")
+    (home-page "http://github.com/bnbeckwith/writegood-mode")
+    (source (origin
+              (method git-fetch)
+              (uri (git-reference
+                    (url home-page)
+                    (commit (string-append "v" version))))
+              (sha256
+               (base32
+                "1nnjn1r669hvvzfycllwap4w04m8rfsk4nzcg8057m1f263kj31b"))
+              (file-name (string-append name "-checkout"))))
+    (build-system emacs-build-system)
+    (synopsis "Polish up poor writing on the fly")
+    (description
+     "This minor mode tries to find and highlight problems with your writing
+in English as you type.  It primarily detects \"weasel words\" and abuse of
+passive voice.")
     (license license:gpl3+)))

@@ -112,14 +112,14 @@ as well as the classic centralized workflow.")
   ;; Keep in sync with 'git-manpages'!
   (package
    (name "git")
-   (version "2.8.3")
+   (version "2.9.1")
    (source (origin
             (method url-fetch)
             (uri (string-append "mirror://kernel.org/software/scm/git/git-"
                                 version ".tar.xz"))
             (sha256
              (base32
-              "14dafk7rz8cy2z5b92yf009qf4pc70s0viwq7hxsgd4898knr3kx"))))
+              "18l2jb4bkp9ljz6p2aviwzxqyzza9z3v6h1pnkz7kjf1fay61zp8"))))
    (build-system gnu-build-system)
    (native-inputs
     `(("native-perl" ,perl)
@@ -292,7 +292,7 @@ everything from small to very large projects with speed and efficiency.")
                     version ".tar.xz"))
               (sha256
                (base32
-                "1ilbi4xdn77a5yrjyrcx0nap0j4raw3h1fr0k32zs9y35c6f29cx"))))
+                "1v9icsf85vvrrg7fakm91d11q23rvnh6dq4b4c4ya8v95z00mg8p"))))
     (build-system trivial-build-system)
     (arguments
      '(#:modules ((guix build utils))
@@ -367,7 +367,7 @@ write native speed custom Git applications in any language with bindings.")
 (define-public cgit
   (package
     (name "cgit")
-    (version "0.12")
+    (version "1.0")
     (source (origin
               (method url-fetch)
               (uri (string-append
@@ -375,7 +375,7 @@ write native speed custom Git applications in any language with bindings.")
                     version ".tar.xz"))
               (sha256
                (base32
-                "1dx54hgfyabmg9nm5qp6d01f54nlbqbbdwhwl0llb9imjf237qif"))))
+                "0kbh835p7dl4h88qv55fyfh1za09cgnqh63rii325w9215hm95x8"))))
     (build-system gnu-build-system)
     (arguments
      '(#:tests? #f ; XXX: fail to build the in-source git.
@@ -479,7 +479,7 @@ will work.")
               (method git-fetch)
               (uri (git-reference
                     (url "https://github.com/nvie/gitflow/")
-                    (commit "15aab26")))
+                    (commit "15aab26490facf285acef56cb5d61025eacb3a69")))
               (sha256
                (base32
                 "01fs97q76fdfnvmrh2cyjhywcs3pykf1dg58sy0frflnsdzs6prx"))))
@@ -513,10 +513,10 @@ lot easier.")
     (license bsd-2)))
 
 (define-public git-test-sequence
-  (let ((commit "48e5a2f"))
+  (let ((commit "48e5a2f5a13a5f30452647237e23362b459b9c76"))
     (package
       (name "git-test-sequence")
-      (version (string-append "20140312." commit))
+      (version (string-append "20140312." (string-take commit 7)))
       (source (origin
                 (method git-fetch)
                 (uri (git-reference
@@ -606,14 +606,14 @@ control to Git repositories.")
 (define-public mercurial
   (package
     (name "mercurial")
-    (version "3.8.1")
+    (version "3.8.4")
     (source (origin
              (method url-fetch)
              (uri (string-append "https://www.mercurial-scm.org/"
                                  "release/mercurial-" version ".tar.gz"))
              (sha256
               (base32
-               "156m6269xdqq7mpw01c6b065k29xnb8b9lyzn1b0nlz5il2izkps"))))
+               "19ixvxgifx48lxp9vdmsf88nnjsxl035ahmp3iw1vyilkpqkwbjb"))))
     (build-system python-build-system)
     (arguments
      `(;; Restrict to Python 2, as Python 3 would require

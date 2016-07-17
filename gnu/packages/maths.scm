@@ -63,6 +63,7 @@
   #:use-module (gnu packages image)
   #:use-module (gnu packages less)
   #:use-module (gnu packages lisp)
+  #:use-module (gnu packages logging)
   #:use-module (gnu packages gnome)
   #:use-module (gnu packages guile)
   #:use-module (gnu packages xorg)
@@ -644,10 +645,7 @@ interfaces.")
     (build-system cmake-build-system)
     (arguments
      ;; TODO: Build HTML user documentation and install separately.
-     ;; XXX: Use the embedded "miniglog" as a replacement for
-     ;; <https://github.com/google/glog>.  TODO: Use Glog when it's available.
-     '(#:configure-flags '("-DMINIGLOG=ON"
-                           "-DBUILD_EXAMPLES=OFF"
+     '(#:configure-flags '("-DBUILD_EXAMPLES=OFF"
                            "-DBUILD_SHARED_LIBS=ON")
 
        #:phases (modify-phases %standard-phases
@@ -660,6 +658,8 @@ interfaces.")
                       #t)))))
     (native-inputs
      `(("pkg-config" ,pkg-config)))
+    (propagated-inputs
+     `(("glog" ,glog)))                           ;for #include <glog/glog.h>
     (inputs
      `(("eigen" ,eigen)
        ("blas" ,openblas)
@@ -1874,7 +1874,7 @@ constant parts of it.")
 (define-public openlibm
   (package
     (name "openlibm")
-    (version "0.4.1")
+    (version "0.5.1")
     (source
      (origin
        (method url-fetch)
@@ -1883,7 +1883,7 @@ constant parts of it.")
        (file-name (string-append name "-" version ".tar.gz"))
        (sha256
         (base32
-         "0cwqqqlblj3kzp9aq1wnpfs1fl0qd1wp1xzm5shb09w06i4rh9nn"))))
+         "11czx2z7nh6dfpz45s3xl7v38hw36jxzxfvny454bk3if14pfakq"))))
     (build-system gnu-build-system)
     (arguments
      `(#:make-flags
@@ -1911,7 +1911,7 @@ environments.")
 (define-public openspecfun
   (package
     (name "openspecfun")
-    (version "0.4")
+    (version "0.5.2")
     (source
      (origin
        (method url-fetch)
@@ -1920,7 +1920,7 @@ environments.")
        (file-name (string-append name "-" version ".tar.gz"))
        (sha256
         (base32
-         "0nsa3jjmlhcqkw5ba5ypbn3n0c8b6lc22zzlxnmxkxi9shhdx65z"))))
+         "1y5b2h6f2k72536kym3vzy3li3bhpd23x463g7hdmjdi3cncavz1"))))
     (build-system gnu-build-system)
     (arguments
      '(#:tests? #f  ;no "check" target

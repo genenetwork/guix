@@ -4,8 +4,9 @@
 ;;; Copyright © 2015 Mark H Weaver <mhw@netris.org>
 ;;; Copyright © 2015 Stefan Reichör <stefan@xsteve.at>
 ;;; Copyright © 2016 Raimon Grau <raimonster@gmail.com>
-;;; Copyright © 2016 Tobias Geerinckx-Rice <tobias.geerinckx.rice@gmail.com>
+;;; Copyright © 2016 Tobias Geerinckx-Rice <me@tobias.gr>
 ;;; Copyright   2016 John Darrington <jmd@gnu.org>
+;;; Copyright © 2016 Nicolas Goaziou <mail@nicolasgoaziou.fr>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -26,12 +27,25 @@
   #:use-module ((guix licenses) #:prefix license:)
   #:use-module (guix packages)
   #:use-module (guix download)
+  #:use-module (guix build-system glib-or-gtk)
   #:use-module (guix build-system gnu)
-  #:use-module (gnu packages tls)
-  #:use-module (gnu packages ncurses)
+  #:use-module (gnu packages admin)
+  #:use-module (gnu packages adns)
+  #:use-module (gnu packages audio)
+  #:use-module (gnu packages bison)
   #:use-module (gnu packages check)
+  #:use-module (gnu packages compression)
+  #:use-module (gnu packages flex)
+  #:use-module (gnu packages gnupg)
+  #:use-module (gnu packages gtk)
+  #:use-module (gnu packages linux)
+  #:use-module (gnu packages lua)
+  #:use-module (gnu packages mit-krb5)
+  #:use-module (gnu packages ncurses)
+  #:use-module (gnu packages perl)
   #:use-module (gnu packages pkg-config)
-  #:use-module (gnu packages compression))
+  #:use-module (gnu packages python)
+  #:use-module (gnu packages tls))
 
 (define-public macchanger
   (package
@@ -134,6 +148,43 @@ asynchronous message queues, multiple messaging patterns, message
 filtering (subscriptions), seamless access to multiple transport protocols and
 more.")
     (license license:lgpl3+)))
+
+(define-public librdkafka
+  (package
+    (name "librdkafka")
+    (version "0.9.1")
+    (source (origin
+              (method url-fetch)
+              (uri (string-append
+                    "https://github.com/edenhill/librdkafka/archive/"
+                    version ".tar.gz"))
+              (file-name (string-append name "-" version ".tar.gz"))
+              (sha256
+               (base32
+                "10ldx7g7ymmg17snzx78vy4n8ma1rjx0agzi34g15j2fk867xmas"))))
+    (build-system gnu-build-system)
+    (arguments
+     '(#:phases
+       (modify-phases %standard-phases
+         (replace 'configure
+           ;; its custom configure script doesn't understand 'CONFIG_SHELL'.
+           (lambda* (#:key outputs #:allow-other-keys)
+             (let ((out (assoc-ref outputs "out")))
+               ;; librdkafka++.so lacks RUNPATH for librdkafka.so
+               (setenv "LDFLAGS"
+                       (string-append "-Wl,-rpath=" out "/lib"))
+               (zero? (system* "./configure"
+                               (string-append "--prefix=" out)))))))))
+    (native-inputs
+     `(("python" ,python-wrapper)))
+    (propagated-inputs
+     `(("zlib" ,zlib))) ; in the Libs.private field of rdkafka.pc
+    (home-page "https://github.com/edenhill/librdkafka")
+    (synopsis "Apache Kafka C/C++ client library")
+    (description
+     "librdkafka is a C library implementation of the Apache Kafka protocol,
+containing both Producer and Consumer support.")
+    (license license:bsd-2)))
 
 (define-public libndp
   (package
@@ -273,3 +324,54 @@ DNS queries are allowed.  The bandwidth is asymmetrical, with limited upstream
 and up to 1 Mbit/s downstream.")
     ;; src/md5.[ch] is released under the zlib license
     (license (list license:isc license:zlib))))
+
+(define-public wireshark
+  (package
+    (name "wireshark")
+    (version "2.0.4")
+    (synopsis "Network traffic analyzer")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "https://www.wireshark.org/download/src/wireshark-"
+                           version ".tar.bz2"))
+       (sha256
+        (base32
+         "19g11m8m8qd7dkcvcb27lyppklg608d9ap7wr3mr88clm4nwiacy"))))
+    (build-system glib-or-gtk-build-system)
+    (inputs `(("bison" ,bison)
+              ("c-ares" ,c-ares)
+              ("flex" ,flex)
+              ("gnutls" ,gnutls)
+              ("gtk+" ,gtk+)
+              ("libcap" ,libcap)
+              ("libgcrypt" ,libgcrypt)
+              ("libnl" ,libnl)
+              ("libpcap" ,libpcap)
+              ("lua" ,lua)
+              ("krb5" ,mit-krb5)
+              ("openssl" ,openssl)
+              ("portaudio" ,portaudio)
+              ("sbc" ,sbc)
+              ("zlib" ,zlib)))
+    (native-inputs `(("perl" ,perl)
+                     ("pkg-config" ,pkg-config)
+                     ("python" ,python-wrapper)))
+    (arguments
+     `(#:configure-flags
+       (list (string-append "--with-c-ares=" (assoc-ref %build-inputs "c-ares"))
+             (string-append "--with-krb5=" (assoc-ref %build-inputs "krb5"))
+             (string-append "--with-libcap=" (assoc-ref %build-inputs "libcap"))
+             (string-append "--with-lua=" (assoc-ref %build-inputs "lua"))
+             (string-append "--with-pcap=" (assoc-ref %build-inputs "libpcap"))
+             (string-append "--with-portaudio="
+                             (assoc-ref %build-inputs "portaudio"))
+             (string-append "--with-sbc=" (assoc-ref %build-inputs "sbc"))
+             (string-append "--with-ssl=" (assoc-ref %build-inputs "openssl"))
+             (string-append "--with-zlib=" (assoc-ref %build-inputs "zlib"))
+             "--without-qt")))
+    (description "Wireshark is a network protocol analyzer, or @dfn{packet
+sniffer}, that lets you capture and interactively browse the contents of
+network frames.")
+    (license license:gpl2+)
+    (home-page "https://www.wireshark.org/")))
