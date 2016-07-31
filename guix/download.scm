@@ -2,6 +2,7 @@
 ;;; Copyright © 2012, 2013, 2014, 2015, 2016 Ludovic Courtès <ludo@gnu.org>
 ;;; Copyright © 2013, 2014, 2015 Andreas Enge <andreas@enge.fr>
 ;;; Copyright © 2015 Federico Beffa <beffa@fbengineering.ch>
+;;; Copyright © 2016 Alex Griffin <a@ajgrf.com>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -99,6 +100,7 @@
        "http://www.centervenus.com/mirrors/nongnu/"
        "http://download.savannah.gnu.org/releases-noredirect/")
       (sourceforge ; https://sourceforge.net/p/forge/documentation/Mirrors/
+       "http://downloads.sourceforge.net/project/"
        "http://ufpr.dl.sourceforge.net/project/"
        "http://heanet.dl.sourceforge.net/project/"
        "http://freefr.dl.sourceforge.net/project/"
@@ -232,10 +234,10 @@
 
 (define %content-addressed-mirrors
   ;; List of content-addressed mirrors.  Each mirror is represented as a
-  ;; procedure that takes an algorithm (symbol) and a hash (bytevector), and
-  ;; returns a URL or #f.
+  ;; procedure that takes a file name, an algorithm (symbol) and a hash
+  ;; (bytevector), and returns a URL or #f.
   ;; TODO: Add more.
-  '(list (lambda (algo hash)
+  '(list (lambda (file algo hash)
            ;; 'tarballs.nixos.org' supports several algorithms.
            (string-append "http://tarballs.nixos.org/"
                           (symbol->string algo) "/"

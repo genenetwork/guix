@@ -132,46 +132,6 @@ the percentage of copied data.  It can also show estimated time and throughput,
 and provides a \"top-like\" mode (monitoring).")
     (license license:gpl3+)))
 
-(define-public dmd
-  ;; Deprecated.  Kept around "just in case."
-  (let ((base-version "0.2")
-        (patch-level  "01"))
-    (package
-      (name "dmd")
-      (version (string-append base-version "." patch-level))
-      (source (origin
-                (method url-fetch)
-                (uri (string-append "ftp://alpha.gnu.org/gnu/dmd/dmd-"
-                                    base-version ".tar.gz"))
-                (sha256
-                 (base32
-                  "10fl4k96f17gqx2fv8iw9c61ld26gsk4bbrlfqckdmiimz1k175z"))
-                (patches
-                 (list (origin
-                         ;; This patch augments 'make-fork+exec-constructor' and
-                         ;; is used by a bunch of services.
-                         (method url-fetch)
-                         (uri (string-append
-                               "http://git.savannah.gnu.org/cgit/shepherd.git/"
-                               "patch?id=d1d0ff30b3ed2b86b0a3c9bc048d2a855f8e31e6"))
-                         (sha256
-                          (base32
-                           "1lqymypixfiyb72d6bn24m06ry2q1ljnnv0qrc89pbb4z9azaa4d"))
-                         (file-name "dmd-user-group.patch"))))))
-      (build-system gnu-build-system)
-      (arguments
-       '(#:configure-flags '("--localstatedir=/var")))
-      (native-inputs `(("pkg-config" ,pkg-config)))
-      (inputs `(("guile" ,guile-2.0)))
-      (synopsis "Daemon managing daemons")
-      (description
-       "GNU DMD is a daemon-managing daemon, meaning that it manages the
-execution of system services, replacing similar functionality found in
-typical init systems.  It provides dependency-handling through a convenient
-interface and is based on GNU Guile.")
-      (license license:gpl3+)
-      (home-page "http://www.gnu.org/software/dmd/"))))
-
 (define-public shepherd
   (package
     (name "shepherd")
@@ -346,8 +306,8 @@ login, passwd, su, groupadd, and useradd.")
     (version "1.08")
     (source (origin
              (method url-fetch)
-             (uri (string-append "mirror://sourceforge/mingetty/mingetty-"
-                                 version ".tar.gz"))
+             (uri (string-append "mirror://sourceforge/mingetty/mingetty/"
+                                 version "/mingetty-" version ".tar.gz"))
              (sha256
               (base32
                "05yxrp44ky2kg6qknk1ih0kvwkgbn9fbz77r3vci7agslh5wjm8g"))))
@@ -440,8 +400,8 @@ ONC RPC numbers.")
     (version "0.7.1")
     (source (origin
              (method url-fetch)
-             (uri (string-append "mirror://sourceforge/netcat/netcat-"
-                                 version ".tar.bz2"))
+             (uri (string-append "mirror://sourceforge/netcat/netcat/" version
+                                 "/netcat-" version ".tar.bz2"))
              (sha256
               (base32
                "1frjcdkhkpzk0f84hx6hmw5l0ynpmji8vcbaxg8h5k2svyxz0nmm"))))
@@ -705,7 +665,8 @@ by bandwidth they use.")
     (source (origin
               (method url-fetch)
               (uri (string-append "mirror://sourceforge/clusterssh/"
-                                  "clusterssh-" version ".tar.gz"))
+                                  "1.%20ClusterSSH%20Series%203/" version
+                                  "/clusterssh-" version ".tar.gz"))
               (sha256
                (base32
                 "1bwggpvaj2al5blg1ynapviv2kpydffpzq2zkhi81najnvzc1rr7"))))
@@ -1112,8 +1073,8 @@ system is under heavy load.")
     (version "1.2.0")
     (source (origin
               (method url-fetch)
-              (uri (string-append "mirror://sourceforge/detox/detox-"
-                                  version ".tar.bz2"))
+              (uri (string-append "mirror://sourceforge/detox/detox/" version
+                                  "/detox-" version ".tar.bz2"))
               (sha256
                (base32
                 "1y6vvjqsg54kl49cry73jbfhr04s7wjs779vrr9zrq6kww7dkymb"))))

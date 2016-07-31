@@ -9,17 +9,23 @@
 
 @include version.texi
 
+@c Identifier of the OpenPGP key used to sign tarballs and such.
+@set OPENPGP-SIGNING-KEY-ID 090B11993D9AEBB5
+
 @copying
 Copyright @copyright{} 2012, 2013, 2014, 2015, 2016 Ludovic Courtès@*
 Copyright @copyright{} 2013, 2014, 2016 Andreas Enge@*
 Copyright @copyright{} 2013 Nikita Karetnikov@*
+Copyright @copyright{} 2014, 2015, 2016 Alex Kost@*
 Copyright @copyright{} 2015, 2016 Mathieu Lirzin@*
 Copyright @copyright{} 2014 Pierre-Antoine Rault@*
 Copyright @copyright{} 2015 Taylan Ulrich Bayırlı/Kammer@*
 Copyright @copyright{} 2015, 2016 Leo Famulari@*
+Copyright @copyright{} 2015, 2016 Ricardo Wurmus@*
 Copyright @copyright{} 2016 Ben Woodcroft@*
 Copyright @copyright{} 2016 Chris Marusich@*
-Copyright @copyright{} 2016 Efraim Flashner
+Copyright @copyright{} 2016 Efraim Flashner@*
+Copyright @copyright{} 2016 ng0
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.3 or
@@ -371,6 +377,7 @@ Download the binary tarball from
 where @var{system} is @code{x86_64-linux} for an @code{x86_64} machine
 already running the kernel Linux, and so on.
 
+@c The following is somewhat duplicated in ``System Installation''.
 Make sure to download the associated @file{.sig} file and to verify the
 authenticity of the tarball against it, along these lines:
 
@@ -383,11 +390,12 @@ If that command fails because you do not have the required public key,
 then run this command to import it:
 
 @example
-$ gpg --keyserver pgp.mit.edu --recv-keys 090B11993D9AEBB5
+$ gpg --keyserver pgp.mit.edu --recv-keys @value{OPENPGP-SIGNING-KEY-ID}
 @end example
 
 @noindent
 and rerun the @code{gpg --verify} command.
+@c end authentication part
 
 @item
 As @code{root}, run:
@@ -546,6 +554,10 @@ Installing
 allow you to use the @command{guix import pypi} command (@pxref{Invoking
 guix import}).  It is of
 interest primarily for developers and not for casual users.
+
+@item
+When @url{http://zlib.net, zlib} is available, @command{guix publish}
+can compress build byproducts (@pxref{Invoking guix publish}).
 @end itemize
 
 Unless @code{--disable-daemon} was passed to @command{configure}, the
@@ -1202,6 +1214,24 @@ for Chinese languages:
 @example
 guix package -i font-adobe-source-han-sans:cn
 @end example
+
+Older programs such as @command{xterm} do not use Fontconfig and instead
+rely on server-side font rendering.  Such programs require to specify a
+full name of a font using XLFD (X Logical Font Description), like this:
+
+@example
+-*-dejavu sans-medium-r-normal-*-*-100-*-*-*-*-*-1
+@end example
+
+To be able to use such full names for the TrueType fonts installed in
+your Guix profile, you need to extend the font path of the X server:
+
+@example
+xset +fp ~/.guix-profile/share/fonts/truetype
+@end example
+
+After that, you can run @code{xlsfonts} (from @code{xlsfonts} package)
+to make sure your TrueType fonts are listed there.
 
 @subsection X.509 Certificates
 
@@ -2382,7 +2412,7 @@ package looks like this:
                (base32
                 "0ssi1wpaf7plaswqqjwigppsg5fyh99vdlb9kzl7c9lng89ndq1i"))))
     (build-system gnu-build-system)
-    (arguments `(#:configure-flags '("--enable-silent-rules")))
+    (arguments '(#:configure-flags '("--enable-silent-rules")))
     (inputs `(("gawk" ,gawk)))
     (synopsis "Hello, GNU world: An example GNU package")
     (description "Guess what GNU Hello prints!")
@@ -2447,11 +2477,43 @@ The @code{arguments} field specifies options for the build system
 @var{gnu-build-system} as a request run @file{configure} with the
 @code{--enable-silent-rules} flag.
 
+@cindex quote
+@cindex quoting
+@findex '
+@findex quote
+What about these quote (@code{'}) characters?  They are Scheme syntax to
+introduce a literal list; @code{'} is synonymous with @code{quote}.
+@xref{Expression Syntax, quoting,, guile, GNU Guile Reference Manual},
+for details.  Here the value of the @code{arguments} field is a list of
+arguments passed to the build system down the road, as with @code{apply}
+(@pxref{Fly Evaluation, @code{apply},, guile, GNU Guile Reference
+Manual}).
+
+The hash-colon (@code{#:}) sequence defines a Scheme @dfn{keyword}
+(@pxref{Keywords,,, guile, GNU Guile Reference Manual}), and
+@code{#:configure-flags} is a keyword used to pass a keyword argument
+to the build system (@pxref{Coding With Keywords,,, guile, GNU Guile
+Reference Manual}).
+
 @item
 The @code{inputs} field specifies inputs to the build process---i.e.,
 build-time or run-time dependencies of the package.  Here, we define an
 input called @code{"gawk"} whose value is that of the @var{gawk}
 variable; @var{gawk} is itself bound to a @code{<package>} object.
+
+@cindex backquote (quasiquote)
+@findex `
+@findex quasiquote
+@cindex comma (unquote)
+@findex ,
+@findex unquote
+@findex ,@@
+@findex unquote-splicing
+Again, @code{`} (a backquote, synonymous with @code{quasiquote}) allows
+us to introduce a literal list in the @code{inputs} field, while
+@code{,} (a comma, synonymous with @code{unquote}) allows us to insert a
+value in that list (@pxref{Expression Syntax, unquote,, guile, GNU Guile
+Reference Manual}).
 
 Note that GCC, Coreutils, Bash, and other essential tools do not need to
 be specified as inputs here.  Instead, @var{gnu-build-system} takes care
@@ -4480,8 +4542,9 @@ You can freely access a huge library of build logs!
 
 @cindex package definition, editing
 So many packages, so many source files!  The @command{guix edit} command
-facilitates the life of packagers by pointing their editor at the source
-file containing the definition of the specified packages.  For instance:
+facilitates the life of users and packagers by pointing their editor at
+the source file containing the definition of the specified packages.
+For instance:
 
 @example
 guix edit gcc@@4.9 vim
@@ -4489,8 +4552,14 @@ guix edit gcc@@4.9 vim
 
 @noindent
 launches the program specified in the @code{VISUAL} or in the
-@code{EDITOR} environment variable to edit the recipe of GCC@tie{}4.9.3
+@code{EDITOR} environment variable to view the recipe of GCC@tie{}4.9.3
 and that of Vim.
+
+If you are using a Guix Git checkout (@pxref{Building from Git}), or
+have created your own packages on @code{GUIX_PACKAGE_PATH}
+(@pxref{Defining Packages}), you will be able to edit the package
+recipes. Otherwise, you will be able to examine the read-only recipes
+for packages currently in the store.
 
 If you are using Emacs, note that the Emacs user interface provides the
 @kbd{M-x guix-edit} command and a similar functionality in the ``package
@@ -5387,7 +5456,8 @@ details on Bash start-up files.}.
 
 @vindex GUIX_ENVIRONMENT
 @command{guix environment} defines the @code{GUIX_ENVIRONMENT}
-variable in the shell it spawns.  This allows users to, say, define a
+variable in the shell it spawns; its value is the file name of the
+profile of this environment.  This allows users to, say, define a
 specific prompt for development environments in their @file{.bashrc}
 (@pxref{Bash Startup Files,,, bash, The GNU Bash Reference Manual}):
 
@@ -5396,6 +5466,13 @@ if [ -n "$GUIX_ENVIRONMENT" ]
 then
     export PS1="\u@@\h \w [dev]\$ "
 fi
+@end example
+
+@noindent
+... or to browse the profile:
+
+@example
+$ ls "$GUIX_ENVIRONMENT/bin"
 @end example
 
 Additionally, more than one package may be specified, in which case the
@@ -5628,6 +5705,20 @@ archive}), the daemon may download substitutes from it:
 guix-daemon --substitute-urls=http://example.org:8080
 @end example
 
+As a bonus, @command{guix publish} also serves as a content-addressed
+mirror for source files referenced in @code{origin} records
+(@pxref{origin Reference}).  For instance, assuming @command{guix
+publish} is running on @code{example.org}, the following URL returns the
+raw @file{hello-2.10.tar.gz} file with the given SHA256 hash
+(represented in @code{nix-base32} format, @pxref{Invoking guix hash}):
+
+@example
+http://example.org/file/hello-2.10.tar.gz/sha256/0ssi1@dots{}ndq1i
+@end example
+
+Obviously, these URLs only work for files that are in the store; in
+other cases, they return 404 (``Not Found'').
+
 The following options are available:
 
 @table @code
@@ -5643,6 +5734,18 @@ accept connections from any interface.
 @itemx -u @var{user}
 Change privileges to @var{user} as soon as possible---i.e., once the
 server socket is open and the signing key has been read.
+
+@item --compression[=@var{level}]
+@itemx -C [@var{level}]
+Compress data using the given @var{level}.  When @var{level} is zero,
+disable compression.  The range 1 to 9 corresponds to different gzip
+compression levels: 1 is the fastest, and 9 is the best (CPU-intensive).
+The default is 3.
+
+Compression occurs on the fly and the compressed streams are not
+cached.  Thus, to reduce load on the machine that runs @command{guix
+publish}, it may be a good idea to choose a low compression level, or to
+run @command{guix publish} behind a caching proxy.
 
 @item --ttl=@var{ttl}
 Produce @code{Cache-Control} HTTP headers that advertise a time-to-live
@@ -6043,6 +6146,26 @@ for a GNU/Linux system on Intel/AMD-compatible 64-bit CPUs;
 @item i686-linux
 for a 32-bit GNU/Linux system on Intel-compatible CPUs.
 @end table
+
+@c start duplication of authentication part from ``Binary Installation''
+Make sure to download the associated @file{.sig} file and to verify the
+authenticity of the image against it, along these lines:
+
+@example
+$ wget ftp://alpha.gnu.org/gnu/guix/guixsd-usb-install-@value{VERSION}.@var{system}.xz.sig
+$ gpg --verify guixsd-usb-install-@value{VERSION}.@var{system}.xz.sig
+@end example
+
+If that command fails because you do not have the required public key,
+then run this command to import it:
+
+@example
+$ gpg --keyserver pgp.mit.edu --recv-keys @value{OPENPGP-SIGNING-KEY-ID}
+@end example
+
+@noindent
+and rerun the @code{gpg --verify} command.
+@c end duplication
 
 This image contains a single partition with the tools necessary for an
 installation.  It is meant to be copied @emph{as is} to a large-enough
@@ -6883,6 +7006,7 @@ and unmount user-space FUSE file systems.  This requires the
 @cindex mapped devices
 The Linux kernel has a notion of @dfn{device mapping}: a block device,
 such as a hard disk partition, can be @dfn{mapped} into another device,
+usually in @code{/dev/mapper/},
 with additional processing over the data that flows through
 it@footnote{Note that the GNU@tie{}Hurd makes no difference between the
 concept of a ``mapped device'' and that of a file system: both boil down
@@ -6892,42 +7016,14 @@ devices, like file systems, using the generic @dfn{translator} mechanism
 (@pxref{Translators,,, hurd, The GNU Hurd Reference Manual}).}.  A
 typical example is encryption device mapping: all writes to the mapped
 device are encrypted, and all reads are deciphered, transparently.
+Guix extends this notion by considering any device or set of devices that
+are @dfn{transformed} in some way to create a new device; for instance,
+RAID devices are obtained by @dfn{assembling} several other devices, such
+as hard disks or partitions, into a new one that behaves as one partition.
+Other examples, not yet implemented, are LVM logical volumes.
 
-Mapped devices are declared using the @code{mapped-device} form:
-
-@example
-(mapped-device
-  (source "/dev/sda3")
-  (target "home")
-  (type luks-device-mapping))
-@end example
-
-Or, better yet, like this:
-
-@example
-(mapped-device
-  (source (uuid "cb67fc72-0d54-4c88-9d4b-b225f30b0f44"))
-  (target "home")
-  (type luks-device-mapping))
-@end example
-
-@cindex disk encryption
-@cindex LUKS
-This example specifies a mapping from @file{/dev/sda3} to
-@file{/dev/mapper/home} using LUKS---the
-@url{http://code.google.com/p/cryptsetup,Linux Unified Key Setup}, a
-standard mechanism for disk encryption.  In the second example, the UUID
-(unique identifier) is the LUKS UUID returned for the device by a
-command like:
-
-@example
-cryptsetup luksUUID /dev/sdx9
-@end example
-
-The @file{/dev/mapper/home}
-device can then be used as the @code{device} of a @code{file-system}
-declaration (@pxref{File Systems}).  The @code{mapped-device} form is
-detailed below.
+Mapped devices are declared using the @code{mapped-device} form,
+defined as follows; for examples, see below.
 
 @deftp {Data Type} mapped-device
 Objects of this type represent device mappings that will be made when
@@ -6935,13 +7031,17 @@ the system boots up.
 
 @table @code
 @item source
-This string specifies the name of the block device to be mapped, such as
-@code{"/dev/sda3"}.
+This is either a string specifying the name of the block device to be mapped,
+such as @code{"/dev/sda3"}, or a list of such strings when several devices
+need to be assembled for creating a new one.
 
 @item target
-This string specifies the name of the mapping to be established.  For
-example, specifying @code{"my-partition"} will lead to the creation of
+This string specifies the name of the resulting mapped device.  For
+kernel mappers such as encrypted devices of type @code{luks-device-mapping},
+specifying @code{"my-partition"} leads to the creation of
 the @code{"/dev/mapper/my-partition"} device.
+For RAID devices of type @code{raid-device-mapping}, the full device name
+such as @code{"/dev/md0"} needs to be given.
 
 @item type
 This must be a @code{mapped-device-kind} object, which specifies how
@@ -6954,6 +7054,64 @@ This defines LUKS block device encryption using the @command{cryptsetup}
 command from the package with the same name.  It relies on the
 @code{dm-crypt} Linux kernel module.
 @end defvr
+
+@defvr {Scheme Variable} raid-device-mapping
+This defines a RAID device, which is assembled using the @code{mdadm}
+command from the package with the same name.  It requires a Linux kernel
+module for the appropriate RAID level to be loaded, such as @code{raid456}
+for RAID-4, RAID-5 or RAID-6, or @code{raid10} for RAID-10.
+@end defvr
+
+@cindex disk encryption
+@cindex LUKS
+The following example specifies a mapping from @file{/dev/sda3} to
+@file{/dev/mapper/home} using LUKS---the
+@url{http://code.google.com/p/cryptsetup,Linux Unified Key Setup}, a
+standard mechanism for disk encryption.
+The @file{/dev/mapper/home}
+device can then be used as the @code{device} of a @code{file-system}
+declaration (@pxref{File Systems}).
+
+@example
+(mapped-device
+  (source "/dev/sda3")
+  (target "home")
+  (type luks-device-mapping))
+@end example
+
+Alternatively, to become independent of device numbering, one may obtain
+the LUKS UUID (@dfn{unique identifier}) of the source device by a
+command like:
+
+@example
+cryptsetup luksUUID /dev/sda3
+@end example
+
+and use it as follows:
+
+@example
+(mapped-device
+  (source (uuid "cb67fc72-0d54-4c88-9d4b-b225f30b0f44"))
+  (target "home")
+  (type luks-device-mapping))
+@end example
+
+A RAID device formed of the partitions @file{/dev/sda1} and @file{/dev/sdb1}
+may be declared as follows:
+
+@example
+(mapped-device
+  (source (list "/dev/sda1" "/dev/sdb1"))
+  (target "/dev/md0")
+  (type raid-device-mapping))
+@end example
+
+The @file{/dev/md0} device can then be used as the @code{device} of a
+@code{file-system} declaration (@pxref{File Systems}).
+Note that the RAID level need not be given; it is chosen during the
+initial creation and formatting of the RAID device and is determined
+automatically later.
+
 
 @node User Accounts
 @subsection User Accounts
@@ -7553,6 +7711,35 @@ Return a service that runs the @command{rngd} program from @var{rng-tools}
 to add @var{device} to the kernel's entropy pool.  The service will fail if
 @var{device} does not exist.
 @end deffn
+
+@anchor{pam-limits-service}
+@cindex session limits
+@cindex ulimit
+@cindex priority
+@deffn {Scheme Procedure} pam-limits-service [#:limits @var{limits}]
+
+Return a service that installs a configuration file for the
+@uref{http://linux-pam.org/Linux-PAM-html/sag-pam_limits.html,
+@code{pam_limits} module}.  The procedure optionally takes a list of
+@code{pam-limits-entry} values, which can be used to specify
+@code{ulimit} limits and nice priority limits to user sessions.
+
+The following limits definition sets two hard and soft limits for all
+login sessions of users in the @code{realtime} group:
+
+@example
+(pam-limits-service
+ (list
+  (pam-limits-entry "@@realtime" 'both 'rtprio 99)
+  (pam-limits-entry "@@realtime" 'both 'memlock 'unlimited)))
+@end example
+
+The first entry increases the maximum realtime priority for
+non-privileged processes; the second entry lifts any restriction of the
+maximum address space that can be locked in memory.  These settings are
+commonly used for real-time audio systems.
+@end deffn
+
 
 @node Scheduled Job Execution
 @subsubsection Scheduled Job Execution
@@ -11360,9 +11547,10 @@ definition may look like this:
 
 @example
 (define my-package
-  (let ((commit "c3f29bc928d5900971f65965feaae59e1272a3f7"))
+  (let ((commit "c3f29bc928d5900971f65965feaae59e1272a3f7")
+        (revision "1"))          ;Guix package revision
     (package
-      (version (string-append "0.9-1."
+      (version (string-append "0.9-" revision "."
                               (string-take commit 7)))
       (source (origin
                 (method git-fetch)

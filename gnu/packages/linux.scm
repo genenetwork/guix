@@ -226,7 +226,7 @@ for SYSTEM and optionally VARIANT, or #f if there is no such configuration."
     (search-path %load-path file)))
 
 (define-public linux-libre
-  (let* ((version "4.6.4")
+  (let* ((version "4.7")
          (build-phase
           '(lambda* (#:key system inputs #:allow-other-keys #:rest args)
              ;; Avoid introducing timestamps
@@ -304,7 +304,7 @@ for SYSTEM and optionally VARIANT, or #f if there is no such configuration."
              (uri (linux-libre-urls version))
              (sha256
               (base32
-               "1294qw4agax0cnbhh0dk33jz358smhflllg77zv0rd8w9g433xiz"))))
+               "0ah3c70bj7iik5xrmrrixcbcz65pn3nf887x78drv6mdw2ayb0zl"))))
     (build-system gnu-build-system)
     (supported-systems '("x86_64-linux" "i686-linux"))
     (native-inputs `(("perl" ,perl)
@@ -341,13 +341,13 @@ It has been modified to remove all non-free binary blobs.")
 (define-public linux-libre-4.4
   (package
     (inherit linux-libre)
-    (version "4.4.15")
+    (version "4.4.16")
     (source (origin
               (method url-fetch)
               (uri (linux-libre-urls version))
               (sha256
                (base32
-                "0n3lz4xnciif9v3y769q1pjs9321gvl6a2wr10r40sl1ixlk3ipz"))))
+                "0lgc064r18gxvya5zvv2l4dmcj7161mb34q4frlw9z02ils9d623"))))
     (native-inputs
      (let ((conf (kernel-config (or (%current-target-system)
                                     (%current-system))
@@ -358,13 +358,13 @@ It has been modified to remove all non-free binary blobs.")
 (define-public linux-libre-4.1
   (package
     (inherit linux-libre)
-    (version "4.1.27")
+    (version "4.1.28")
     (source (origin
               (method url-fetch)
               (uri (linux-libre-urls version))
               (sha256
                (base32
-                "0bbp782gdj8kz986a8hfygdrj7is0c8wgbb2mpb9gqhkfxcg74kf"))))
+                "02b7hq32cyx3h04k7l3mfzhh09snh5x4pxiwxllwchw94a6lkxl8"))))
     (native-inputs
      (let ((conf (kernel-config (or (%current-target-system)
                                     (%current-system))
@@ -709,7 +709,8 @@ from the e2fsprogs package.  It is meant to be used in initrds.")
     (source (origin
               (method url-fetch)
               (uri (string-append "mirror://sourceforge/extundelete/"
-                                  version "/extundelete-" version ".tar.bz2"))
+                                  "extundelete/" version "/extundelete-"
+                                  version ".tar.bz2"))
               (sha256
                (base32
                 "1x0r7ylxlp9lbj3d7sqf6j2a222dwy2nfpff05jd6mkh4ihxvyd1"))))
@@ -763,8 +764,8 @@ images more compressible.")
     (version "4.7")
     (source (origin
              (method url-fetch)
-             (uri (string-append "mirror://sourceforge/strace/strace-"
-                                 version ".tar.xz"))
+             (uri (string-append "mirror://sourceforge/strace/strace/" version
+                                 "/strace-" version ".tar.xz"))
              (sha256
               (base32
                "158iwk0pl2mfw93m1843xb7a2zb8p6lh0qim07rca6f1ff4dk764"))))
@@ -888,7 +889,7 @@ MIDI functionality to the Linux-based operating system.")
     (synopsis "Program to configure the Linux IP packet filtering rules")
     (description
      "iptables is the userspace command line program used to configure the
-Linux 2.4.x and later IPv4 packet filtering ruleset.  It is targeted towards
+Linux 2.4.x and later IPv4 packet filtering ruleset (firewall).  It is targeted at
 system administrators.  Since Network Address Translation is also configured
 from the packet filter ruleset, iptables is used for this, too.  The iptables
 package also includes ip6tables.  ip6tables is used for configuring the IPv6
@@ -1100,8 +1101,8 @@ Linux-based operating systems.")
     (version "1.5")
     (source (origin
              (method url-fetch)
-             (uri (string-append "mirror://sourceforge/bridge/bridge-utils-"
-                                 version ".tar.gz"))
+             (uri (string-append "mirror://sourceforge/bridge/bridge/"
+                                 "bridge-utils-" version ".tar.gz"))
              (sha256
               (base32
                "12367cwqmi0yqphi6j8rkx97q8hw52yq2fx4k0xfclkcizxybya2"))))
@@ -2082,7 +2083,7 @@ thanks to the use of namespaces.")
     (version "9.45")
     (source (origin
               (method url-fetch)
-              (uri (string-append "mirror://sourceforge/" name "/"
+              (uri (string-append "mirror://sourceforge/" name "/" name "/"
                                   name "-" version ".tar.gz"))
               (sha256
                (base32
@@ -2135,8 +2136,8 @@ WLAN, Bluetooth and mobile broadband.")
     (version "1.7")
     (source (origin
               (method url-fetch)
-              (uri (string-append "mirror://sourceforge/acpiclient/"
-                                  name "-" version ".tar.gz"))
+              (uri (string-append "mirror://sourceforge/acpiclient/acpiclient/" 
+                                  version "/" name "-" version ".tar.gz"))
               (sha256
                (base32
                 "01ahldvf0gc29dmbd5zi4rrnrw2i1ajnf30sx2vyaski3jv099fp"))))
@@ -2276,7 +2277,7 @@ protocol in question.")
     (version "0.5.4")
     (source (origin
               (method url-fetch)
-              (uri (string-append "mirror://sourceforge/libavc1394/"
+              (uri (string-append "mirror://sourceforge/libavc1394/libavc1394/"
                                   name "-" version ".tar.gz"))
               (sha256
                (base32
@@ -2575,7 +2576,7 @@ and copy/paste text in the console and in xterm.")
 (define-public btrfs-progs
   (package
     (name "btrfs-progs")
-    (version "4.5.3")
+    (version "4.6.1")
     (source (origin
               (method url-fetch)
               (uri (string-append "mirror://kernel.org/linux/kernel/"
@@ -2583,7 +2584,7 @@ and copy/paste text in the console and in xterm.")
                                   "btrfs-progs-v" version ".tar.xz"))
               (sha256
                (base32
-                "1lzbw275xgv69v4z8hmsf3jnip38116hxhkpv0madk8wv049drz6"))))
+                "06c9l6m3w29dndk17jrlpgr01wykl10h34zva8zc2c571z6mrlaf"))))
     (build-system gnu-build-system)
     (arguments
      '(#:test-target "test"
@@ -2599,7 +2600,8 @@ and copy/paste text in the console and in xterm.")
                      ;; For building documentation
                      ("libxml2" ,libxml2)
                      ("docbook-xml" ,docbook-xml)
-                     ("docbook-xsl" ,docbook-xsl)))
+                     ("docbook-xsl" ,docbook-xsl)
+                     ("which" ,which)))
     (home-page "https://btrfs.wiki.kernel.org/")
     (synopsis "Create and manage btrfs copy-on-write file systems")
     (description "Btrfs is a copy-on-write (CoW) filesystem for Linux aimed at
@@ -2648,7 +2650,7 @@ feature, and a laptop with an accelerometer.  It has no effect on SSDs.")
     (source (origin
               (method url-fetch)
               (uri (string-append "mirror://sourceforge/thinkfan/"
-                                  version "/thinkfan-" version ".tar.gz"))
+                                  "/thinkfan-" version ".tar.gz"))
               (sha256
                (base32
                 "0nz4c48f0i0dljpk5y33c188dnnwg8gz82s4grfl8l64jr4n675n"))
@@ -2752,3 +2754,71 @@ from that to the system kernel's @file{/dev/random} machinery.")
     ;; The source package is offered under the GPL2+, but the files
     ;; 'rngd_rdrand.c' and 'rdrand_asm.S' are only available under the GPL2.
     (license (list license:gpl2 license:gpl2+))))
+
+(define-public cpupower
+  (package
+    (name "cpupower")
+    (version (package-version linux-libre))
+    (source (package-source linux-libre))
+    (build-system gnu-build-system)
+    (arguments
+     '(#:phases (modify-phases %standard-phases
+                  (add-after 'unpack 'enter-subdirectory
+                    (lambda _
+                      (chdir "tools/power/cpupower")))
+                  (delete 'configure)
+                  (add-before 'build 'fix-makefiles
+                    (lambda _
+                      (substitute* "Makefile"
+                        (("/usr/") "/")
+                        (("/bin/(install|pwd)" _ command) command))
+                      (substitute* "bench/Makefile"
+                        (("\\$\\(CC\\) -o") "$(CC) $(LDFLAGS) -o")))))
+       #:make-flags (let ((out (assoc-ref %outputs "out")))
+                      (list (string-append "DESTDIR=" out)
+                            (string-append "LDFLAGS=-Wl,-rpath=" out "/lib")
+                            "docdir=/share/doc/cpupower"
+                            "confdir=$(docdir)/examples"
+                            ;; The Makefile recommends the following changes
+                            "DEBUG=false"
+                            "PACKAGE_BUGREPORT=bug-guix@gnu.org"))
+       #:tests? #f)) ;no tests
+    (native-inputs `(("gettext" ,gnu-gettext)))
+    (inputs `(("pciutils" ,pciutils)))
+    (home-page (package-home-page linux-libre))
+    (synopsis "CPU frequency and voltage scaling tools for Linux")
+    (description
+     "cpupower is a set of user-space tools that use the cpufreq feature of the
+Linux kernel to retrieve and control processor features related to power saving,
+such as frequency and voltage scaling.")
+    (license license:gpl2)))
+
+(define-public haveged
+  (package
+    (name "haveged")
+    (version "1.9.1")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "http://www.issihosts.com/haveged/haveged-"
+                           version ".tar.gz"))
+       (sha256
+        (base32
+         "059pxlfd4l5dqhd6r3lynzfz4wby2f17294fy17pi9j2jpnn68ww"))))
+    (build-system gnu-build-system)
+    (home-page "http://www.issihosts.com/haveged")
+    (synopsis "Entropy source for the Linux random number generator")
+    (description
+     "haveged generates an unpredictable stream of random numbers for use by
+Linux's @file{/dev/random} and @file{/dev/urandom} devices.  The kernel's
+standard mechanisms for filling the entropy pool may not be sufficient for
+systems with high needs or limited user interaction, such as headless servers.
+@command{haveged} runs as a privileged daemon, harvesting randomness from the
+indirect effects of hardware events on hidden processor state using the HArdware
+Volatile Entropy Gathering and Expansion (HAVEGE) algorithm.  It tunes itself to
+its environment and provides the same built-in test suite for the output stream
+as used on certified hardware security devices.")
+    (license (list (license:non-copyleft "file://nist/mconf.h")
+                   (license:non-copyleft "file://nist/packtest.c")
+                   license:public-domain        ; nist/dfft.c
+                   license:gpl3+))))            ; everything else

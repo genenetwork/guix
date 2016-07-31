@@ -8,6 +8,7 @@
 ;;; Copyright © 2015 Ricardo Wurmus <rekado@elephly.net>
 ;;; Copyright © 2015 Alex Vong <alexvong1995@gmail.com>
 ;;; Copyright © 2016 Alex Griffin <a@ajgrf.com>
+;;; Copyright © 2016 Kei Kebreau <kei@openmailbox.org>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -33,6 +34,7 @@
   #:use-module (guix packages)
   #:use-module (guix download)
   #:use-module (guix git-download)
+  #:use-module (guix svn-download)
   #:use-module (guix build-system cmake)
   #:use-module (guix build-system gnu)
   #:use-module (guix build-system glib-or-gtk)
@@ -90,8 +92,8 @@
     (version "1.4rc5")
     (source (origin
               (method url-fetch)
-              (uri (string-append "mirror://sourceforge/aa-project/"
-                                  name "-" version ".tar.gz"))
+              (uri (string-append "mirror://sourceforge/aa-project/aa-lib/"
+                                  version "/" name "-" version ".tar.gz"))
               (sha256
                (base32
                 "1vkh19gb76agvh4h87ysbrgy82hrw88lnsvhynjf4vng629dmpgv"))))
@@ -308,7 +310,8 @@ streams.")
     (source (origin
               (method url-fetch)
               (uri (string-append
-                    "mirror://sourceforge/libdv/libdv-" version ".tar.gz"))
+                    "mirror://sourceforge/" name "/" name "/"
+                    version "/" name "-" version ".tar.gz"))
               (sha256
                (base32
                 "1fl96f2xh2slkv1i1ix7kqk576a0ak1d33cylm0mbhm96d0761d3"))))
@@ -804,14 +807,7 @@ SVCD, DVD, 3ivx, DivX 3/4/5, WMV and H.264 movies.")
        ("pulseaudio" ,pulseaudio)
        ("rsound" ,rsound)
        ("vapoursynth" ,vapoursynth)
-       ("waf" ,(origin
-                 (method url-fetch)
-                 ;; Keep this in sync with the version in the bootstrap.py
-                 ;; script of the source tarball.
-                 (uri "http://www.freehackers.org/~tnagy/release/waf-1.8.12")
-                 (sha256
-                  (base32
-                   "12y9c352zwliw0zk9jm2lhynsjcf5jy0k1qch1c1av8hnbm2pgq1"))))
+       ("waf" ,python-waf)
        ("youtube-dl" ,youtube-dl)
        ("zlib" ,zlib)))
     (arguments
@@ -901,7 +897,7 @@ access to mpv's powerful playback capabilities.")
 (define-public youtube-dl
   (package
     (name "youtube-dl")
-    (version "2016.06.14")
+    (version "2016.07.22")
     (source (origin
               (method url-fetch)
               (uri (string-append "https://youtube-dl.org/downloads/"
@@ -909,7 +905,7 @@ access to mpv's powerful playback capabilities.")
                                   version ".tar.gz"))
               (sha256
                (base32
-                "0fmvpqipc1xwagvk7ih4slmv1xz1rb6s8wpndhypwvrq4pnnm9ns"))))
+                "02wcxpcbpvsbvyxcnhhf94ma0x5dcg4fygnxxca2h31dp47dkak9"))))
     (build-system python-build-system)
     (home-page "https://youtube-dl.org")
     (arguments
@@ -1094,8 +1090,8 @@ for use with HTML5 video.")
     (source (origin
              (method url-fetch)
              (uri (string-append
-                   "mirror://sourceforge/avidemux/avidemux_"
-                   version ".tar.gz"))
+                   "mirror://sourceforge/" name "/" name "/" version "/"
+                   name "_" version ".tar.gz"))
              (sha256
               (base32
                "0nz52yih8sff53inndkh2dba759xjzsh4b8xjww419lcpk0qp6kn"))
@@ -1524,3 +1520,39 @@ implementation.")
 your graphical desktop and encodes it as a video.  This is a useful tool for
 making @dfn{screencasts}.")
     (license license:gpl2+)))
+
+(define-public libsmpeg
+  (package
+    (name "libsmpeg")
+    (version "0.4.5")
+    (source (origin
+              (method svn-fetch)
+              (uri (svn-reference
+                    (url "svn://svn.icculus.org/smpeg/trunk/")
+                    (revision 401))) ; last revision before smpeg2 (for SDL 2.0)
+              (sha256
+               (base32
+                "18yfkr70lr1x1hc8snn2ldnbzdcc7b64xmkqrfk8w59gpg7sl1xn"))))
+    (build-system gnu-build-system)
+    (arguments
+     `(#:phases (modify-phases %standard-phases
+                  (add-after 'unpack 'autogen.sh
+                    (lambda _
+                      (zero? (system* "sh" "autogen.sh")))))))
+    (native-inputs
+     `(("autoconf" ,autoconf)
+       ("automake" ,automake)))
+    (inputs
+     `(("sdl" ,sdl2)))
+    (home-page "http://icculus.org/smpeg/")
+    (synopsis "SDL MPEG decoding library")
+    (description
+     "SMPEG (SDL MPEG Player Library) is a free MPEG1 video player library
+with sound support.  Video playback is based on the ubiquitous Berkeley MPEG
+player, mpeg_play v2.2.  Audio is played through a slightly modified mpegsound
+library, part of splay v0.8.2.  SMPEG supports MPEG audio (MP3), MPEG-1 video,
+and MPEG system streams.")
+    (license (list license:expat
+                   license:lgpl2.1
+                   license:lgpl2.1+
+                   license:gpl2))))

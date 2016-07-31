@@ -57,6 +57,7 @@ MODULES =					\
   guix/licenses.scm				\
   guix/graph.scm				\
   guix/cve.scm					\
+  guix/zlib.scm					\
   guix/build-system.scm				\
   guix/build-system/ant.scm			\
   guix/build-system/cmake.scm			\
@@ -176,8 +177,8 @@ dist_noinst_DATA = guix/tests.scm
 
 # Linux-Libre configurations.
 KCONFIGS =					\
-  gnu/packages/linux-libre-4.6-i686.conf	\
-  gnu/packages/linux-libre-4.6-x86_64.conf	\
+  gnu/packages/linux-libre-4.7-i686.conf	\
+  gnu/packages/linux-libre-4.7-x86_64.conf	\
   gnu/packages/linux-libre-4.4-i686.conf	\
   gnu/packages/linux-libre-4.4-x86_64.conf	\
   gnu/packages/linux-libre-4.1-i686.conf	\
@@ -258,6 +259,7 @@ SCM_TESTS =					\
   tests/graph.scm				\
   tests/challenge.scm				\
   tests/cve.scm					\
+  tests/zlib.scm				\
   tests/file-systems.scm			\
   tests/system.scm				\
   tests/services.scm				\

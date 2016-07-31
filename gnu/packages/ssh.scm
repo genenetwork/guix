@@ -4,6 +4,7 @@
 ;;; Copyright © 2014, 2015, 2016 Mark H Weaver <mhw@netris.org>
 ;;; Copyright © 2015, 2016 Efraim Flashner <efraim@flashner.co.il>
 ;;; Copyright © 2016 Leo Famulari <leo@famulari.name>
+;;; Copyright © 2016 Nicolas Goaziou <mail@nicolasgoaziou.fr>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -135,7 +136,10 @@ a server that supports the SSH-2 protocol.")
                                         tail))))
             (sha256 (base32
                      "132lh9aanb0wkisji1d6cmsxi520m8nh7c7i9wi6m1s3l38q29x7"))
-            (patches (search-patches "openssh-CVE-2015-8325.patch"))))
+            (patches (search-patches "openssh-CVE-2015-8325.patch"
+                                     "openssh-CVE-2016-6210-1.patch"
+                                     "openssh-CVE-2016-6210-2.patch"
+                                     "openssh-CVE-2016-6210-3.patch"))))
    (build-system gnu-build-system)
    (inputs `(("groff" ,groff)
              ("openssl" ,openssl)
@@ -488,4 +492,24 @@ used to create a secure line of communication between two computers,
 providing shell access to the server system from the client.  It provides
 both the server daemon and the client application, as well as tools for
 manipulating key files.")
+    (license license:gpl2+)))
+
+(define-public sshpass
+  (package
+    (name "sshpass")
+    (version "1.06")
+    (synopsis "Non-interactive password authentication with SSH")
+    (home-page "https://sourceforge.net/projects/sshpass/")
+    (source
+     (origin
+       (method url-fetch)
+       (uri (string-append "mirror://sourceforge/sshpass/sshpass/"
+                           version "/sshpass-" version ".tar.gz"))
+       (sha256
+        (base32
+         "0q7fblaczb7kwbsz0gdy9267z0sllzgmf0c7z5c9mf88wv74ycn6"))))
+    (build-system gnu-build-system)
+    (description "sshpass is a tool for non-interactivly performing password
+authentication with SSH's so-called @dfn{interactive keyboard password
+authentication}.")
     (license license:gpl2+)))

@@ -1,6 +1,6 @@
 ;;; GNU Guix --- Functional package management for GNU
 ;;; Copyright © 2013, 2016 Ludovic Courtès <ludo@gnu.org>
-;;; Copyright © 2015 Mark H Weaver <mhw@netris.org>
+;;; Copyright © 2015, 2016 Mark H Weaver <mhw@netris.org>
 ;;; Copyright © 2015 Eric Bavier <bavier@member.fsf.org>
 ;;; Copyright © 2016 Leo Famulari <leo@famulari.name>
 ;;;
@@ -40,20 +40,18 @@
     ;; Note: With libgd.org now pointing to github.com, genuine old
     ;; tarballs are no longer available.  Notably, versions 2.0.x are
     ;; missing.
-    (version "2.2.2")
+    (version "2.2.3")
 
     (source (origin
              (method url-fetch)
              (uri (string-append
                    "https://github.com/libgd/libgd/releases/download/gd-"
                    version "/libgd-" version ".tar.xz"))
-             (patches (search-patches "gd-CVE-2016-5766.patch"
-                                      "gd-CVE-2016-6128.patch"
-                                      "gd-CVE-2016-6132.patch"
-                                      "gd-CVE-2016-6214.patch"))
              (sha256
               (base32
-               "1311g5mva2xlzqv3rjqjc4jjkn5lzls4skvr395h633zw1n7b7s8"))))
+               "0g3xz8jpz1pl2zzmssglrpa9nxiaa7rmcmvgpbrjz8k9cyynqsvl"))
+             (patches (search-patches "gd-fix-gd2-read-test.patch"
+                                      "gd-fix-tests-on-i686.patch"))))
     (build-system gnu-build-system)
     (native-inputs
      `(("pkg-config" ,pkg-config)))

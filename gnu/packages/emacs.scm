@@ -13,6 +13,7 @@
 ;;; Copyright © 2016 Matthew Jordan <matthewjordandevops@yandex.com>
 ;;; Copyright © 2016 Roel Janssen <roel@gnu.org>
 ;;; Copyright © 2016 ng0 <ng0@we.make.ritual.n0.is>
+;;; Copyright © 2016 Alex Griffin <a@ajgrf.com>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -125,9 +126,7 @@
            (lambda* (#:key inputs outputs #:allow-other-keys)
              (let* ((guix-src (assoc-ref inputs "guix-src"))
                     (out      (assoc-ref outputs "out"))
-                    (lisp-dir (string-append out "/share/emacs/"
-                                             ,(version-major+minor version)
-                                             "/site-lisp"))
+                    (lisp-dir (string-append out "/share/emacs/site-lisp"))
                     (unpack   (assoc-ref %standard-phases 'unpack)))
                (mkdir "guix")
                (with-directory-excursion "guix"
@@ -456,7 +455,9 @@ on stdout instead of using a socket as the Emacsclient does.")
     (build-system gnu-build-system)
     (native-inputs `(("texinfo" ,texinfo)
                      ("emacs" ,emacs-minimal)))
-    (inputs `(("git" ,git)))
+    (inputs
+     `(("git" ,git)
+       ("perl" ,perl)))
     (propagated-inputs
      `(("dash" ,emacs-dash)
        ("with-editor" ,emacs-with-editor)))
@@ -489,9 +490,12 @@ on stdout instead of using a socket as the Emacsclient does.")
          (add-before
           'build 'patch-exec-paths
           (lambda* (#:key inputs #:allow-other-keys)
-            (let ((git (assoc-ref inputs "git")))
+            (let ((git  (assoc-ref inputs "git"))
+                  (perl (assoc-ref inputs "perl")))
               (emacs-substitute-variables "lisp/magit-git.el"
                 ("magit-git-executable" (string-append git "/bin/git")))
+              (substitute* "lisp/magit-sequence.el"
+                (("perl") (string-append perl "/bin/perl")))
               #t))))))
     (home-page "http://magit.github.io/")
     (synopsis "Emacs interface for the Git version control system")
@@ -1567,7 +1571,7 @@ mode-line.")
     (propagated-inputs
      `(("emacs-rich-minority" ,emacs-rich-minority)))
     (home-page "http://github.com/Malabarba/smart-mode-line")
-    (synopsis "Color-coded smart mode-line.")
+    (synopsis "Color-coded smart mode-line")
     (description
      "Smart Mode Line is a mode-line theme for Emacs.  It aims to be easy to
 read from small to large monitors by using colors, a prefix feature, and smart
@@ -2087,9 +2091,7 @@ It is built on top of the custom theme support in Emacs 24 or later.")
                 "1ha3slc6d9wi9ilkhmwrzkvf308n6ph7b0k69pk369s9304awxzx"))))
     (build-system emacs-build-system)
     (propagated-inputs
-     `(("emacs-dash" ,emacs-dash)
-       ("emacs-f" ,emacs-f)
-       ("emacs-s" ,emacs-s)))
+     `(("emacs-dash" ,emacs-dash)))
     (home-page "http://github.com/bbatsov/solarized-emacs")
     (synopsis "Port of the Solarized theme for Emacs")
     (description
