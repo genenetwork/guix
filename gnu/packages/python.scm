@@ -3016,7 +3016,7 @@ writing C extensions for Python as easy as Python itself.")
 (define python-numpy-bootstrap
   (package
     (name "python-numpy-bootstrap")
-    (version "1.10.4")
+    (version "1.11.1")
     (source
      (origin
        (method url-fetch)
@@ -3024,11 +3024,12 @@ writing C extensions for Python as easy as Python itself.")
                            "/numpy-" version ".tar.gz"))
        (sha256
         (base32
-         "1bjjhvncraka5s6i4lg644jrxij6bvycxy7an20gcz3a0m11iygp"))))
+         "1kbpsnqfabpbczh3ly2d4jrwq2d1gqlshlpk5dm8bk3r77284h6w"))))
     (build-system python-build-system)
     (inputs
      `(("python-nose" ,python-nose)
        ("openblas" ,openblas)
+       ("python-setuptools" ,python-setuptools)
        ("lapack" ,lapack)))
     (native-inputs
      `(("gfortran" ,gfortran)))
@@ -3130,7 +3131,7 @@ association studies (GWAS) on extremely large data sets.")
        ,@(package-inputs python-numpy-bootstrap)))
     (native-inputs
      `(("pkg-config" ,pkg-config)
-       ("texlive" ,texlive)
+       ("texlive-minimal" ,texlive-minimal)
        ("texinfo" ,texinfo)
        ("perl" ,perl)
        ,@(package-native-inputs python-numpy-bootstrap)))
@@ -3159,10 +3160,10 @@ association studies (GWAS) on extremely large data sets.")
                     ;; (mkdir-p info)
                     ;; (copy-file "build/texinfo/numpy.info"
                     ;;            (string-append info "/numpy.info"))
-                    (for-each (lambda (file)
-                                (copy-file (string-append "build/latex" file)
-                                           (string-append doc file)))
-                              '("/numpy-ref.pdf" "/numpy-user.pdf"))
+                    ; (for-each (lambda (file)
+                    ;             (copy-file (string-append "build/latex" file)
+                    ;                        (string-append doc file)))
+                    ;           '("/numpy-ref.pdf" "/numpy-user.pdf"))
                     (with-directory-excursion "build/html"
                       (for-each (lambda (file)
                                   (let* ((dir (dirname file))
@@ -3298,24 +3299,50 @@ transcendental functions).")
          ,@(alist-delete "python-numpy"
                          (package-propagated-inputs numexpr)))))))
 
+(define-public python-cycler
+  (package
+    (name "python-cycler")
+    (version "0.10.0")
+    (source
+      (origin
+        (method url-fetch)
+        (uri (string-append
+               "https://pypi.python.org/packages/c2/4b/137dea450d6e1e3d474e1d873cd1d4f7d3beed7e0dc973b06e8e10d32488/cycler-"
+               version
+               ".tar.gz"))
+        (sha256
+          (base32
+            "1n69n23fak1gjxlrbhqisi2b9pv3ckrfj98llx3p53953082syyd"))))
+    (build-system python-build-system)
+    (inputs
+      `(("python-setuptools" ,python-setuptools)
+        ("python-six" ,python-six)))
+    (home-page "http://github.com/matplotlib/cycler")
+    (synopsis "Composable style cycles")
+    (description "Composable style cycles")
+    (license bsd-3)))
+
 (define-public python-matplotlib
   (package
     (name "python-matplotlib")
-    (version "1.4.3")
+    (version "1.5.2")
     (source
      (origin
        (method url-fetch)
-       (uri (string-append "mirror://sourceforge/matplotlib/matplotlib"
-                           "/matplotlib-" version
-                           "/matplotlib-" version ".tar.gz"))
+       (uri (string-append
+              "https://github.com/matplotlib/matplotlib/archive/v"
+             version ".tar.gz"))
+       (file-name (string-append name "-" version ".tar.gz"))
        (sha256
-        (base32
-         "1dn05cvd0g984lzhh72wa0z93psgwshbbg93fkab6slx5m3l95av"))
-       (patches (search-patches "matplotlib-setupext-tk.patch"))))
+        (base32 
+         "1bnr81p13l2z5kk0isngjhw458ia8jd5mg3f3qz45457rpfcad63"))
+       ; (patches (search-patches "matplotlib-setupext-tk.patch"))
+       ))
     (build-system python-build-system)
     (outputs '("out" "doc"))
     (propagated-inputs ; the following packages are all needed at run time
-     `(("python-pyparsing" ,python-pyparsing)
+     `(("python-cycler" ,python-cycler)
+       ("python-pyparsing" ,python-pyparsing)
        ("python-pygobject" ,python-pygobject)
        ("gobject-introspection" ,gobject-introspection)
        ("python-tkinter" ,python "tk")
@@ -3337,6 +3364,7 @@ transcendental functions).")
     (inputs
      `(("python-setuptools" ,python-setuptools)
        ("python-dateutil" ,python-dateutil-2)
+       ;; ("python-ipython" ,python-ipython) ; required for docs but circular
        ("python-six" ,python-six)
        ("python-pytz" ,python-pytz)
        ("python-numpy" ,python-numpy-bootstrap)
@@ -3357,7 +3385,7 @@ transcendental functions).")
        ("tk" ,tk)))
     (native-inputs
      `(("pkg-config" ,pkg-config)
-       ("texlive" ,texlive)
+       ("texlive-minimal" ,texlive-minimal)
        ("texinfo" ,texinfo)))
     (arguments
      `(#:phases
@@ -3394,25 +3422,26 @@ backend = TkAgg~%"
                (mkdir-p html)
                (mkdir-p info)
                ;; The doc recommends to run the 'html' target twice.
-               (system* "python" "make.py" "html")
-               (system* "python" "make.py" "html")
-               (copy-recursively "build/html" html)
-               (system* "python" "make.py" "latex")
-               (system* "python" "make.py" "texinfo")
-               (symlink (string-append html "/_images")
-                        (string-append info "/matplotlib-figures"))
-               (with-directory-excursion "build/texinfo"
-                 (substitute* "matplotlib.texi"
-                   (("@image\\{([^,]*)" all file)
-                    (string-append "@image{matplotlib-figures/" file)))
-                 (symlink (string-append html "/_images")
-                          "./matplotlib-figures")
-                 (system* "makeinfo" "--no-split"
-                          "-o" "matplotlib.info" "matplotlib.texi"))
-               (copy-file "build/texinfo/matplotlib.info"
-                          (string-append info "/matplotlib.info"))
-               (copy-file "build/latex/Matplotlib.pdf"
-                          (string-append doc "/Matplotlib.pdf")))))
+               ; (system* "python" "make.py" "html")
+               ; (system* "python" "make.py" "html")
+               ; (copy-recursively "build/html" html)
+               ; (system* "python" "make.py" "latex")
+               ; (system* "python" "make.py" "texinfo")
+               ; (symlink (string-append html "/_images")
+               ;          (string-append info "/matplotlib-figures"))
+               ; (with-directory-excursion "build/texinfo"
+               ;   (substitute* "matplotlib.texi"
+               ;     (("@image\\{([^,]*)" all file)
+               ;      (string-append "@image{matplotlib-figures/" file)))
+               ;   (symlink (string-append html "/_images")
+               ;            "./matplotlib-figures")
+               ;  (system* "makeinfo" "--no-split"
+               ;            "-o" "matplotlib.info" "matplotlib.texi"))
+               ; (copy-file "build/texinfo/matplotlib.info"
+               ;            (string-append info "/matplotlib.info"))
+               ;; (copy-file "build/latex/Matplotlib.pdf"
+               ;;           (string-append doc "/Matplotlib.pdf"))
+                          )))
         %standard-phases))))
     (home-page "http://matplotlib.org")
     (synopsis "2D plotting library for Python")
@@ -3535,7 +3564,7 @@ functions.")
        ("python-sphinx" ,python-sphinx)
        ("python-numpydoc" ,python-numpydoc)
        ("gfortran" ,gfortran)
-       ("texlive" ,texlive)
+       ("texlive-minimal" ,texlive-minimal)
        ("perl" ,perl)))
     (outputs '("out" "doc"))
     (arguments
