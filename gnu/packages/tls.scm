@@ -123,7 +123,8 @@ living in the same process.")
                "10l5pv7qc5c850aamih3pdkbqpc4v2a6g164dzd7c7fjpxffji9b"))))
     (build-system gnu-build-system)
     (arguments
-     '(#:configure-flags
+     '(#:tests? #f
+       #:configure-flags
        (list (string-append "--with-guile-site-dir="
                             (assoc-ref %outputs "out")
                             "/share/guile/site/2.0")

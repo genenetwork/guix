@@ -694,7 +694,8 @@ property manipulation.")
                "0imkxn25n6sbcgfldrx4z29npjprb1lxjm5fb89q4297161nx3zi"))))
     (build-system gnu-build-system)
     (arguments
-     '(#:phases
+     '(#:tests? #f
+       #:phases
        (modify-phases %standard-phases
          (add-after 'configure 'patch-libtool-wrapper-ls
            (lambda* (#:key inputs #:allow-other-keys)
