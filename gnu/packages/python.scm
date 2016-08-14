@@ -3567,21 +3567,24 @@ functions.")
 (define-public python-scipy
   (package
     (name "python-scipy")
-    (version "0.16.0")
+    (version "0.18.0")
     (source
      (origin
        (method url-fetch)
 ; http://downloads.sourceforge.net/project/scipy/scipy/0.16.1/scipy-0.16.1.tar.gz
-       (uri (string-append "mirror://sourceforge/scipy/scipy/" version
-                           "/scipy-" version ".tar.xz"))
+       ; https://github.com/scipy/scipy/archive/v0.18.0.tar.gz
+       (uri (string-append "https://github.com/scipy/scipy/archive/v"
+                          version ".tar.gz"))
        (sha256
         (base32
-         "0wa0a4skpda3gx7lb12yn19nhbairlyxrvda2lz2bcawk3x5qzz2"))))
+         "1aa6iaqyc5rhd30grs1wxp67h6akl62wig76m2pc5z8c8kp6zl0m"))))
     (build-system python-build-system)
     (propagated-inputs
-     `(("python-numpy" ,python-numpy)
+     `(("python-cython" ,python-cython) ;for c extensions
+       ("python-numpy" ,python-numpy)
        ("python-matplotlib" ,python-matplotlib)
-       ("python-pyparsing" ,python-pyparsing)))
+       ("python-pyparsing" ,python-pyparsing)
+       ("python-setuptools" ,python-setuptools)))
     (inputs
      `(("lapack" ,lapack)
        ("openblas" ,openblas)))
@@ -3629,8 +3632,8 @@ atlas_libs = openblas
                (system* "make" "html" pyver)
                (system* "make" "latex" "PAPER=a4" pyver)
                (system* "make" "-C" "build/latex" "all-pdf" "PAPER=a4" pyver)
-               (copy-file "build/latex/scipy-ref.pdf"
-                          (string-append doc "/scipy-ref.pdf"))
+               ;; (copy-file "build/latex/scipy-ref.pdf"
+               ;;            (string-append doc "/scipy-ref.pdf"))
                (with-directory-excursion "build/html"
                  (for-each (lambda (file)
                              (let* ((dir (dirname file))

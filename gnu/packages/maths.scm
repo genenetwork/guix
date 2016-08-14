@@ -2049,7 +2049,8 @@ packages.")
        ;; <http://lists.gnu.org/archive/html/guix-devel/2014-10/msg00305.html>.
        ;; For this reason, we want users to build it locally instead of using
        ;; substitutes.
-       #:substitutable? #f
+       ;; #:substitutable? #f
+       ;; #:tests? #f
 
        #:modules ((srfi srfi-26)
                   (srfi srfi-1)
