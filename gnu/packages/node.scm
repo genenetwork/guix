@@ -81,6 +81,8 @@
                        '("test/parallel/test-cluster-master-error.js"
                          "test/parallel/test-cluster-master-kill.js"
                          "test/parallel/test-npm-install.js"
+                         "test/parallel/test-fs-watch-encoding.js"
+                         "test/parallel/test-tls-alpn-server-client.js"
                          "test/parallel/test-stdout-close-unref.js"
                          "test/sequential/test-child-process-emfile.js"))
              #t))
